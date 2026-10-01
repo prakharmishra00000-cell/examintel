@@ -32,7 +32,9 @@ import {
   BookOpen,
   Trophy,
   Target,
+  BarChart3,
   ChevronDown,
+  RotateCcw,
 } from "lucide-react";
 import { Landing } from "@/components/views/landing";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -57,6 +59,8 @@ import { Achievements } from "@/components/views/achievements";
 import { FormulaSheet } from "@/components/views/formula-sheet";
 import { FormulaQuiz } from "@/components/views/formula-quiz";
 import { TopicMastery } from "@/components/views/topic-mastery";
+import { RevisionScheduler } from "@/components/views/revision-scheduler";
+import { Analytics } from "@/components/views/analytics";
 import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
@@ -113,6 +117,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "preparation-simulator", label: "Preparation", icon: CalendarRange, desc: "Adaptive study plan" },
       { key: "multi-exam-optimizer", label: "Multi-Exam", icon: Layers, desc: "Optimize across exams" },
       { key: "exam-calendar", label: "Calendar", icon: Calendar, desc: "Dates & milestones" },
+      { key: "revision-scheduler", label: "Revision", icon: RotateCcw, desc: "Daily spaced repetition" },
     ],
   },
   {
@@ -122,6 +127,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "my-research", label: "My Research", icon: Save, desc: "Saved intelligence" },
       { key: "topic-mastery", label: "Topic Mastery", icon: Target, desc: "Strength heatmap" },
+      { key: "analytics", label: "Analytics", icon: BarChart3, desc: "Performance insights" },
       { key: "study-timer", label: "Study Timer", icon: Timer, desc: "Pomodoro + streaks" },
       { key: "progress-journal", label: "Journal", icon: BookOpen, desc: "Daily study log" },
       { key: "achievements", label: "Achievements", icon: Trophy, desc: "Badges & XP" },
@@ -336,6 +342,10 @@ export function AppShell() {
         return <Achievements />;
       case "topic-mastery":
         return <TopicMastery />;
+      case "analytics":
+        return <Analytics />;
+      case "revision-scheduler":
+        return <RevisionScheduler />;
       case "formula-sheet":
         return <FormulaSheet />;
       case "formula-quiz":
@@ -426,7 +436,7 @@ export function AppShell() {
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "revision-scheduler"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (

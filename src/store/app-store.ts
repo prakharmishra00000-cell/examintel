@@ -31,6 +31,8 @@ export type ViewKey =
   | "formula-quiz"
   | "achievements"
   | "topic-mastery"
+  | "analytics"
+  | "revision-scheduler"
   | "api-keys";
 
 export interface AIStatus {

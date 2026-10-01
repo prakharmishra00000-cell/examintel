@@ -28,6 +28,7 @@ import { useApi } from "@/hooks/use-api";
 import { useAppStore } from "@/store/app-store";
 import { LoadingState, EmptyState } from "@/components/shared/states";
 import { SourceBadgeList } from "@/components/shared/source-badge";
+import { motion, AnimatePresence } from "framer-motion";
 import type { QuestionExplanation } from "@/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -306,8 +307,21 @@ export function QuestionExplainer() {
             <p className="text-sm leading-relaxed">{explanation.levels.level1_quickHint}</p>
           </LevelCard>
 
+          {/* Level progress indicator — shows which levels are unlocked */}
+          <LevelProgressIndicator
+            unlocked={[true, showL2, showL3, showL4, showL5]}
+          />
+
           {/* Level 2 — Concept */}
+          <AnimatePresence>
           {showL2 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -8 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -8 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              style={{ overflow: "hidden" }}
+            >
             <LevelCard
               level={2}
               title="Concept"
@@ -331,10 +345,20 @@ export function QuestionExplainer() {
                 </div>
               </div>
             </LevelCard>
+            </motion.div>
           )}
+          </AnimatePresence>
 
           {/* Level 3 — Detailed Solution */}
+          <AnimatePresence>
           {showL3 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -8 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -8 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              style={{ overflow: "hidden" }}
+            >
             <LevelCard
               level={3}
               title="Detailed Solution"
@@ -404,10 +428,20 @@ export function QuestionExplainer() {
                 </div>
               </div>
             </LevelCard>
+            </motion.div>
           )}
+          </AnimatePresence>
 
           {/* Level 4 — Exam Shortcut (optional) */}
+          <AnimatePresence>
           {showL4 && explanation.levels.level4_examShortcut && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -8 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -8 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              style={{ overflow: "hidden" }}
+            >
             <LevelCard
               level={4}
               title="Exam Shortcut"
@@ -427,10 +461,20 @@ export function QuestionExplainer() {
                 <Field label="Time-Saving Approach" value={explanation.levels.level4_examShortcut.timeSavingApproach} icon={CheckCircle2} accent={ACCENTS[4]} />
               </div>
             </LevelCard>
+            </motion.div>
           )}
+          </AnimatePresence>
 
           {/* Level 5 — Learning Insight */}
+          <AnimatePresence>
           {showL5 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -8 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -8 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              style={{ overflow: "hidden" }}
+            >
             <LevelCard
               level={5}
               title="Learning Insight"
@@ -439,7 +483,9 @@ export function QuestionExplainer() {
             >
               <p className="text-sm leading-relaxed">{explanation.levels.level5_learningInsight}</p>
             </LevelCard>
+            </motion.div>
           )}
+          </AnimatePresence>
 
           {/* Reveal buttons */}
           <Card className="bg-muted/20">
@@ -640,6 +686,52 @@ function RevealButton({
       {!shown && <ChevronRight className="h-3.5 w-3.5" />}
       {shown && <CheckCircle2 className="h-3.5 w-3.5" />}
     </Button>
+  );
+}
+
+// Gradient progress indicator showing which levels are unlocked (1-5)
+function LevelProgressIndicator({ unlocked }: { unlocked: boolean[] }) {
+  const labels = ["Hint", "Concept", "Solution", "Shortcut", "Insight"];
+  const colors = ["amber", "violet", "sky", "emerald", "fuchsia"];
+  const colorMap: Record<string, string> = {
+    amber: "from-amber-500 to-orange-500 border-amber-500/40",
+    violet: "from-violet-500 to-fuchsia-500 border-violet-500/40",
+    sky: "from-sky-500 to-cyan-500 border-sky-500/40",
+    emerald: "from-emerald-500 to-teal-500 border-emerald-500/40",
+    fuchsia: "from-fuchsia-500 to-pink-500 border-fuchsia-500/40",
+  };
+  const unlockedCount = unlocked.filter(Boolean).length;
+  return (
+    <div className="flex items-center gap-1.5">
+      {labels.map((label, i) => {
+        const isUnlocked = unlocked[i];
+        const c = colors[i];
+        return (
+          <div key={label} className="flex items-center gap-1.5 flex-1">
+            <div
+              className={cn(
+                "flex-1 h-1.5 rounded-full transition-all duration-500",
+                isUnlocked
+                  ? `bg-gradient-to-r ${colorMap[c].split(" ")[0]} ${colorMap[c].split(" ")[1]}`
+                  : "bg-muted"
+              )}
+            />
+            <span
+              className={cn(
+                "text-[9px] font-medium transition-colors",
+                isUnlocked ? "text-foreground" : "text-muted-foreground/50"
+              )}
+            >
+              {label}
+            </span>
+            {i < labels.length - 1 && <div className="w-1" />}
+          </div>
+        );
+      })}
+      <span className="ml-2 text-[10px] text-muted-foreground shrink-0">
+        {unlockedCount}/5
+      </span>
+    </div>
   );
 }
 

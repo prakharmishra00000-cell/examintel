@@ -1,0 +1,1463 @@
+     1→"use client";
+     2→
+     3→import { useMemo, useState, useSyncExternalStore } from "react";
+     4→import { motion } from "framer-motion";
+     5→import {
+     6→  Target,
+     7→  TrendingUp,
+     8→  TrendingDown,
+     9→  Flame,
+    10→  Brain,
+    11→  CheckCircle2,
+    12→  AlertCircle,
+    13→  Award,
+    14→  BarChart3,
+    15→  Sparkles,
+    16→  BookOpen,
+    17→  Clock,
+    18→  Layers,
+    19→  ArrowRight,
+    20→  Network,
+    21→  Repeat2,
+    22→  ListChecks,
+    23→  Lightbulb,
+    24→  HelpCircle,
+    25→} from "lucide-react";
+    26→import {
+    27→  Card,
+    28→  CardContent,
+    29→  CardHeader,
+    30→  CardTitle,
+    31→  CardDescription,
+    32→} from "@/components/ui/card";
+    33→import { Badge } from "@/components/ui/badge";
+    34→import { Button } from "@/components/ui/button";
+    35→import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+    36→import {
+    37→  Dialog,
+    38→  DialogContent,
+    39→  DialogHeader,
+    40→  DialogTitle,
+    41→  DialogDescription,
+    42→} from "@/components/ui/dialog";
+    43→import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+    44→import { ScrollArea } from "@/components/ui/scroll-area";
+    45→import { cn } from "@/lib/utils";
+    46→import { useAppStore, type ViewKey } from "@/store/app-store";
+    47→import { useFlashcardStore } from "@/store/flashcard-store";
+    48→import { useStudyStore, type StudySession } from "@/store/study-store";
+    49→import { useJournalStore, type JournalEntry } from "@/store/journal-store";
+    50→import { AnimatedCounter, PremiumEmptyState } from "@/components/shared/premium-empty-state";
+    51→import type { SavedItem, PerformanceAnalysis } from "@/types";
+    52→import type { Flashcard, FlashcardSet } from "@/types/flashcard";
+    53→
+    54→// ============================================================
+    55→// Topic Mastery Tracker
+    56→// Visual dashboard of per-topic mastery across all saved items
+    57→// + flashcards + study activity. Strength/weakness heatmap.
+    58→// Reads from 4 stores (app/flashcard/study/journal) — read-only,
+    59→// no new store required.
+    60→// ============================================================
+    61→
+    62→// ---------- Hydration-safe mounted guard ----------
+    63→// useSyncExternalStore with noop subscribe + true (client) / false (server)
+    64→// snapshots — the lint-compliant "is client" pattern that avoids
+    65→// react-hooks/set-state-in-effect.
+    66→function useMounted() {
+    67→  return useSyncExternalStore(
+    68→    () => () => {},
+    69→    () => true,
+    70→    () => false
+    71→  );
+    72→}
+    73→
+    74→// ---------- Mastery score map ----------
+    75→// FlashcardMastery = New | Learning | Reviewing | Mastered
+    76→// DependencyNode.mastery = Not Started | Introduced | Learning | Practicing | Weak | Improving | Strong | Mastered
+    77→const MASTERY_SCORE: Record<string, number> = {
+    78→  Mastered: 100,
+    79→  Strong: 80,
+    80→  Improving: 60,
+    81→  Reviewing: 70,
+    82→  Practicing: 40,
+    83→  Learning: 20,
+    84→  Introduced: 10,
+    85→  Weak: 10,
+    86→  "Not Started": 0,
+    87→  New: 5,
+    88→};
+    89→
+    90→function fcMasteryToScore(m: string): number {
+    91→  return MASTERY_SCORE[m] ?? 0;
+    92→}
+    93→
+    94→// ---------- Status types ----------
+    95→type MasteryStatus = "Strong" | "Moderate" | "Weak" | "Not Started";
+    96→
+    97→interface QuestionRef {
+    98→  source: "paper" | "mcq" | "explanation" | "evolution";
+    99→  itemId: string;
+   100→  title: string;
+   101→  difficulty?: string;
+   102→  correct?: number;
+   103→  total?: number;
+   104→  hasAccuracy: boolean;
+   105→}
+   106→
+   107→interface TopicAgg {
+   108→  topic: string;
+   109→  subject: string | null;
+   110→  flashcards: Flashcard[];
+   111→  sessions: StudySession[];
+   112→  journal: JournalEntry[];
+   113→  questions: QuestionRef[];
+   114→  fcScore: number | null;
+   115→  qaScore: number | null;
+   116→  activityBoost: number;
+   117→  blend: number;
+   118→  score: number;
+   119→  status: MasteryStatus;
+   120→}
+   121→
+   122→// ---------- Helpers ----------
+   123→function str(v: unknown): string | undefined {
+   124→  return typeof v === "string" && v.trim() ? v.trim() : undefined;
+   125→}
+   126→
+   127→function num(v: unknown, def = 0): number {
+   128→  return typeof v === "number" && !Number.isNaN(v) ? v : def;
+   129→}
+   130→
+   131→// ---------- Status styling (NO indigo/blue) ----------
+   132→const STATUS_STYLES: Record<
+   133→  MasteryStatus,
+   134→  {
+   135→    tile: string;
+   136→    tileHover: string;
+   137→    text: string;
+   138→    bar: string;
+   139→    bg: string;
+   140→    border: string;
+   141→    dot: string;
+   142→    grad: string;
+   143→  }
+   144→> = {
+   145→  Strong: {
+   146→    tile: "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300",
+   147→    tileHover: "hover:bg-emerald-500/25 hover:border-emerald-500/50",
+   148→    text: "text-emerald-600 dark:text-emerald-400",
+   149→    bar: "from-emerald-500 to-teal-500",
+   150→    bg: "bg-emerald-500/10",
+   151→    border: "border-emerald-500/30",
+   152→    dot: "bg-emerald-500",
+   153→    grad: "from-emerald-500 to-teal-500",
+   154→  },
+   155→  Moderate: {
+   156→    tile: "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300",
+   157→    tileHover: "hover:bg-amber-500/25 hover:border-amber-500/50",
+   158→    text: "text-amber-600 dark:text-amber-400",
+   159→    bar: "from-amber-500 to-orange-500",
+   160→    bg: "bg-amber-500/10",
+   161→    border: "border-amber-500/30",
+   162→    dot: "bg-amber-500",
+   163→    grad: "from-amber-500 to-orange-500",
+   164→  },
+   165→  Weak: {
+   166→    tile: "bg-rose-500/15 border-rose-500/30 text-rose-700 dark:text-rose-300",
+   167→    tileHover: "hover:bg-rose-500/25 hover:border-rose-500/50",
+   168→    text: "text-rose-600 dark:text-rose-400",
+   169→    bar: "from-rose-500 to-pink-500",
+   170→    bg: "bg-rose-500/10",
+   171→    border: "border-rose-500/30",
+   172→    dot: "bg-rose-500",
+   173→    grad: "from-rose-500 to-pink-500",
+   174→  },
+   175→  "Not Started": {
+   176→    tile: "bg-zinc-500/10 border-zinc-500/25 text-zinc-600 dark:text-zinc-400",
+   177→    tileHover: "hover:bg-zinc-500/20 hover:border-zinc-500/40",
+   178→    text: "text-zinc-500 dark:text-zinc-400",
+   179→    bar: "from-zinc-500 to-zinc-400",
+   180→    bg: "bg-zinc-500/10",
+   181→    border: "border-zinc-500/30",
+   182→    dot: "bg-zinc-500",
+   183→    grad: "from-zinc-500 to-zinc-400",
+   184→  },
+   185→};
+   186→
+   187→// ============================================================
+   188→// Aggregation core
+   189→// ============================================================
+   190→
+   191→function aggregateTopics(
+   192→  saved: SavedItem[],
+   193→  sets: FlashcardSet[],
+   194→  sessions: StudySession[],
+   195→  entries: JournalEntry[],
+   196→): Map<string, TopicAgg> {
+   197→  const map = new Map<string, TopicAgg>();
+   198→
+   199→  function get(topicRaw: string): TopicAgg | null {
+   200→    const topic = (topicRaw ?? "").trim();
+   201→    if (!topic) return null;
+   202→    let agg = map.get(topic);
+   203→    if (!agg) {
+   204→      agg = {
+   205→        topic,
+   206→        subject: null,
+   207→        flashcards: [],
+   208→        sessions: [],
+   209→        journal: [],
+   210→        questions: [],
+   211→        fcScore: null,
+   212→        qaScore: null,
+   213→        activityBoost: 0,
+   214→        blend: 0,
+   215→        score: 0,
+   216→        status: "Not Started",
+   217→      };
+   218→      map.set(topic, agg);
+   219→    }
+   220→    return agg;
+   221→  }
+   222→
+   223→  // 1) Saved items
+   224→  for (const item of saved) {
+   225→    const data = (item.data ?? null) as Record<string, unknown> | null;
+   226→    if (!data) continue;
+   227→
+   228→    if (item.type === "explanation") {
+   229→      const t = str((data as { topic?: unknown }).topic);
+   230→      if (!t) continue;
+   231→      const agg = get(t);
+   232→      if (!agg) continue;
+   233→      const subj = str((data as { subject?: unknown }).subject);
+   234→      if (subj && !agg.subject) agg.subject = subj;
+   235→      const diff = str((data as { difficulty?: unknown }).difficulty);
+   236→      agg.questions.push({
+   237→        source: "explanation",
+   238→        itemId: item.id,
+   239→        title: item.title,
+   240→        difficulty: diff,
+   241→        hasAccuracy: false,
+   242→      });
+   243→    } else if (item.type === "evolution") {
+   244→      const t = str((data as { topic?: unknown }).topic);
+   245→      if (!t) continue;
+   246→      const agg = get(t);
+   247→      if (!agg) continue;
+   248→      const subj = str((data as { subject?: unknown }).subject);
+   249→      if (subj && !agg.subject) agg.subject = subj;
+   250→      const diff = str((data as { difficulty?: unknown }).difficulty);
+   251→      agg.questions.push({
+   252→        source: "evolution",
+   253→        itemId: item.id,
+   254→        title: item.title,
+   255→        difficulty: diff,
+   256→        hasAccuracy: false,
+   257→      });
+   258→    } else if (item.type === "paper") {
+   259→      // data shape: { paper: GeneratedPaper, analysis?: PerformanceAnalysis, answers? }
+   260→      const paper = (data as { paper?: Record<string, unknown> }).paper;
+   261→      const questions = Array.isArray(paper?.questions)
+   262→        ? (paper!.questions as unknown as Array<Record<string, unknown>>)
+   263→        : Array.isArray((data as { questions?: unknown }).questions)
+   264→          ? ((data as { questions?: Array<Record<string, unknown>> }).questions as Array<Record<string, unknown>>)
+   265→          : [];
+   266→      const analysis = (data as { analysis?: PerformanceAnalysis }).analysis;
+   267→      const topicWise = analysis?.topicWise ?? [];
+   268→      for (const q of questions) {
+   269→        const t = str(q?.topic);
+   270→        if (!t) continue;
+   271→        const agg = get(t);
+   272→        if (!agg) continue;
+   273→        const tw = topicWise.find(
+   274→          (x) => x && x.topic && x.topic.trim().toLowerCase() === t.toLowerCase(),
+   275→        );
+   276→        const subj = str(q?.subject) ?? str((data as { subject?: unknown }).subject);
+   277→        if (subj && !agg.subject) agg.subject = subj;
+   278→        const diff = str(q?.difficulty);
+   279→        const hasAcc = !!tw && typeof tw.correct === "number" && typeof tw.total === "number";
+   280→        agg.questions.push({
+   281→          source: "paper",
+   282→          itemId: item.id,
+   283→          title: item.title,
+   284→          difficulty: diff,
+   285→          correct: tw?.correct,
+   286→          total: tw?.total,
+   287→          hasAccuracy: hasAcc,
+   288→        });
+   289→      }
+   290→    } else if (item.type === "mcq") {
+   291→      // data shape: { set: { mcqs: [...] }, answers: Record<id, picked>, ... }
+   292→      // OR legacy: { mcqs: [...] }
+   293→      const setData = (data as { set?: Record<string, unknown> }).set;
+   294→      const mcqs: Array<Record<string, unknown>> = Array.isArray(setData?.mcqs)
+   295→        ? (setData!.mcqs as Array<Record<string, unknown>>)
+   296→        : Array.isArray((data as { mcqs?: unknown }).mcqs)
+   297→          ? ((data as { mcqs?: Array<Record<string, unknown>> }).mcqs as Array<Record<string, unknown>>)
+   298→          : [];
+   299→      const answers = (data as { answers?: Record<string, string> }).answers ?? {};
+   300→      for (const m of mcqs) {
+   301→        const t = str(m?.topic);
+   302→        if (!t) continue;
+   303→        const agg = get(t);
+   304→        if (!agg) continue;
+   305→        const id = str(m?.id);
+   306→        const correctAnswer = str(m?.correctAnswer);
+   307→        const diff = str(m?.difficulty);
+   308→        let correct: number | undefined;
+   309→        let total: number | undefined;
+   310→        let hasAcc = false;
+   311→        if (id && answers[id]) {
+   312→          total = 1;
+   313→          correct = correctAnswer && answers[id] === correctAnswer ? 1 : 0;
+   314→          hasAcc = true;
+   315→        }
+   316→        agg.questions.push({
+   317→          source: "mcq",
+   318→          itemId: item.id,
+   319→          title: item.title,
+   320→          difficulty: diff,
+   321→          correct,
+   322→          total,
+   323→          hasAccuracy: hasAcc,
+   324→        });
+   325→      }
+   326→    }
+   327→  }
+   328→
+   329→  // 2) Flashcards
+   330→  for (const set of sets) {
+   331→    for (const card of set.cards) {
+   332→      const t = str(card.topic);
+   333→      if (!t) continue;
+   334→      const agg = get(t);
+   335→      if (!agg) continue;
+   336→      agg.flashcards.push(card);
+   337→      // FlashcardSet.topic is the set's primary topic — use as subject hint only if blank
+   338→      const setTopic = str(set.topic);
+   339→      if (setTopic && !agg.subject) agg.subject = setTopic;
+   340→    }
+   341→  }
+   342→
+   343→  // 3) Study sessions
+   344→  for (const s of sessions) {
+   345→    const t = str(s.topic);
+   346→    if (!t) continue;
+   347→    const agg = get(t);
+   348→    if (!agg) continue;
+   349→    agg.sessions.push(s);
+   350→    const subj = str(s.subject);
+   351→    if (subj && !agg.subject) agg.subject = subj;
+   352→  }
+   353→
+   354→  // 4) Journal entries
+   355→  for (const e of entries) {
+   356→    const t = str(e.topic);
+   357→    if (!t) continue;
+   358→    const agg = get(t);
+   359→    if (!agg) continue;
+   360→    agg.journal.push(e);
+   361→    const subj = str(e.subject);
+   362→    if (subj && !agg.subject) agg.subject = subj;
+   363→  }
+   364→
+   365→  // Compute scores
+   366→  for (const agg of map.values()) {
+   367→    // Flashcard mastery average
+   368→    if (agg.flashcards.length > 0) {
+   369→      const sum = agg.flashcards.reduce((a, c) => a + fcMasteryToScore(c.mastery), 0);
+   370→      agg.fcScore = sum / agg.flashcards.length;
+   371→    }
+   372→
+   373→    // Question accuracy (only entries with actual attempt data)
+   374→    const scoredQs = agg.questions.filter(
+   375→      (q) => q.hasAccuracy && typeof q.correct === "number" && typeof q.total === "number" && (q.total ?? 0) > 0,
+   376→    );
+   377→    if (scoredQs.length > 0) {
+   378→      const totalC = scoredQs.reduce((a, q) => a + (q.correct ?? 0), 0);
+   379→      const totalT = scoredQs.reduce((a, q) => a + (q.total ?? 0), 0);
+   380→      agg.qaScore = totalT > 0 ? (totalC / totalT) * 100 : null;
+   381→    } else if (agg.questions.length > 0) {
+   382→      // Questions exist but no attempts recorded → neutral 50
+   383→      agg.qaScore = 50;
+   384→    } else {
+   385→      agg.qaScore = null;
+   386→    }
+   387→
+   388→    // Activity boost: +5/session cap 20, +3/journal cap 15 (max 35)
+   389→    agg.activityBoost =
+   390→      Math.min(agg.sessions.length * 5, 20) + Math.min(agg.journal.length * 3, 15);
+   391→
+   392→    // Weighted blend of FC (0.6) + QA (0.4) — renormalized if one missing
+   393→    let blend = 0;
+   394→    let weight = 0;
+   395→    if (agg.fcScore !== null) {
+   396→      blend += agg.fcScore * 0.6;
+   397→      weight += 0.6;
+   398→    }
+   399→    if (agg.qaScore !== null) {
+   400→      blend += agg.qaScore * 0.4;
+   401→      weight += 0.4;
+   402→    }
+   403→    agg.blend = weight > 0 ? blend / weight : 0;
+   404→
+   405→    // Final = blend + activity boost, clamp 0-100
+   406→    const raw = agg.blend + agg.activityBoost;
+   407→    agg.score = Math.max(0, Math.min(100, Math.round(raw)));
+   408→
+   409→    // Classify
+   410→    const hasAny =
+   411→      agg.flashcards.length > 0 ||
+   412→      agg.sessions.length > 0 ||
+   413→      agg.journal.length > 0 ||
+   414→      agg.questions.length > 0;
+   415→    if (!hasAny) agg.status = "Not Started";
+   416→    else if (agg.score >= 70) agg.status = "Strong";
+   417→    else if (agg.score >= 40) agg.status = "Moderate";
+   418→    else agg.status = "Weak";
+   419→  }
+   420→
+   421→  return map;
+   422→}
+   423→
+   424→// ============================================================
+   425→// Main view
+   426→// ============================================================
+   427→
+   428→export function TopicMastery() {
+   429→  const mounted = useMounted();
+   430→  const setView = useAppStore((s) => s.setView);
+   431→  const saved = useAppStore((s) => s.saved);
+   432→  const sets = useFlashcardStore((s) => s.sets);
+   433→  const sessions = useStudyStore((s) => s.sessions);
+   434→  const entries = useJournalStore((s) => s.entries);
+   435→
+   436→  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+   437→  const [statusFilter, setStatusFilter] = useState<MasteryStatus | "All">("All");
+   438→
+   439→  const aggMap = useMemo(
+   440→    () => aggregateTopics(saved, sets, sessions, entries),
+   441→    [saved, sets, sessions, entries],
+   442→  );
+   443→
+   444→  const topics = useMemo(() => Array.from(aggMap.values()), [aggMap]);
+   445→
+   446→  // Sort by score desc
+   447→  const sorted = useMemo(
+   448→    () => [...topics].sort((a, b) => b.score - a.score),
+   449→    [topics],
+   450→  );
+   451→
+   452→  const stats = useMemo(() => {
+   453→    const total = topics.length;
+   454→    const strong = topics.filter((t) => t.status === "Strong").length;
+   455→    const moderate = topics.filter((t) => t.status === "Moderate").length;
+   456→    const weak = topics.filter((t) => t.status === "Weak").length;
+   457→    const notStarted = topics.filter((t) => t.status === "Not Started").length;
+   458→    const started = topics.filter((t) => t.status !== "Not Started");
+   459→    const avgMastery =
+   460→      started.length > 0
+   461→        ? Math.round(started.reduce((a, t) => a + t.score, 0) / started.length)
+   462→        : 0;
+   463→    return { total, strong, moderate, weak, notStarted, avgMastery };
+   464→  }, [topics]);
+   465→
+   466→  // Subject breakdown
+   467→  const subjects = useMemo(() => {
+   468→    const subjMap = new Map<string, { name: string; topics: TopicAgg[] }>();
+   469→    for (const t of topics) {
+   470→      const name = t.subject ?? "General";
+   471→      let bucket = subjMap.get(name);
+   472→      if (!bucket) {
+   473→        bucket = { name, topics: [] };
+   474→        subjMap.set(name, bucket);
+   475→      }
+   476→      bucket.topics.push(t);
+   477→    }
+   478→    const arr = Array.from(subjMap.values()).map((s) => {
+   479→      const started = s.topics.filter((t) => t.status !== "Not Started");
+   480→      const avg =
+   481→        started.length > 0
+   482→          ? Math.round(started.reduce((a, t) => a + t.score, 0) / started.length)
+   483→          : 0;
+   484→      return { name: s.name, count: s.topics.length, avg, started: started.length };
+   485→    });
+   486→    arr.sort((a, b) => b.avg - a.avg);
+   487→    return arr;
+   488→  }, [topics]);
+   489→
+   490→  // Recommendations — weakest topics with attempts at "Not Started" included
+   491→  const recommendations = useMemo(() => {
+   492→    const weak = sorted
+   493→      .filter((t) => t.status === "Weak" || t.status === "Not Started")
+   494→      .slice(0, 5);
+   495→    return weak;
+   496→  }, [sorted]);
+   497→
+   498→  const selectedAgg = selectedTopic ? aggMap.get(selectedTopic) ?? null : null;
+   499→
+   500→  // Filtered heatmap
+   501→  const filtered = useMemo(() => {
+   502→    if (statusFilter === "All") return sorted;
+   503→    return sorted.filter((t) => t.status === statusFilter);
+   504→  }, [sorted, statusFilter]);
+   505→
+   506→  // ---------- Hydration skeleton ----------
+   507→  if (!mounted) {
+   508→    return (
+   509→      <div className="space-y-6">
+   510→        <div className="h-20 rounded-2xl bg-muted/40 animate-pulse" />
+   511→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   512→          {[0, 1, 2, 3].map((i) => (
+   513→            <div key={i} className="h-28 rounded-xl bg-muted/40 animate-pulse" />
+   514→          ))}
+   515→        </div>
+   516→        <div className="h-64 rounded-2xl bg-muted/40 animate-pulse" />
+   517→      </div>
+   518→    );
+   519→  }
+   520→
+   521→  // ---------- Empty state ----------
+   522→  if (topics.length === 0) {
+   523→    return (
+   524→      <div className="space-y-6">
+   525→        <Header />
+   526→        <PremiumEmptyState
+   527→          icon={Target}
+   528→          title="No topics tracked yet"
+   529→          description="Research an exam, explain a question, generate flashcards, or log a study session — your per-topic mastery heatmap will appear here automatically."
+   530→          ctaLabel="Research an exam"
+   531→          ctaIcon={Sparkles}
+   532→          ctaOnClick={() => setView("exam-researcher")}
+   533→          accent="violet"
+   534→        />
+   535→      </div>
+   536→    );
+   537→  }
+   538→
+   539→  return (
+   540→    <div className="space-y-6">
+   541→      <Header />
+   542→
+   543→      {/* Stats row */}
+   544→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+   545→        <StatCard
+   546→          icon={Target}
+   547→          label="Total Topics"
+   548→          value={stats.total}
+   549→          accent="violet"
+   550→          sub={`${stats.notStarted} not started`}
+   551→        />
+   552→        <StatCard
+   553→          icon={TrendingUp}
+   554→          label="Strong Topics"
+   555→          value={stats.strong}
+   556→          accent="emerald"
+   557→          sub="Mastery ≥ 70%"
+   558→        />
+   559→        <StatCard
+   560→          icon={TrendingDown}
+   561→          label="Weak Topics"
+   562→          value={stats.weak}
+   563→          accent="rose"
+   564→          sub="Need attention"
+   565→        />
+   566→        <StatCard
+   567→          icon={BarChart3}
+   568→          label="Avg Mastery"
+   569→          value={stats.avgMastery}
+   570→          suffix="%"
+   571→          accent="amber"
+   572→          sub="Across active topics"
+   573→        />
+   574→      </div>
+   575→
+   576→      {/* Heatmap */}
+   577→      <Card className="overflow-hidden">
+   578→        <CardHeader>
+   579→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   580→            <div>
+   581→              <CardTitle className="flex items-center gap-2 text-base">
+   582→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
+   583→                  <Flame className="h-4 w-4" />
+   584→                </div>
+   585→                Mastery Heatmap
+   586→              </CardTitle>
+   587→              <CardDescription className="mt-1">
+   588→                Click any tile for a detailed breakdown. Hover for a quick summary.
+   589→              </CardDescription>
+   590→            </div>
+   591→            {/* Status filter chips */}
+   592→            <div className="flex flex-wrap gap-1.5">
+   593→              <FilterChip
+   594→                active={statusFilter === "All"}
+   595→                onClick={() => setStatusFilter("All")}
+   596→                label="All"
+   597→                count={topics.length}
+   598→              />
+   599→              {(["Strong", "Moderate", "Weak", "Not Started"] as MasteryStatus[]).map((s) => {
+   600→                const count = topics.filter((t) => t.status === s).length;
+   601→                if (count === 0) return null;
+   602→                return (
+   603→                  <FilterChip
+   604→                    key={s}
+   605→                    active={statusFilter === s}
+   606→                    onClick={() => setStatusFilter(s)}
+   607→                    label={s}
+   608→                    count={count}
+   609→                    status={s}
+   610→                  />
+   611→                );
+   612→              })}
+   613→            </div>
+   614→          </div>
+   615→        </CardHeader>
+   616→        <CardContent>
+   617→          {filtered.length === 0 ? (
+   618→            <div className="py-10 text-center text-sm text-muted-foreground">
+   619→              No topics match this filter.
+   620→            </div>
+   621→          ) : (
+   622→            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-2.5">
+   623→              {filtered.map((t, i) => (
+   624→                <HeatmapTile
+   625→                  key={t.topic}
+   626→                  agg={t}
+   627→                  index={i}
+   628→                  onClick={() => setSelectedTopic(t.topic)}
+   629→                />
+   630→              ))}
+   631→            </div>
+   632→          )}
+   633→          {/* Legend */}
+   634→          <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+   635→            <span className="font-medium">Legend:</span>
+   636→            {(["Strong", "Moderate", "Weak", "Not Started"] as MasteryStatus[]).map((s) => (
+   637→              <span key={s} className="inline-flex items-center gap-1.5">
+   638→                <span className={cn("h-2.5 w-2.5 rounded-sm", STATUS_STYLES[s].dot)} />
+   639→                {s}
+   640→              </span>
+   641→            ))}
+   642→          </div>
+   643→        </CardContent>
+   644→      </Card>
+   645→
+   646→      {/* Strengths & Weaknesses */}
+   647→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   648→        <StrengthsCard
+   649→          topics={sorted.filter((t) => t.status !== "Not Started").slice(0, 5)}
+   650→          onSelect={setSelectedTopic}
+   651→        />
+   652→        <WeaknessesCard
+   653→          topics={[...sorted]
+   654→            .filter((t) => t.status !== "Not Started")
+   655→            .reverse()
+   656→            .slice(0, 5)}
+   657→          onSelect={setSelectedTopic}
+   658→        />
+   659→      </div>
+   660→
+   661→      {/* Subject breakdown */}
+   662→      <Card>
+   663→        <CardHeader>
+   664→          <CardTitle className="flex items-center gap-2 text-base">
+   665→            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
+   666→              <BarChart3 className="h-4 w-4" />
+   667→            </div>
+   668→            Subject Breakdown
+   669→          </CardTitle>
+   670→          <CardDescription>
+   671→            Average mastery across topics grouped by subject.
+   672→          </CardDescription>
+   673→        </CardHeader>
+   674→        <CardContent>
+   675→          {subjects.length === 0 ? (
+   676→            <div className="py-8 text-center text-sm text-muted-foreground">
+   677→              No subject data available.
+   678→            </div>
+   679→          ) : (
+   680→            <div className="space-y-3">
+   681→              {subjects.map((s, i) => {
+   682→                const status: MasteryStatus =
+   683→                  s.avg >= 70 ? "Strong" : s.avg >= 40 ? "Moderate" : s.avg > 0 ? "Weak" : "Not Started";
+   684→                const st = STATUS_STYLES[status];
+   685→                return (
+   686→                  <motion.div
+   687→                    key={s.name}
+   688→                    initial={{ opacity: 0, x: -8 }}
+   689→                    animate={{ opacity: 1, x: 0 }}
+   690→                    transition={{ duration: 0.25, delay: Math.min(i * 0.04, 0.3) }}
+   691→                    className="space-y-1.5"
+   692→                  >
+   693→                    <div className="flex items-center justify-between gap-2 text-sm">
+   694→                      <div className="flex items-center gap-2 min-w-0">
+   695→                        <span className={cn("h-2 w-2 rounded-full shrink-0", st.dot)} />
+   696→                        <span className="font-medium truncate">{s.name}</span>
+   697→                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+   698→                          {s.started}/{s.count} active
+   699→                        </Badge>
+   700→                      </div>
+   701→                      <span className={cn("text-xs font-semibold tabular-nums", st.text)}>
+   702→                        {s.avg}%
+   703→                      </span>
+   704→                    </div>
+   705→                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+   706→                      <motion.div
+   707→                        initial={{ width: 0 }}
+   708→                        animate={{ width: `${s.avg}%` }}
+   709→                        transition={{ duration: 0.6, ease: "easeOut", delay: 0.05 * i }}
+   710→                        className={cn("h-full rounded-full bg-gradient-to-r", st.bar)}
+   711→                      />
+   712→                    </div>
+   713→                  </motion.div>
+   714→                );
+   715→              })}
+   716→            </div>
+   717→          )}
+   718→        </CardContent>
+   719→      </Card>
+   720→
+   721→      {/* Recommendations */}
+   722→      <Card className="relative overflow-hidden border-violet-500/30 bg-gradient-to-br from-violet-500/[0.08] via-fuchsia-500/[0.04] to-transparent">
+   723→        <div className="pointer-events-none absolute -top-20 -right-10 h-56 w-56 rounded-full bg-fuchsia-500/15 blur-3xl" />
+   724→        <div className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-violet-500/15 blur-3xl" />
+   725→        <CardHeader className="relative">
+   726→          <CardTitle className="flex items-center gap-2 text-base">
+   727→            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
+   728→              <Lightbulb className="h-4 w-4" />
+   729→            </div>
+   730→            Recommended Next Steps
+   731→          </CardTitle>
+   732→          <CardDescription>
+   733→            Targeted actions for your weakest topics. Bridge gaps before they cost you marks.
+   734→          </CardDescription>
+   735→        </CardHeader>
+   736→        <CardContent className="relative">
+   737→          {recommendations.length === 0 ? (
+   738→            <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 py-2">
+   739→              <CheckCircle2 className="h-4 w-4" />
+   740→              <span>No weak topics — you&apos;re on track. Keep revising!</span>
+   741→            </div>
+   742→          ) : (
+   743→            <div className="space-y-3">
+   744→              {recommendations.map((t, i) => (
+   745→                <RecommendationRow
+   746→                  key={t.topic}
+   747→                  agg={t}
+   748→                  index={i}
+   749→                  onSelect={setSelectedTopic}
+   750→                  onNavigate={(v) => setView(v)}
+   751→                />
+   752→              ))}
+   753→            </div>
+   754→          )}
+   755→        </CardContent>
+   756→      </Card>
+   757→
+   758→      {/* Topic detail dialog */}
+   759→      <TopicDetailDialog
+   760→        agg={selectedAgg}
+   761→        open={!!selectedAgg}
+   762→        onOpenChange={(o) => {
+   763→          if (!o) setSelectedTopic(null);
+   764→        }}
+   765→        onNavigate={(v) => {
+   766→          setSelectedTopic(null);
+   767→          setView(v);
+   768→        }}
+   769→      />
+   770→    </div>
+   771→  );
+   772→}
+   773→
+   774→// ============================================================
+   775→// Header
+   776→// ============================================================
+   777→
+   778→function Header() {
+   779→  return (
+   780→    <motion.div
+   781→      initial={{ opacity: 0, y: 8 }}
+   782→      animate={{ opacity: 1, y: 0 }}
+   783→      transition={{ duration: 0.3 }}
+   784→    >
+   785→      <div className="flex items-start gap-3">
+   786→        <div className="relative shrink-0">
+   787→          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 blur-md opacity-50" />
+   788→          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg">
+   789→            <Target className="h-5 w-5" />
+   790→          </div>
+   791→        </div>
+   792→        <div className="min-w-0">
+   793→          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Topic Mastery Tracker</h1>
+   794→          <p className="mt-1.5 text-sm text-muted-foreground max-w-2xl">
+   795→            Visualize your strengths and weaknesses across all topics. Powered by your saved
+   796→            research, flashcards, and activity.
+   797→          </p>
+   798→        </div>
+   799→      </div>
+   800→    </motion.div>
+   801→  );
+   802→}
+   803→
+   804→// ============================================================
+   805→// Stat card
+   806→// ============================================================
+   807→
+   808→function StatCard({
+   809→  icon: Icon,
+   810→  label,
+   811→  value,
+   812→  suffix,
+   813→  accent,
+   814→  sub,
+   815→}: {
+   816→  icon: typeof Target;
+   817→  label: string;
+   818→  value: number;
+   819→  suffix?: string;
+   820→  accent: "violet" | "amber" | "emerald" | "rose";
+   821→  sub?: string;
+   822→}) {
+   823→  const accents: Record<string, { grad: string; text: string; bg: string }> = {
+   824→    violet: { grad: "from-violet-500 to-fuchsia-500", text: "text-violet-500", bg: "bg-violet-500/10" },
+   825→    amber: { grad: "from-amber-500 to-orange-500", text: "text-amber-500", bg: "bg-amber-500/10" },
+   826→    emerald: { grad: "from-emerald-500 to-teal-500", text: "text-emerald-500", bg: "bg-emerald-500/10" },
+   827→    rose: { grad: "from-rose-500 to-pink-500", text: "text-rose-500", bg: "bg-rose-500/10" },
+   828→  };
+   829→  const a = accents[accent];
+   830→  return (
+   831→    <motion.div
+   832→      initial={{ opacity: 0, y: 8 }}
+   833→      animate={{ opacity: 1, y: 0 }}
+   834→      transition={{ duration: 0.25 }}
+   835→    >
+   836→      <Card className="overflow-hidden">
+   837→        <CardContent className="p-4">
+   838→          <div className="flex items-center justify-between">
+   839→            <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br text-white", a.grad)}>
+   840→              <Icon className="h-4 w-4" />
+   841→            </div>
+   842→          </div>
+   843→          <div className="mt-3 flex items-baseline gap-1">
+   844→            <AnimatedCounter
+   845→              value={value}
+   846→              className={cn("text-2xl font-bold tabular-nums", a.text)}
+   847→            />
+   848→            {suffix && <span className={cn("text-sm font-semibold", a.text)}>{suffix}</span>}
+   849→          </div>
+   850→          <p className="text-[11px] text-muted-foreground mt-0.5">{label}</p>
+   851→          {sub && <p className="text-[10px] text-muted-foreground/80 mt-0.5">{sub}</p>}
+   852→        </CardContent>
+   853→      </Card>
+   854→    </motion.div>
+   855→  );
+   856→}
+   857→
+   858→// ============================================================
+   859→// Filter chip
+   860→// ============================================================
+   861→
+   862→function FilterChip({
+   863→  active,
+   864→  onClick,
+   865→  label,
+   866→  count,
+   867→  status,
+   868→}: {
+   869→  active: boolean;
+   870→  onClick: () => void;
+   871→  label: string;
+   872→  count: number;
+   873→  status?: MasteryStatus;
+   874→}) {
+   875→  const dotClass = status ? STATUS_STYLES[status].dot : "bg-violet-500";
+   876→  return (
+   877→    <button
+   878→      onClick={onClick}
+   879→      className={cn(
+   880→        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
+   881→        active
+   882→          ? "border-violet-500/40 bg-violet-500/10 text-foreground"
+   883→          : "border-border bg-background/50 text-muted-foreground hover:text-foreground hover:bg-accent",
+   884→      )}
+   885→    >
+   886→      <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} />
+   887→      {label}
+   888→      <span className="text-[10px] text-muted-foreground/80 tabular-nums">{count}</span>
+   889→    </button>
+   890→  );
+   891→}
+   892→
+   893→// ============================================================
+   894→// Heatmap tile
+   895→// ============================================================
+   896→
+   897→function HeatmapTile({
+   898→  agg,
+   899→  index,
+   900→  onClick,
+   901→}: {
+   902→  agg: TopicAgg;
+   903→  index: number;
+   904→  onClick: () => void;
+   905→}) {
+   906→  const st = STATUS_STYLES[agg.status];
+   907→  return (
+   908→    <Tooltip delayDuration={120}>
+   909→      <TooltipTrigger asChild>
+   910→        <motion.button
+   911→          initial={{ opacity: 0, scale: 0.94 }}
+   912→          animate={{ opacity: 1, scale: 1 }}
+   913→          transition={{ duration: 0.2, delay: Math.min(index * 0.015, 0.3) }}
+   914→          onClick={onClick}
+   915→          className={cn(
+   916→            "group relative flex min-h-[92px] flex-col justify-between rounded-lg border p-2.5 text-left transition-all",
+   917→            st.tile,
+   918→            st.tileHover,
+   919→          )}
+   920→        >
+   921→          <div className="flex items-start justify-between gap-1.5">
+   922→            <span className="text-xs font-semibold leading-tight line-clamp-2">
+   923→              {agg.topic}
+   924→            </span>
+   925→          </div>
+   926→          <div className="mt-2 flex items-end justify-between">
+   927→            <div className="flex items-center gap-1">
+   928→              {agg.flashcards.length > 0 && (
+   929→                <span className="inline-flex items-center justify-center h-4 min-w-4 rounded bg-black/10 px-1 text-[9px] font-bold tabular-nums">
+   930→                  {agg.flashcards.length} card{agg.flashcards.length === 1 ? "" : "s"}
+   931→                </span>
+   932→              )}
+   933→              {agg.sessions.length > 0 && (
+   934→                <span className="inline-flex items-center justify-center h-4 min-w-4 rounded bg-black/10 px-1 text-[9px] font-bold tabular-nums">
+   935→                  {agg.sessions.length} session{agg.sessions.length === 1 ? "" : "s"}
+   936→                </span>
+   937→              )}
+   938→            </div>
+   939→            <span className="text-lg font-bold tabular-nums leading-none">
+   940→              {agg.status === "Not Started" ? "—" : `${agg.score}%`}
+   941→            </span>
+   942→          </div>
+   943→        </motion.button>
+   944→      </TooltipTrigger>
+   945→      <TooltipContent side="top" className="max-w-[220px]">
+   946→        <div className="space-y-1">
+   947→          <div className="font-semibold">{agg.topic}</div>
+   948→          <div className="text-[11px] opacity-90">
+   949→            {agg.subject ? `${agg.subject} · ` : ""}{agg.status} · {agg.status === "Not Started" ? "no activity" : `${agg.score}% mastery`}
+   950→          </div>
+   951→          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] opacity-90">
+   952→            <span>🎴 {agg.flashcards.length}</span>
+   953→            <span>⏱ {agg.sessions.length}</span>
+   954→            <span>📔 {agg.journal.length}</span>
+   955→            <span>❓ {agg.questions.length}</span>
+   956→          </div>
+   957→        </div>
+   958→      </TooltipContent>
+   959→    </Tooltip>
+   960→  );
+   961→}
+   962→
+   963→// ============================================================
+   964→// Strengths / Weaknesses cards
+   965→// ============================================================
+   966→
+   967→function StrengthsCard({
+   968→  topics,
+   969→  onSelect,
+   970→}: {
+   971→  topics: TopicAgg[];
+   972→  onSelect: (t: string) => void;
+   973→}) {
+   974→  return (
+   975→    <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] to-transparent">
+   976→      <CardHeader>
+   977→        <CardTitle className="flex items-center gap-2 text-base">
+   978→          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 text-white">
+   979→            <Award className="h-4 w-4" />
+   980→          </div>
+   981→          Top Strengths
+   982→        </CardTitle>
+   983→        <CardDescription>Your 5 strongest topics — keep these sharp.</CardDescription>
+   984→      </CardHeader>
+   985→      <CardContent>
+   986→        {topics.length === 0 ? (
+   987→          <div className="py-6 text-center text-sm text-muted-foreground">
+   988→            No strong topics yet. Keep practising!
+   989→          </div>
+   990→        ) : (
+   991→          <div className="space-y-2.5">
+   992→            {topics.map((t, i) => (
+   993→              <TopicRow key={t.topic} agg={t} rank={i + 1} accent="emerald" onClick={() => onSelect(t.topic)} />
+   994→            ))}
+   995→          </div>
+   996→        )}
+   997→      </CardContent>
+   998→    </Card>
+   999→  );
+  1000→}
+  1001→
+  1002→function WeaknessesCard({
+  1003→  topics,
+  1004→  onSelect,
+  1005→}: {
+  1006→  topics: TopicAgg[];
+  1007→  onSelect: (t: string) => void;
+  1008→}) {
+  1009→  return (
+  1010→    <Card className="border-rose-500/20 bg-gradient-to-br from-rose-500/[0.06] to-transparent">
+  1011→      <CardHeader>
+  1012→        <CardTitle className="flex items-center gap-2 text-base">
+  1013→          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-500 text-white">
+  1014→            <AlertCircle className="h-4 w-4" />
+  1015→          </div>
+  1016→          Needs Attention
+  1017→        </CardTitle>
+  1018→        <CardDescription>Your 5 weakest active topics — prioritise these.</CardDescription>
+  1019→      </CardHeader>
+  1020→      <CardContent>
+  1021→        {topics.length === 0 ? (
+  1022→          <div className="py-6 text-center text-sm text-muted-foreground">
+  1023→            No weak topics. You&apos;re on top of it!
+  1024→          </div>
+  1025→        ) : (
+  1026→          <div className="space-y-2.5">
+  1027→            {topics.map((t, i) => (
+  1028→              <TopicRow key={t.topic} agg={t} rank={i + 1} accent="rose" onClick={() => onSelect(t.topic)} />
+  1029→            ))}
+  1030→          </div>
+  1031→        )}
+  1032→      </CardContent>
+  1033→    </Card>
+  1034→  );
+  1035→}
+  1036→
+  1037→function TopicRow({
+  1038→  agg,
+  1039→  rank,
+  1040→  accent,
+  1041→  onClick,
+  1042→}: {
+  1043→  agg: TopicAgg;
+  1044→  rank: number;
+  1045→  accent: "emerald" | "rose";
+  1046→  onClick: () => void;
+  1047→}) {
+  1048→  const st = STATUS_STYLES[agg.status];
+  1049→  return (
+  1050→    <button
+  1051→      onClick={onClick}
+  1052→      className="group flex w-full items-center gap-3 rounded-lg border border-transparent p-2 text-left transition hover:bg-accent hover:border-border/60"
+  1053→    >
+  1054→      <span className="text-[11px] font-bold tabular-nums text-muted-foreground w-4 text-center">
+  1055→        {rank}
+  1056→      </span>
+  1057→      <div className="min-w-0 flex-1">
+  1058→        <div className="flex items-center justify-between gap-2">
+  1059→          <span className="text-sm font-medium truncate">{agg.topic}</span>
+  1060→          <span className={cn("text-xs font-semibold tabular-nums shrink-0", st.text)}>
+  1061→            {agg.status === "Not Started" ? "—" : `${agg.score}%`}
+  1062→          </span>
+  1063→        </div>
+  1064→        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+  1065→          <motion.div
+  1066→            initial={{ width: 0 }}
+  1067→            animate={{ width: `${agg.score}%` }}
+  1068→            transition={{ duration: 0.5, ease: "easeOut" }}
+  1069→            className={cn("h-full rounded-full bg-gradient-to-r", st.bar)}
+  1070→          />
+  1071→        </div>
+  1072→      </div>
+  1073→      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-foreground transition shrink-0" />
+  1074→    </button>
+  1075→  );
+  1076→}
+  1077→
+  1078→// ============================================================
+  1079→// Recommendation row
+  1080→// ============================================================
+  1081→
+  1082→function RecommendationRow({
+  1083→  agg,
+  1084→  index,
+  1085→  onSelect,
+  1086→  onNavigate,
+  1087→}: {
+  1088→  agg: TopicAgg;
+  1089→  index: number;
+  1090→  onSelect: (t: string) => void;
+  1091→  onNavigate: (v: ViewKey) => void;
+  1092→}) {
+  1093→  return (
+  1094→    <motion.div
+  1095→      initial={{ opacity: 0, y: 6 }}
+  1096→      animate={{ opacity: 1, y: 0 }}
+  1097→      transition={{ duration: 0.25, delay: Math.min(index * 0.05, 0.3) }}
+  1098→      className="rounded-xl border border-border/60 bg-background/60 p-3.5"
+  1099→    >
+  1100→      <div className="flex flex-wrap items-start justify-between gap-2">
+  1101→        <div className="min-w-0 flex-1">
+  1102→          <div className="flex items-center gap-2">
+  1103→            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-rose-500/15 px-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 tabular-nums">
+  1104→              #{index + 1}
+  1105→            </span>
+  1106→            <button
+  1107→              onClick={() => onSelect(agg.topic)}
+  1108→              className="text-sm font-semibold truncate hover:underline text-left"
+  1109→            >
+  1110→              {agg.topic}
+  1111→            </button>
+  1112→            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+  1113→              {agg.status === "Not Started" ? "Not started" : `${agg.score}% mastery`}
+  1114→            </Badge>
+  1115→          </div>
+  1116→          <p className="mt-1 text-[12px] text-muted-foreground">
+  1117→            {agg.status === "Not Started"
+  1118→              ? "No activity yet. Start by mapping prerequisites, then practise variants."
+  1119→              : "Review prerequisites → practise 5 Level-1 variants → attempt a mini-test."}
+  1120→          </p>
+  1121→        </div>
+  1122→      </div>
+  1123→      <div className="mt-2.5 flex flex-wrap gap-2">
+  1124→        <Button
+  1125→          size="sm"
+  1126→          variant="outline"
+  1127→          onClick={() => onNavigate("dependency-mapper")}
+  1128→          className="h-7 gap-1.5 text-[11px] border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 hover:text-violet-600 dark:hover:text-violet-300"
+  1129→        >
+  1130→          <Network className="h-3 w-3" />
+  1131→          Map prerequisites
+  1132→        </Button>
+  1133→        <Button
+  1134→          size="sm"
+  1135→          variant="outline"
+  1136→          onClick={() => onNavigate("question-evolution")}
+  1137→          className="h-7 gap-1.5 text-[11px] border-fuchsia-500/30 bg-fuchsia-500/5 hover:bg-fuchsia-500/15 hover:text-fuchsia-600 dark:hover:text-fuchsia-300"
+  1138→        >
+  1139→          <Repeat2 className="h-3 w-3" />
+  1140→          Practise variants
+  1141→        </Button>
+  1142→        <Button
+  1143→          size="sm"
+  1144→          variant="outline"
+  1145→          onClick={() => onNavigate("mcq-generator")}
+  1146→          className="h-7 gap-1.5 text-[11px] border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/15 hover:text-amber-600 dark:hover:text-amber-300"
+  1147→        >
+  1148→          <ListChecks className="h-3 w-3" />
+  1149→          Attempt mini-test
+  1150→        </Button>
+  1151→      </div>
+  1152→    </motion.div>
+  1153→  );
+  1154→}
+  1155→
+  1156→// ============================================================
+  1157→// Topic detail dialog
+  1158→// ============================================================
+  1159→
+  1160→function TopicDetailDialog({
+  1161→  agg,
+  1162→  open,
+  1163→  onOpenChange,
+  1164→  onNavigate,
+  1165→}: {
+  1166→  agg: TopicAgg | null;
+  1167→  open: boolean;
+  1168→  onOpenChange: (o: boolean) => void;
+  1169→  onNavigate: (v: ViewKey) => void;
+  1170→}) {
+  1171→  if (!agg) return null;
+  1172→  const st = STATUS_STYLES[agg.status];
+  1173→  return (
+  1174→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1175→      <DialogContent className="sm:max-w-2xl">
+  1176→        <DialogHeader>
+  1177→          <DialogTitle className="flex items-center gap-2">
+  1178→            <span className={cn("h-2.5 w-2.5 rounded-full", st.dot)} />
+  1179→            {agg.topic}
+  1180→          </DialogTitle>
+  1181→          <DialogDescription>
+  1182→            {agg.subject ? `${agg.subject} · ` : ""}{agg.status} · {agg.status === "Not Started" ? "no activity recorded" : `${agg.score}% mastery`}
+  1183→          </DialogDescription>
+  1184→        </DialogHeader>
+  1185→
+  1186→        {/* Score breakdown */}
+  1187→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+  1188→          <ScorePill label="Flashcards" value={agg.fcScore === null ? "—" : `${Math.round(agg.fcScore)}%`} icon={Layers} accent="violet" />
+  1189→          <ScorePill label="Questions" value={agg.qaScore === null ? "—" : `${Math.round(agg.qaScore)}%`} icon={HelpCircle} accent="amber" />
+  1190→          <ScorePill label="Activity" value={`+${agg.activityBoost}`} icon={Flame} accent="emerald" />
+  1191→          <ScorePill label="Final" value={`${agg.score}%`} icon={Brain} accent="rose" />
+  1192→        </div>
+  1193→
+  1194→        <Tabs defaultValue="overview" className="w-full">
+  1195→          <TabsList className="w-full justify-start overflow-x-auto">
+  1196→            <TabsTrigger value="overview">Overview</TabsTrigger>
+  1197→            <TabsTrigger value="flashcards">
+  1198→              Flashcards ({agg.flashcards.length})
+  1199→            </TabsTrigger>
+  1200→            <TabsTrigger value="sessions">
+  1201→              Sessions ({agg.sessions.length})
+  1202→            </TabsTrigger>
+  1203→            <TabsTrigger value="journal">
+  1204→              Journal ({agg.journal.length})
+  1205→            </TabsTrigger>
+  1206→            <TabsTrigger value="questions">
+  1207→              Questions ({agg.questions.length})
+  1208→            </TabsTrigger>
+  1209→          </TabsList>
+  1210→
+  1211→          <TabsContent value="overview" className="mt-3">
+  1212→            <div className="space-y-3">
+  1213→              <div>
+  1214→                <div className="flex items-center justify-between text-xs mb-1">
+  1215→                  <span className="text-muted-foreground">Mastery score</span>
+  1216→                  <span className={cn("font-semibold tabular-nums", st.text)}>{agg.score}%</span>
+  1217→                </div>
+  1218→                <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+  1219→                  <motion.div
+  1220→                    initial={{ width: 0 }}
+  1221→                    animate={{ width: `${agg.score}%` }}
+  1222→                    transition={{ duration: 0.5, ease: "easeOut" }}
+  1223→                    className={cn("h-full rounded-full bg-gradient-to-r", st.bar)}
+  1224→                  />
+  1225→                </div>
+  1226→              </div>
+  1227→              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+  1228→                <MiniStat label="Flashcards" value={agg.flashcards.length} />
+  1229→                <MiniStat label="Sessions" value={agg.sessions.length} />
+  1230→                <MiniStat label="Journal" value={agg.journal.length} />
+  1231→                <MiniStat label="Questions" value={agg.questions.length} />
+  1232→              </div>
+  1233→              <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
+  1234→                <div className="font-medium text-foreground mb-1">How this score is computed</div>
+  1235→                <ul className="space-y-0.5 list-disc list-inside">
+  1236→                  <li>Flashcard mastery average (weight 0.6)</li>
+  1237→                  <li>Question accuracy from saved papers/MCQs (weight 0.4)</li>
+  1238→                  <li>Activity boost: +5/session (cap 20), +3/journal (cap 15)</li>
+  1239→                  <li>Final = weighted blend + activity boost, clamped 0–100</li>
+  1240→                </ul>
+  1241→              </div>
+  1242→            </div>
+  1243→          </TabsContent>
+  1244→
+  1245→          <TabsContent value="flashcards" className="mt-3">
+  1246→            <ScrollArea className="max-h-72">
+  1247→              {agg.flashcards.length === 0 ? (
+  1248→                <EmptyDetail
+  1249→                  icon={Layers}
+  1250→                  text="No flashcards for this topic yet."
+  1251→                  cta="Generate flashcards"
+  1252→                  onCta={() => onNavigate("flashcards")}
+  1253→                />
+  1254→              ) : (
+  1255→                <div className="space-y-2 pr-2">
+  1256→                  {agg.flashcards.map((c) => (
+  1257→                    <div
+  1258→                      key={c.id}
+  1259→                      className="rounded-lg border border-border/60 bg-muted/30 p-2.5"
+  1260→                    >
+  1261→                      <div className="flex items-start justify-between gap-2">
+  1262→                        <p className="text-xs font-medium leading-snug">{c.front}</p>
+  1263→                        <Badge
+  1264→                          variant="outline"
+  1265→                          className={cn(
+  1266→                            "shrink-0 text-[10px]",
+  1267→                            c.mastery === "Mastered"
+  1268→                              ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+  1269→                              : c.mastery === "Reviewing"
+  1270→                                ? "border-amber-500/30 text-amber-600 dark:text-amber-400"
+  1271→                                : "border-border text-muted-foreground",
+  1272→                          )}
+  1273→                        >
+  1274→                          {c.mastery}
+  1275→                        </Badge>
+  1276→                      </div>
+  1277→                      <p className="mt-1 text-[11px] text-muted-foreground leading-snug line-clamp-2">
+  1278→                        {c.back}
+  1279→                      </p>
+  1280→                    </div>
+  1281→                  ))}
+  1282→                </div>
+  1283→              )}
+  1284→            </ScrollArea>
+  1285→          </TabsContent>
+  1286→
+  1287→          <TabsContent value="sessions" className="mt-3">
+  1288→            <ScrollArea className="max-h-72">
+  1289→              {agg.sessions.length === 0 ? (
+  1290→                <EmptyDetail
+  1291→                  icon={Clock}
+  1292→                  text="No study sessions on this topic."
+  1293→                  cta="Start a session"
+  1294→                  onCta={() => onNavigate("study-timer")}
+  1295→                />
+  1296→              ) : (
+  1297→                <div className="space-y-2 pr-2">
+  1298→                  {agg.sessions.map((s) => (
+  1299→                    <div
+  1300→                      key={s.id}
+  1301→                      className="rounded-lg border border-border/60 bg-muted/30 p-2.5"
+  1302→                    >
+  1303→                      <div className="flex items-center justify-between gap-2">
+  1304→                        <span className="text-xs font-medium">
+  1305→                          {s.mode === "pomodoro" ? "Pomodoro" : "Free"} · {s.durationMinutes} min
+  1306→                        </span>
+  1307→                        <span className="text-[10px] text-muted-foreground tabular-nums">
+  1308→                          {new Date(s.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+  1309→                        </span>
+  1310→                      </div>
+  1311→                      {s.completed && (
+  1312→                        <div className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
+  1313→                          <CheckCircle2 className="h-3 w-3" /> Completed
+  1314→                        </div>
+  1315→                      )}
+  1316→                    </div>
+  1317→                  ))}
+  1318→                </div>
+  1319→              )}
+  1320→            </ScrollArea>
+  1321→          </TabsContent>
+  1322→
+  1323→          <TabsContent value="journal" className="mt-3">
+  1324→            <ScrollArea className="max-h-72">
+  1325→              {agg.journal.length === 0 ? (
+  1326→                <EmptyDetail
+  1327→                  icon={BookOpen}
+  1328→                  text="No journal entries for this topic."
+  1329→                  cta="Write entry"
+  1330→                  onCta={() => onNavigate("progress-journal")}
+  1331→                />
+  1332→              ) : (
+  1333→                <div className="space-y-2 pr-2">
+  1334→                  {agg.journal.map((e) => (
+  1335→                    <div
+  1336→                      key={e.id}
+  1337→                      className="rounded-lg border border-border/60 bg-muted/30 p-2.5"
+  1338→                    >
+  1339→                      <div className="flex items-center justify-between gap-2">
+  1340→                        <span className="text-xs font-medium capitalize">
+  1341→                          Mood: {e.mood}
+  1342→                        </span>
+  1343→                        <span className="text-[10px] text-muted-foreground tabular-nums">
+  1344→                          {e.date}
+  1345→                        </span>
+  1346→                      </div>
+  1347→                      {e.whatStudied && (
+  1348→                        <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
+  1349→                          {e.whatStudied}
+  1350→                        </p>
+  1351→                      )}
+  1352→                    </div>
+  1353→                  ))}
+  1354→                </div>
+  1355→              )}
+  1356→            </ScrollArea>
+  1357→          </TabsContent>
+  1358→
+  1359→          <TabsContent value="questions" className="mt-3">
+  1360→            <ScrollArea className="max-h-72">
+  1361→              {agg.questions.length === 0 ? (
+  1362→                <EmptyDetail
+  1363→                  icon={HelpCircle}
+  1364→                  text="No saved questions for this topic."
+  1365→                  cta="Generate questions"
+  1366→                  onCta={() => onNavigate("mcq-generator")}
+  1367→                />
+  1368→              ) : (
+  1369→                <div className="space-y-2 pr-2">
+  1370→                  {agg.questions.map((q, i) => (
+  1371→                    <div
+  1372→                      key={`${q.itemId}-${i}`}
+  1373→                      className="rounded-lg border border-border/60 bg-muted/30 p-2.5"
+  1374→                    >
+  1375→                      <div className="flex items-start justify-between gap-2">
+  1376→                        <div className="min-w-0">
+  1377→                          <p className="text-xs font-medium truncate">{q.title}</p>
+  1378→                          <p className="mt-0.5 text-[10px] text-muted-foreground uppercase tracking-wide">
+  1379→                            {q.source}{q.difficulty ? ` · ${q.difficulty}` : ""}
+  1380→                          </p>
+  1381→                        </div>
+  1382→                        {q.hasAccuracy && typeof q.correct === "number" && typeof q.total === "number" && (
+  1383→                          <Badge
+  1384→                            variant="outline"
+  1385→                            className="shrink-0 text-[10px]"
+  1386→                          >
+  1387→                            {q.correct}/{q.total}
+  1388→                          </Badge>
+  1389→                        )}
+  1390→                      </div>
+  1391→                    </div>
+  1392→                  ))}
+  1393→                </div>
+  1394→              )}
+  1395→            </ScrollArea>
+  1396→          </TabsContent>
+  1397→        </Tabs>
+  1398→      </DialogContent>
+  1399→    </Dialog>
+  1400→  );
+  1401→}
+  1402→
+  1403→function ScorePill({
+  1404→  label,
+  1405→  value,
+  1406→  icon: Icon,
+  1407→  accent,
+  1408→}: {
+  1409→  label: string;
+  1410→  value: string;
+  1411→  icon: typeof Target;
+  1412→  accent: "violet" | "amber" | "emerald" | "rose";
+  1413→}) {
+  1414→  const accents: Record<string, string> = {
+  1415→    violet: "text-violet-500",
+  1416→    amber: "text-amber-500",
+  1417→    emerald: "text-emerald-500",
+  1418→    rose: "text-rose-500",
+  1419→  };
+  1420→  return (
+  1421→    <div className="rounded-lg border border-border/60 bg-muted/30 p-2 text-center">
+  1422→      <Icon className={cn("h-3.5 w-3.5 mx-auto", accents[accent])} />
+  1423→      <div className={cn("mt-1 text-sm font-bold tabular-nums", accents[accent])}>{value}</div>
+  1424→      <div className="text-[10px] text-muted-foreground">{label}</div>
+  1425→    </div>
+  1426→  );
+  1427→}
+  1428→
+  1429→function MiniStat({ label, value }: { label: string; value: number }) {
+  1430→  return (
+  1431→    <div className="rounded-md border border-border/60 bg-muted/20 py-2">
+  1432→      <div className="text-base font-bold tabular-nums">{value}</div>
+  1433→      <div className="text-[10px] text-muted-foreground">{label}</div>
+  1434→    </div>
+  1435→  );
+  1436→}
+  1437→
+  1438→function EmptyDetail({
+  1439→  icon: Icon,
+  1440→  text,
+  1441→  cta,
+  1442→  onCta,
+  1443→}: {
+  1444→  icon: typeof Target;
+  1445→  text: string;
+  1446→  cta?: string;
+  1447→  onCta?: () => void;
+  1448→}) {
+  1449→  return (
+  1450→    <div className="flex flex-col items-center justify-center py-6 text-center">
+  1451→      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
+  1452→        <Icon className="h-5 w-5" />
+  1453→      </div>
+  1454→      <p className="mt-2 text-xs text-muted-foreground">{text}</p>
+  1455→      {cta && onCta && (
+  1456→        <Button size="sm" variant="outline" onClick={onCta} className="mt-2 h-7 text-[11px]">
+  1457→          {cta}
+  1458→        </Button>
+  1459→      )}
+  1460→    </div>
+  1461→  );
+  1462→}
+  1463→

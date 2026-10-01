@@ -203,19 +203,106 @@ function mockExamComparison(query: string): unknown {
   };
 }
 
-function mockDependencyMap(_query: string): unknown {
+function mockDependencyMap(query: string): unknown {
+  // Extract the topic from the query (the route wraps it in quotes)
+  let topic = "Calculus";
+  const m = query.match(/"([^"]+)"/);
+  if (m && m[1]) topic = m[1];
+  else {
+    const m2 = query.match(/(?:input|topic|syllabus)[:\s]+([^\n]+)/i);
+    if (m2 && m2[1]) topic = m2[1].replace(/[^\w\s&.-]/g, "").trim().slice(0, 50);
+  }
+  const t = topic.toLowerCase();
+
+  type Node = { id: string; topic: string; subtopic?: string; concept?: string; prerequisites: string[]; dependents: string[]; mastery: string; level: number; examRelevance?: string; difficulty?: string };
+  type Gap = { missingPrerequisite: string; whyItMatters: string; recommendedSequence: string[]; practiceRecommendations: string[]; estimatedEffort: string };
+
+  let root: string;
+  let nodes: Node[];
+  let gaps: Gap[];
+  let sequence: string[];
+
+  if (t.includes("calculus") || t.includes("differential") || t.includes("integration")) {
+    root = "Calculus";
+    nodes = [
+      { id: "calc", topic: "Calculus", prerequisites: [], dependents: ["diff", "int"], mastery: "Learning", level: 0, examRelevance: "High", difficulty: "Medium" },
+      { id: "diff", topic: "Differentiation", prerequisites: ["calc"], dependents: ["diffapp", "de"], mastery: "Practicing", level: 1, difficulty: "Medium" },
+      { id: "int", topic: "Integration", prerequisites: ["calc"], dependents: ["de"], mastery: "Weak", level: 1, difficulty: "Hard" },
+      { id: "diffapp", topic: "Applications of Differentiation", prerequisites: ["diff"], dependents: [], mastery: "Not Started", level: 2, difficulty: "Hard" },
+      { id: "de", topic: "Differential Equations", prerequisites: ["diff", "int"], dependents: [], mastery: "Not Started", level: 2, difficulty: "Hard" },
+    ];
+    gaps = [{ missingPrerequisite: "Integration", whyItMatters: "Required to solve and verify differential equations. You cannot integrate solutions to ODEs without solid integration fundamentals.", recommendedSequence: ["Review Differentiation", "Practice Integration basics", "Indefinite integrals", "Definite integrals", "Integration by substitution", "Start Differential Equations"], practiceRecommendations: ["10 Level-1 integration problems", "5 PYQ integrals", "Integration by parts practice"], estimatedEffort: "~15 hours" }];
+    sequence = ["Differentiation", "Integration", "Applications of Differentiation", "Differential Equations"];
+  } else if (t.includes("algebra") || t.includes("equation")) {
+    root = "Algebra";
+    nodes = [
+      { id: "basic", topic: "Basic Arithmetic", prerequisites: [], dependents: ["linear"], mastery: "Mastered", level: 0, examRelevance: "Foundation" },
+      { id: "linear", topic: "Linear Equations", prerequisites: ["basic"], dependents: ["quad", "simul"], mastery: "Strong", level: 1, difficulty: "Easy" },
+      { id: "quad", topic: "Quadratic Equations", prerequisites: ["linear"], dependents: ["ineq"], mastery: "Practicing", level: 2, difficulty: "Medium" },
+      { id: "simul", topic: "Simultaneous Equations", prerequisites: ["linear"], dependents: [], mastery: "Learning", level: 2, difficulty: "Medium" },
+      { id: "ineq", topic: "Inequalities", prerequisites: ["quad"], dependents: [], mastery: "Not Started", level: 3, difficulty: "Hard" },
+    ];
+    gaps = [{ missingPrerequisite: "Inequalities", whyItMatters: "Quadratic inequalities are tested extensively and require mastery of quadratic equation roots + sign analysis.", recommendedSequence: ["Review Quadratic Equations", "Number line + sign analysis", "Linear inequalities", "Quadratic inequalities", "Rational inequalities"], practiceRecommendations: ["15 inequality problems", "5 PYQ inequality questions"], estimatedEffort: "~8 hours" }];
+    sequence = ["Linear Equations", "Quadratic Equations", "Simultaneous Equations", "Inequalities"];
+  } else if (t.includes("english") || t.includes("grammar") || t.includes("vocab")) {
+    root = "English Language";
+    nodes = [
+      { id: "vocab", topic: "Vocabulary", prerequisites: [], dependents: ["rc"], mastery: "Practicing", level: 0, examRelevance: "High", difficulty: "Medium" },
+      { id: "gram", topic: "Grammar Basics", prerequisites: [], dependents: ["tense", "voice"], mastery: "Strong", level: 0, difficulty: "Easy" },
+      { id: "tense", topic: "Tenses", prerequisites: ["gram"], dependents: ["voice"], mastery: "Practicing", level: 1, difficulty: "Medium" },
+      { id: "voice", topic: "Active/Passive Voice", prerequisites: ["gram", "tense"], dependents: ["speech"], mastery: "Learning", level: 2, difficulty: "Medium" },
+      { id: "speech", topic: "Direct/Indirect Speech", prerequisites: ["voice"], dependents: [], mastery: "Not Started", level: 3, difficulty: "Hard" },
+      { id: "rc", topic: "Reading Comprehension", prerequisites: ["vocab"], dependents: [], mastery: "Improving", level: 1, difficulty: "Medium" },
+    ];
+    gaps = [{ missingPrerequisite: "Direct/Indirect Speech", whyItMatters: "Narration rules depend on tense mastery and voice transformation. Without these, speech conversion becomes error-prone.", recommendedSequence: ["Review Tenses", "Practice Active/Passive Voice", "Learn Narration Rules", "Practice Direct→Indirect conversion", "Practice Indirect→Direct conversion"], practiceRecommendations: ["20 narration problems", "10 PYQ speech questions"], estimatedEffort: "~6 hours" }];
+    sequence = ["Grammar Basics", "Tenses", "Vocabulary", "Active/Passive Voice", "Direct/Indirect Speech", "Reading Comprehension"];
+  } else if (t.includes("reasoning") || t.includes("series") || t.includes("puzzle")) {
+    root = "Logical Reasoning";
+    nodes = [
+      { id: "series", topic: "Series & Patterns", prerequisites: [], dependents: ["analogy"], mastery: "Practicing", level: 0, examRelevance: "High", difficulty: "Medium" },
+      { id: "analogy", topic: "Analogy", prerequisites: ["series"], dependents: ["classify"], mastery: "Learning", level: 1, difficulty: "Medium" },
+      { id: "classify", topic: "Classification", prerequisites: ["analogy"], dependents: [], mastery: "Not Started", level: 2, difficulty: "Medium" },
+      { id: "coding", topic: "Coding-Decoding", prerequisites: [], dependents: ["puzzle"], mastery: "Strong", level: 0, difficulty: "Easy" },
+      { id: "puzzle", topic: "Puzzles & Seating", prerequisites: ["coding"], dependents: ["blood"], mastery: "Weak", level: 1, difficulty: "Hard" },
+      { id: "blood", topic: "Blood Relations", prerequisites: ["puzzle"], dependents: [], mastery: "Not Started", level: 2, difficulty: "Hard" },
+    ];
+    gaps = [{ missingPrerequisite: "Puzzles & Seating", whyItMatters: "Seating arrangement puzzles are high-weightage in SSC/Banking. They require systematic tabulation and logical elimination.", recommendedSequence: ["Practice Coding-Decoding", "Learn Puzzle Types", "Linear Seating", "Circular Seating", "Complex Puzzles"], practiceRecommendations: ["15 seating arrangement problems", "5 PYQ puzzles"], estimatedEffort: "~10 hours" }];
+    sequence = ["Series & Patterns", "Coding-Decoding", "Analogy", "Classification", "Puzzles & Seating", "Blood Relations"];
+  } else if (t.includes("quant") || t.includes("aptitude") || t.includes("arithmetic")) {
+    root = "Quantitative Aptitude";
+    nodes = [
+      { id: "pct", topic: "Percentage", prerequisites: [], dependents: ["pl", "ratio"], mastery: "Strong", level: 0, examRelevance: "Very High", difficulty: "Easy" },
+      { id: "ratio", topic: "Ratio & Proportion", prerequisites: ["pct"], dependents: ["mixture"], mastery: "Practicing", level: 1, difficulty: "Easy" },
+      { id: "pl", topic: "Profit & Loss", prerequisites: ["pct"], dependents: ["discount"], mastery: "Strong", level: 1, difficulty: "Medium" },
+      { id: "discount", topic: "Discount", prerequisites: ["pl"], dependents: ["si"], mastery: "Learning", level: 2, difficulty: "Medium" },
+      { id: "mixture", topic: "Mixture & Alligation", prerequisites: ["ratio"], dependents: [], mastery: "Weak", level: 2, difficulty: "Hard" },
+      { id: "si", topic: "Simple & Compound Interest", prerequisites: ["discount"], dependents: ["tw"], mastery: "Practicing", level: 3, difficulty: "Medium" },
+      { id: "tw", topic: "Time & Work", prerequisites: ["si"], dependents: ["tsd"], mastery: "Learning", level: 4, difficulty: "Hard" },
+      { id: "tsd", topic: "Time, Speed & Distance", prerequisites: ["tw"], dependents: [], mastery: "Not Started", level: 5, difficulty: "Hard" },
+    ];
+    gaps = [
+      { missingPrerequisite: "Mixture & Alligation", whyItMatters: "Alligation method is a shortcut used across mixture, profit-loss, and average problems. Missing it forces longer calculations.", recommendedSequence: ["Review Ratio & Proportion", "Learn Alligation Rule", "Practice Mixture problems", "Apply Alligation to P&L"], practiceRecommendations: ["10 alligation problems", "5 mixture PYQs"], estimatedEffort: "~5 hours" },
+      { missingPrerequisite: "Time, Speed & Distance", whyItMatters: "TSD is high-weightage and builds on Time & Work concepts (rate problems). Relative speed requires solid foundation.", recommendedSequence: ["Review Time & Work", "Basic TSD formulae", "Relative speed", "Trains & Platforms", "Boats & Streams"], practiceRecommendations: ["15 TSD problems", "5 train PYQs"], estimatedEffort: "~8 hours" },
+    ];
+    sequence = ["Percentage", "Ratio & Proportion", "Profit & Loss", "Discount", "Mixture & Alligation", "Simple & Compound Interest", "Time & Work", "Time, Speed & Distance"];
+  } else {
+    // Generic fallback
+    root = topic || "Foundational Concepts";
+    nodes = [
+      { id: "f1", topic: "Foundations", prerequisites: [], dependents: ["c1"], mastery: "Strong", level: 0, examRelevance: "Core", difficulty: "Easy" },
+      { id: "c1", topic: "Core Concepts", prerequisites: ["f1"], dependents: ["a1"], mastery: "Practicing", level: 1, difficulty: "Medium" },
+      { id: "a1", topic: "Applications", prerequisites: ["c1"], dependents: ["adv"], mastery: "Learning", level: 2, difficulty: "Hard" },
+      { id: "adv", topic: "Advanced Topics", prerequisites: ["a1"], dependents: [], mastery: "Not Started", level: 3, difficulty: "Hard" },
+    ];
+    gaps = [{ missingPrerequisite: "Advanced Topics", whyItMatters: "Advanced topics build on applications. Master applications first to avoid getting stuck.", recommendedSequence: ["Review Foundations", "Practice Core Concepts", "Master Applications", "Start Advanced Topics"], practiceRecommendations: ["10 practice problems", "5 PYQs"], estimatedEffort: "~12 hours" }];
+    sequence = ["Foundations", "Core Concepts", "Applications", "Advanced Topics"];
+  }
+
   return {
-    root: "Calculus",
-    nodes: [
-      { id: "calc", topic: "Calculus", prerequisites: [], dependents: ["diff", "int"], mastery: "Learning", level: 0, examRelevance: "High" },
-      { id: "diff", topic: "Differentiation", prerequisites: ["calc"], dependents: ["diffapp", "de"], mastery: "Practicing", level: 1 },
-      { id: "int", topic: "Integration", prerequisites: ["calc"], dependents: ["de"], mastery: "Weak", level: 1 },
-      { id: "de", topic: "Differential Equations", prerequisites: ["diff", "int"], dependents: [], mastery: "Not Started", level: 2 },
-    ],
-    gaps: [
-      { missingPrerequisite: "Integration", whyItMatters: "Required to solve and verify differential equations", recommendedSequence: ["Review Differentiation", "Practice Integration basics", "Indefinite integrals", "Definite integrals", "Start Differential Equations"], practiceRecommendations: ["10 Level-1 integration problems", "5 PYQ integrals"], estimatedEffort: "~15 hours" },
-    ],
-    recommendedLearningSequence: ["Differentiation", "Integration", "Differential Equations"],
+    root,
+    nodes,
+    gaps,
+    recommendedLearningSequence: sequence,
     sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
     generatedAt: new Date().toISOString(),
   };
