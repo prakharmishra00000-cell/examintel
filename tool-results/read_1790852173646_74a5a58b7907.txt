@@ -1,0 +1,1281 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+     4→import { motion } from "framer-motion";
+     5→import { toast } from "sonner";
+     6→import {
+     7→  ListChecks,
+     8→  FileText,
+     9→  Settings2,
+    10→  Play,
+    11→  CheckCircle2,
+    12→  AlertTriangle,
+    13→  ChevronRight,
+    14→  ChevronLeft,
+    15→  Clock,
+    16→  Send,
+    17→  Save,
+    18→  RotateCcw,
+    19→  Sparkles,
+    20→  BookOpen,
+    21→  Target,
+    22→  Hash,
+    23→  Layers,
+    24→  Tag,
+    25→  Upload,
+    26→  Check,
+    27→  X,
+    28→  CircleDashed,
+    29→  Timer,
+    30→  Award,
+    31→  RefreshCw,
+    32→} from "lucide-react";
+    33→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+    34→import { Button } from "@/components/ui/button";
+    35→import { Input } from "@/components/ui/input";
+    36→import { Textarea } from "@/components/ui/textarea";
+    37→import { Badge } from "@/components/ui/badge";
+    38→import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+    39→import { SourceBadgeList } from "@/components/shared/source-badge";
+    40→import { LoadingState, EmptyState } from "@/components/shared/states";
+    41→import { useAppStore } from "@/store/app-store";
+    42→import { useApi } from "@/hooks/use-api";
+    43→import { cn } from "@/lib/utils";
+    44→import type { MCQSet, GeneratedMCQ } from "@/types";
+    45→
+    46→// ---------------- configuration ----------------
+    47→type SourceKey = "Uploaded PDF" | "Syllabus" | "Topic" | "Custom";
+    48→type DifficultyKey = "Easy" | "Medium" | "Hard" | "Mixed Difficulty";
+    49→type QuestionTypeKey =
+    50→  | "MCQ"
+    51→  | "Multiple correct"
+    52→  | "Assertion & Reason"
+    53→  | "Match the following"
+    54→  | "Statement-based"
+    55→  | "True/False";
+    56→
+    57→const SOURCES: { key: SourceKey; label: string; hint: string; icon: typeof FileText }[] = [
+    58→  { key: "Uploaded PDF", label: "Uploaded PDF", hint: "Paste PDF text — questions stay grounded", icon: FileText },
+    59→  { key: "Syllabus", label: "Syllabus", hint: "Paste syllabus text", icon: BookOpen },
+    60→  { key: "Topic", label: "Topic", hint: "Type a topic — AI generates practice", icon: Tag },
+    61→  { key: "Custom", label: "Custom", hint: "Paste any reference text", icon: Settings2 },
+    62→];
+    63→
+    64→const QUICK_CHIPS = [
+    65→  "Eligibility",
+    66→  "Exam Pattern",
+    67→  "Syllabus",
+    68→  "Quantitative Aptitude",
+    69→  "Reasoning",
+    70→  "English",
+    71→  "General Awareness",
+    72→  "Recruitment Rules",
+    73→];
+    74→
+    75→const DIFFICULTIES: { key: DifficultyKey; label: string; hint: string }[] = [
+    76→  { key: "Easy", label: "Easy", hint: "Concept recall" },
+    77→  { key: "Medium", label: "Medium", hint: "Application" },
+    78→  { key: "Hard", label: "Hard", hint: "Multi-step / analytical" },
+    79→  { key: "Mixed Difficulty", label: "Mixed", hint: "Balanced spread" },
+    80→];
+    81→
+    82→const COUNT_CHIPS = [5, 10, 20, 30, 50];
+    83→
+    84→const QUESTION_TYPES: { key: QuestionTypeKey; label: string; hint: string }[] = [
+    85→  { key: "MCQ", label: "MCQ", hint: "Single correct" },
+    86→  { key: "Multiple correct", label: "Multiple correct", hint: "Two or more correct" },
+    87→  { key: "Assertion & Reason", label: "Assertion & Reason", hint: "A/R statement pairs" },
+    88→  { key: "Match the following", label: "Match the following", hint: "List matching" },
+    89→  { key: "Statement-based", label: "Statement-based", hint: "Evaluate statements" },
+    90→  { key: "True/False", label: "True / False", hint: "Binary choice" },
+    91→];
+    92→
+    93→const STEPS = [
+    94→  { id: 1, label: "Source & Topic", icon: FileText },
+    95→  { id: 2, label: "Difficulty", icon: Target },
+    96→  { id: 3, label: "Number", icon: Hash },
+    97→  { id: 4, label: "Question Type", icon: Layers },
+    98→  { id: 5, label: "Review & Generate", icon: Sparkles },
+    99→];
+   100→
+   101→const DIFFICULTY_BADGE: Record<string, string> = {
+   102→  Easy: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+   103→  Medium: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+   104→  Hard: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+   105→  Mixed: "bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30",
+   106→};
+   107→
+   108→// ---------------- helpers ----------------
+   109→function deriveMode(content: string): "Strict PDF Mode" | "Practice Mode" {
+   110→  return content.trim().length > 0 ? "Strict PDF Mode" : "Practice Mode";
+   111→}
+   112→
+   113→function formatTimer(seconds: number): string {
+   114→  const m = Math.floor(seconds / 60);
+   115→  const s = seconds % 60;
+   116→  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+   117→}
+   118→
+   119→// ---------------- Stepper ----------------
+   120→function Stepper({ current, onBack }: { current: number; onBack: (s: number) => void }) {
+   121→  return (
+   122→    <div className="w-full">
+   123→      <div className="flex items-center justify-between gap-1 overflow-x-auto">
+   124→        {STEPS.map((step, i) => {
+   125→          const done = current > step.id;
+   126→          const active = current === step.id;
+   127→          const Icon = step.icon;
+   128→          return (
+   129→            <div key={step.id} className="flex items-center flex-1 min-w-0">
+   130→              <button
+   131→                type="button"
+   132→                onClick={() => step.id < current && onBack(step.id)}
+   133→                disabled={step.id >= current}
+   134→                className={cn(
+   135→                  "flex items-center gap-2 sm:gap-3 rounded-full transition-all",
+   136→                  step.id < current && "cursor-pointer hover:bg-accent/50",
+   137→                  step.id >= current && "cursor-default",
+   138→                )}
+   139→                aria-label={`Step ${step.id}: ${step.label}`}
+   140→              >
+   141→                <span
+   142→                  className={cn(
+   143→                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-all",
+   144→                    active &&
+   145→                      "border-violet-500 bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/30",
+   146→                    done && "border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+   147→                    !active && !done && "border-border bg-background text-muted-foreground",
+   148→                  )}
+   149→                >
+   150→                  {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+   151→                </span>
+   152→                <span className="hidden sm:flex flex-col text-left">
+   153→                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground leading-none">
+   154→                    Step {step.id}
+   155→                  </span>
+   156→                  <span
+   157→                    className={cn(
+   158→                      "text-sm font-medium leading-tight",
+   159→                      active ? "text-foreground" : "text-muted-foreground",
+   160→                    )}
+   161→                  >
+   162→                    {step.label}
+   163→                  </span>
+   164→                </span>
+   165→              </button>
+   166→              {i < STEPS.length - 1 && (
+   167→                <div
+   168→                  className={cn(
+   169→                    "h-0.5 flex-1 mx-1 sm:mx-2 rounded-full transition-colors",
+   170→                    current > step.id ? "bg-emerald-500/40" : "bg-border",
+   171→                  )}
+   172→                />
+   173→              )}
+   174→            </div>
+   175→          );
+   176→        })}
+   177→      </div>
+   178→    </div>
+   179→  );
+   180→}
+   181→
+   182→// ---------------- Selectable Option Card ----------------
+   183→function OptionCard({
+   184→  active,
+   185→  onClick,
+   186→  icon: Icon,
+   187→  title,
+   188→  hint,
+   189→  accent = "violet",
+   190→}: {
+   191→  active: boolean;
+   192→  onClick: () => void;
+   193→  icon: typeof FileText;
+   194→  title: string;
+   195→  hint?: string;
+   196→  accent?: "violet" | "emerald" | "amber";
+   197→}) {
+   198→  const accentMap: Record<string, { ring: string; bg: string; text: string; iconBg: string }> = {
+   199→    violet: {
+   200→      ring: "ring-violet-500/40 border-violet-500/50",
+   201→      bg: "bg-violet-500/5",
+   202→      text: "text-violet-600 dark:text-violet-400",
+   203→      iconBg: "bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white",
+   204→    },
+   205→    emerald: {
+   206→      ring: "ring-emerald-500/40 border-emerald-500/50",
+   207→      bg: "bg-emerald-500/5",
+   208→      text: "text-emerald-600 dark:text-emerald-400",
+   209→      iconBg: "bg-gradient-to-br from-emerald-500 to-teal-500 text-white",
+   210→    },
+   211→    amber: {
+   212→      ring: "ring-amber-500/40 border-amber-500/50",
+   213→      bg: "bg-amber-500/5",
+   214→      text: "text-amber-600 dark:text-amber-400",
+   215→      iconBg: "bg-gradient-to-br from-amber-500 to-orange-500 text-white",
+   216→    },
+   217→  };
+   218→  const a = accentMap[accent];
+   219→  return (
+   220→    <button
+   221→      type="button"
+   222→      onClick={onClick}
+   223→      className={cn(
+   224→        "group flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-all hover:shadow-md",
+   225→        active
+   226→          ? cn(a.ring, a.bg, "ring-2")
+   227→          : "border-border bg-card hover:border-violet-500/30 hover:bg-violet-500/5",
+   228→      )}
+   229→    >
+   230→      <span
+   231→        className={cn(
+   232→          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all",
+   233→          active ? a.iconBg : "bg-muted text-muted-foreground",
+   234→        )}
+   235→      >
+   236→        <Icon className="h-4 w-4" />
+   237→      </span>
+   238→      <span className="flex flex-col flex-1 min-w-0">
+   239→        <span className={cn("font-medium", active ? a.text : "text-foreground")}>{title}</span>
+   240→        {hint && <span className="text-xs text-muted-foreground mt-0.5">{hint}</span>}
+   241→      </span>
+   242→      <span
+   243→        className={cn(
+   244→          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all mt-1",
+   245→          active ? cn("border-transparent", a.iconBg) : "border-border",
+   246→        )}
+   247→      >
+   248→        {active && <Check className="h-3 w-3" />}
+   249→      </span>
+   250→    </button>
+   251→  );
+   252→}
+   253→
+   254→// ---------------- Answer-state visual tokens ----------------
+   255→type AnswerState = "correct" | "wrong" | "unattempted";
+   256→
+   257→const ANSWER_BADGE: Record<AnswerState, { className: string; label: string; icon: typeof Check }> = {
+   258→  correct: {
+   259→    className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+   260→    label: "Correct",
+   261→    icon: Check,
+   262→  },
+   263→  wrong: {
+   264→    className: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+   265→    label: "Incorrect",
+   266→    icon: X,
+   267→  },
+   268→  unattempted: {
+   269→    className: "bg-zinc-500/15 text-zinc-600 dark:text-zinc-300 border-zinc-500/30",
+   270→    label: "Skipped",
+   271→    icon: CircleDashed,
+   272→  },
+   273→};
+   274→
+   275→// ---------------- Main component ----------------
+   276→export function McqGenerator() {
+   277→  const api = useApi();
+   278→  const setContext = useAppStore((s) => s.setContext);
+   279→  const saveItem = useAppStore((s) => s.saveItem);
+   280→
+   281→  // step state
+   282→  const [step, setStep] = useState<number>(1);
+   283→
+   284→  // form state
+   285→  const [source, setSource] = useState<SourceKey>("Uploaded PDF");
+   286→  const [content, setContent] = useState<string>("");
+   287→  const [topic, setTopic] = useState<string>("");
+   288→  const [customTopic, setCustomTopic] = useState<string>("");
+   289→  const [difficulty, setDifficulty] = useState<DifficultyKey>("Mixed Difficulty");
+   290→  const [questionCount, setQuestionCount] = useState<number>(5);
+   291→  const [customCount, setCustomCount] = useState<string>("");
+   292→  const [useCustomCount, setUseCustomCount] = useState<boolean>(false);
+   293→  const [questionType, setQuestionType] = useState<QuestionTypeKey>("MCQ");
+   294→  const [examName, setExamName] = useState<string>("");
+   295→
+   296→  // generation state
+   297→  const [loading, setLoading] = useState<boolean>(false);
+   298→  const [mcqSet, setMcqSet] = useState<MCQSet | null>(null);
+   299→
+   300→  // test-mode state
+   301→  const [answers, setAnswers] = useState<Record<string, string>>({});
+   302→  const [activeQ, setActiveQ] = useState<number>(0);
+   303→  const [submitted, setSubmitted] = useState<boolean>(false);
+   304→  const [elapsed, setElapsed] = useState<number>(0);
+   305→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   306→
+   307→  // derived mode
+   308→  const mode = useMemo(() => deriveMode(content), [content]);
+   309→
+   310→  // effective question count
+   311→  const effectiveCount = useCustomCount
+   312→    ? Math.min(50, Math.max(1, parseInt(customCount, 10) || 0))
+   313→    : questionCount;
+   314→
+   315→  // effective topic label (used for context/save)
+   316→  const effectiveTopic = useMemo(() => {
+   317→    if (topic && topic.trim()) return topic.trim();
+   318→    if (customTopic && customTopic.trim()) return customTopic.trim();
+   319→    if (source === "Uploaded PDF") return "Uploaded PDF";
+   320→    if (source === "Syllabus") return "Syllabus";
+   321→    return "Custom";
+   322→  }, [topic, customTopic, source]);
+   323→
+   324→  // ----------------- timer -----------------
+   325→  useEffect(() => {
+   326→    if (mcqSet && !submitted) {
+   327→      timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+   328→      return () => {
+   329→        if (timerRef.current) clearInterval(timerRef.current);
+   330→      };
+   331→    }
+   332→    if (submitted && timerRef.current) {
+   333→      clearInterval(timerRef.current);
+   334→      timerRef.current = null;
+   335→    }
+   336→  }, [mcqSet, submitted]);
+   337→
+   338→  const resetTestState = useCallback(() => {
+   339→    setAnswers({});
+   340→    setActiveQ(0);
+   341→    setSubmitted(false);
+   342→    setElapsed(0);
+   343→    if (timerRef.current) {
+   344→      clearInterval(timerRef.current);
+   345→      timerRef.current = null;
+   346→    }
+   347→  }, []);
+   348→
+   349→  // ----------------- handlers -----------------
+   350→  function handleNext() {
+   351→    setStep((s) => Math.min(5, s + 1));
+   352→  }
+   353→
+   354→  function handleBack(to?: number) {
+   355→    setStep((s) => (typeof to === "number" ? to : Math.max(1, s - 1)));
+   356→  }
+   357→
+   358→  function canProceedFromStep(s: number): boolean {
+   359→    if (s === 1) {
+   360→      if (source === "Uploaded PDF" || source === "Syllabus" || source === "Custom") {
+   361→        return content.trim().length > 0;
+   362→      }
+   363→      if (source === "Topic") {
+   364→        return topic.trim().length > 0 || customTopic.trim().length > 0;
+   365→      }
+   366→      return false;
+   367→    }
+   368→    return true;
+   369→  }
+   370→
+   371→  function selectAnswer(qid: string, option: string) {
+   372→    if (submitted) return;
+   373→    setAnswers((prev) => ({ ...prev, [qid]: option }));
+   374→  }
+   375→
+   376→  async function handleGenerate() {
+   377→    setLoading(true);
+   378→    resetTestState();
+   379→    const body = {
+   380→      source,
+   381→      content,
+   382→      topic: effectiveTopic,
+   383→      difficulty: difficulty === "Mixed Difficulty" ? "Mixed" : difficulty,
+   384→      questionCount: effectiveCount,
+   385→      questionType,
+   386→      mode,
+   387→      examName,
+   388→    };
+   389→    const res = await api.call<{ set: MCQSet }>("/api/mcq/generate", body);
+   390→    setLoading(false);
+   391→    if (!res?.set) return;
+   392→    setMcqSet(res.set);
+   393→    setContext(`MCQ set: ${effectiveTopic}`, "mcq");
+   394→  }
+   395→
+   396→  function handleSubmit() {
+   397→    setSubmitted(true);
+   398→    if (timerRef.current) {
+   399→      clearInterval(timerRef.current);
+   400→      timerRef.current = null;
+   401→    }
+   402→  }
+   403→
+   404→  function handleSave() {
+   405→    if (!mcqSet) return;
+   406→    const correct = computeScore().correct;
+   407→    const accuracy = mcqSet.mcqs.length > 0 ? Math.round((correct / mcqSet.mcqs.length) * 100) : 0;
+   408→    saveItem({
+   409→      type: "mcq",
+   410→      title: `${effectiveTopic} · ${mcqSet.questionCount}Q`,
+   411→      summary: `${accuracy}% accuracy`,
+   412→      data: { set: mcqSet, answers, elapsed, submitted },
+   413→    });
+   414→    toast.success("Saved to My Research", {
+   415→      description: `${effectiveTopic} · ${mcqSet.questionCount}Q · ${accuracy}% accuracy`,
+   416→    });
+   417→  }
+   418→
+   419→  function handleGenerateAnother() {
+   420→    setMcqSet(null);
+   421→    resetTestState();
+   422→    setStep(1);
+   423→    setSource("Uploaded PDF");
+   424→    setContent("");
+   425→    setTopic("");
+   426→    setCustomTopic("");
+   427→    setQuestionCount(5);
+   428→    setUseCustomCount(false);
+   429→    setCustomCount("");
+   430→    setQuestionType("MCQ");
+   431→    setDifficulty("Mixed Difficulty");
+   432→    setExamName("");
+   433→  }
+   434→
+   435→  function handleUploadTxt(e: React.ChangeEvent<HTMLInputElement>) {
+   436→    const file = e.target.files?.[0];
+   437→    if (!file) return;
+   438→    const reader = new FileReader();
+   439→    reader.onload = () => {
+   440→      const text = String(reader.result ?? "");
+   441→      setContent(text);
+   442→      toast.success(`Loaded ${file.name}`, { description: `${text.length.toLocaleString()} characters` });
+   443→    };
+   444→    reader.readAsText(file);
+   445→  }
+   446→
+   447→  // ----------------- scoring -----------------
+   448→  function computeScore() {
+   449→    if (!mcqSet) return { correct: 0, incorrect: 0, unattempted: 0, total: 0, accuracy: 0 };
+   450→    let correct = 0;
+   451→    let incorrect = 0;
+   452→    let unattempted = 0;
+   453→    for (const m of mcqSet.mcqs) {
+   454→      const user = answers[m.id];
+   455→      if (!user) {
+   456→        unattempted += 1;
+   457→        continue;
+   458→      }
+   459→      // For "Multiple correct" correctAnswer is comma-separated; compare as sets
+   460→      const correctSet = new Set(m.correctAnswer.split(",").map((s) => s.trim()).filter(Boolean));
+   461→      const userSet = new Set(user.split(",").map((s) => s.trim()).filter(Boolean));
+   462→      const same =
+   463→        correctSet.size === userSet.size &&
+   464→        [...correctSet].every((s) => userSet.has(s));
+   465→      if (same) correct += 1;
+   466→      else incorrect += 1;
+   467→    }
+   468→    const total = mcqSet.mcqs.length;
+   469→    const attempted = total - unattempted;
+   470→    const accuracy = attempted > 0 ? Math.round((correct / total) * 100) : 0;
+   471→    return { correct, incorrect, unattempted, total, attempted, accuracy };
+   472→  }
+   473→
+   474→  function answerStateFor(m: GeneratedMCQ): AnswerState {
+   475→    const user = answers[m.id];
+   476→    if (!user) return "unattempted";
+   477→    const correctSet = new Set(m.correctAnswer.split(",").map((s) => s.trim()).filter(Boolean));
+   478→    const userSet = new Set(user.split(",").map((s) => s.trim()).filter(Boolean));
+   479→    const same =
+   480→      correctSet.size === userSet.size &&
+   481→      [...correctSet].every((s) => userSet.has(s));
+   482→    return same ? "correct" : "wrong";
+   483→  }
+   484→
+   485→  // ============================================================
+   486→  // CONFIGURATION WORKFLOW
+   487→  // ============================================================
+   488→  function renderStep() {
+   489→    if (step === 1) {
+   490→      return (
+   491→        <Card className="border-violet-500/20">
+   492→          <CardHeader>
+   493→            <CardTitle className="flex items-center gap-2">
+   494→              <FileText className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   495→              Select Source & Topic
+   496→            </CardTitle>
+   497→            <CardDescription>
+   498→              Choose where the questions come from. Grounded content keeps answers verifiable.
+   499→            </CardDescription>
+   500→          </CardHeader>
+   501→          <CardContent className="space-y-5">
+   502→            <div className="grid sm:grid-cols-2 gap-3">
+   503→              {SOURCES.map((s) => (
+   504→                <OptionCard
+   505→                  key={s.key}
+   506→                  active={source === s.key}
+   507→                  onClick={() => setSource(s.key)}
+   508→                  icon={s.icon}
+   509→                  title={s.label}
+   510→                  hint={s.hint}
+   511→                />
+   512→              ))}
+   513→            </div>
+   514→
+   515→            {/* content / topic inputs based on source */}
+   516→            {(source === "Uploaded PDF" || source === "Syllabus" || source === "Custom") && (
+   517→              <div className="space-y-2">
+   518→                <div className="flex items-center justify-between gap-2">
+   519→                  <label className="text-sm font-medium">
+   520→                    {source === "Uploaded PDF" ? "PDF content" : source === "Syllabus" ? "Syllabus text" : "Reference text"}
+   521→                  </label>
+   522→                  <label className="cursor-pointer">
+   523→                    <span className="inline-flex items-center gap-1.5 text-xs font-medium rounded-md border border-violet-500/30 bg-violet-500/5 px-2.5 py-1 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 transition-colors">
+   524→                      <Upload className="h-3.5 w-3.5" /> Upload .txt
+   525→                    </span>
+   526→                    <input
+   527→                      type="file"
+   528→                      accept=".txt,text/plain"
+   529→                      className="sr-only"
+   530→                      onChange={handleUploadTxt}
+   531→                    />
+   532→                  </label>
+   533→                </div>
+   534→                <Textarea
+   535→                  value={content}
+   536→                  onChange={(e) => setContent(e.target.value)}
+   537→                  placeholder={
+   538→                    source === "Uploaded PDF"
+   539→                      ? "Paste the PDF text here. Each MCQ will be grounded in this content..."
+   540→                      : source === "Syllabus"
+   541→                        ? "Paste the syllabus text here..."
+   542→                        : "Paste any reference material..."
+   543→                  }
+   544→                  className="min-h-[160px] resize-y"
+   545→                />
+   546→                <div className="flex items-center justify-between text-xs text-muted-foreground">
+   547→                  <span>{content.trim().length.toLocaleString()} characters</span>
+   548→                  <span
+   549→                    className={cn(
+   550→                      "px-2 py-0.5 rounded-full border",
+   551→                      content.trim().length > 0
+   552→                        ? "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400"
+   553→                        : "border-border",
+   554→                    )}
+   555→                  >
+   556→                    Mode: {mode}
+   557→                  </span>
+   558→                </div>
+   559→              </div>
+   560→            )}
+   561→
+   562→            {source === "Topic" && (
+   563→              <div className="space-y-2">
+   564→                <label className="text-sm font-medium">Topic</label>
+   565→                <Input
+   566→                  value={topic}
+   567→                  onChange={(e) => setTopic(e.target.value)}
+   568→                  placeholder="e.g. Time, Speed & Distance"
+   569→                />
+   570→                <div className="space-y-1">
+   571→                  <label className="text-xs text-muted-foreground">Or pick a quick topic:</label>
+   572→                  <div className="flex flex-wrap gap-1.5">
+   573→                    {QUICK_CHIPS.map((c) => (
+   574→                      <button
+   575→                        key={c}
+   576→                        type="button"
+   577→                        onClick={() => setTopic(c)}
+   578→                        className={cn(
+   579→                          "text-xs px-2.5 py-1 rounded-full border transition-all",
+   580→                          topic === c
+   581→                            ? "border-violet-500 bg-violet-500/15 text-violet-600 dark:text-violet-400"
+   582→                            : "border-border hover:border-violet-500/40 hover:bg-violet-500/5",
+   583→                        )}
+   584→                      >
+   585→                        {c}
+   586→                      </button>
+   587→                    ))}
+   588→                  </div>
+   589→                </div>
+   590→              </div>
+   591→            )}
+   592→
+   593→            {(source !== "Topic") && (
+   594→              <div className="space-y-2">
+   595→                <label className="text-sm font-medium">
+   596→                  Topic label <span className="text-muted-foreground text-xs">(optional)</span>
+   597→                </label>
+   598→                <div className="flex flex-wrap gap-1.5 mb-2">
+   599→                  {QUICK_CHIPS.map((c) => (
+   600→                    <button
+   601→                      key={c}
+   602→                      type="button"
+   603→                      onClick={() => setTopic(c)}
+   604→                      className={cn(
+   605→                        "text-xs px-2.5 py-1 rounded-full border transition-all",
+   606→                        topic === c
+   607→                          ? "border-violet-500 bg-violet-500/15 text-violet-600 dark:text-violet-400"
+   608→                          : "border-border hover:border-violet-500/40 hover:bg-violet-500/5",
+   609→                      )}
+   610→                    >
+   611→                      {c}
+   612→                    </button>
+   613→                  ))}
+   614→                </div>
+   615→                <Input
+   616→                  value={customTopic}
+   617→                  onChange={(e) => setCustomTopic(e.target.value)}
+   618→                  placeholder="Custom topic label (e.g. Profit & Loss)"
+   619→                />
+   620→              </div>
+   621→            )}
+   622→
+   623→            <div className="space-y-2">
+   624→              <label className="text-sm font-medium">
+   625→                Target exam <span className="text-muted-foreground text-xs">(optional, for tone)</span>
+   626→              </label>
+   627→              <Input
+   628→                value={examName}
+   629→                onChange={(e) => setExamName(e.target.value)}
+   630→                placeholder="e.g. SSC CGL, GATE, UPSC Prelims"
+   631→              />
+   632→            </div>
+   633→          </CardContent>
+   634→        </Card>
+   635→      );
+   636→    }
+   637→
+   638→    if (step === 2) {
+   639→      return (
+   640→        <Card className="border-violet-500/20">
+   641→          <CardHeader>
+   642→            <CardTitle className="flex items-center gap-2">
+   643→              <Target className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   644→              Choose Difficulty
+   645→            </CardTitle>
+   646→            <CardDescription>Pick the cognitive level of the questions.</CardDescription>
+   647→          </CardHeader>
+   648→          <CardContent>
+   649→            <div className="grid sm:grid-cols-2 gap-3">
+   650→              {DIFFICULTIES.map((d) => (
+   651→                <OptionCard
+   652→                  key={d.key}
+   653→                  active={difficulty === d.key}
+   654→                  onClick={() => setDifficulty(d.key)}
+   655→                  icon={Target}
+   656→                  title={d.label}
+   657→                  hint={d.hint}
+   658→                />
+   659→              ))}
+   660→            </div>
+   661→          </CardContent>
+   662→        </Card>
+   663→      );
+   664→    }
+   665→
+   666→    if (step === 3) {
+   667→      return (
+   668→        <Card className="border-violet-500/20">
+   669→          <CardHeader>
+   670→            <CardTitle className="flex items-center gap-2">
+   671→              <Hash className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   672→              Number of Questions
+   673→            </CardTitle>
+   674→            <CardDescription>How many MCQs should the AI produce?</CardDescription>
+   675→          </CardHeader>
+   676→          <CardContent className="space-y-4">
+   677→            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+   678→              {COUNT_CHIPS.map((c) => (
+   679→                <button
+   680→                  key={c}
+   681→                  type="button"
+   682→                  onClick={() => {
+   683→                    setQuestionCount(c);
+   684→                    setUseCustomCount(false);
+   685→                  }}
+   686→                  className={cn(
+   687→                    "h-16 rounded-xl border text-lg font-bold transition-all",
+   688→                    !useCustomCount && questionCount === c
+   689→                      ? "border-violet-500 bg-gradient-to-br from-violet-500/15 to-fuchsia-500/15 text-violet-600 dark:text-violet-400 ring-2 ring-violet-500/30"
+   690→                      : "border-border hover:border-violet-500/30 hover:bg-violet-500/5",
+   691→                  )}
+   692→                >
+   693→                  {c}
+   694→                </button>
+   695→              ))}
+   696→              <button
+   697→                type="button"
+   698→                onClick={() => setUseCustomCount(true)}
+   699→                className={cn(
+   700→                  "h-16 rounded-xl border text-sm font-medium transition-all",
+   701→                  useCustomCount
+   702→                    ? "border-violet-500 bg-gradient-to-br from-violet-500/15 to-fuchsia-500/15 text-violet-600 dark:text-violet-400 ring-2 ring-violet-500/30"
+   703→                    : "border-border hover:border-violet-500/30 hover:bg-violet-500/5",
+   704→                )}
+   705→              >
+   706→                Custom
+   707→              </button>
+   708→            </div>
+   709→            {useCustomCount && (
+   710→              <div className="space-y-2">
+   711→                <label className="text-sm font-medium">Custom count (1–50)</label>
+   712→                <Input
+   713→                  type="number"
+   714→                  min={1}
+   715→                  max={50}
+   716→                  value={customCount}
+   717→                  onChange={(e) => setCustomCount(e.target.value)}
+   718→                  placeholder="e.g. 15"
+   719→                />
+   720→              </div>
+   721→            )}
+   722→          </CardContent>
+   723→        </Card>
+   724→      );
+   725→    }
+   726→
+   727→    if (step === 4) {
+   728→      return (
+   729→        <Card className="border-violet-500/20">
+   730→          <CardHeader>
+   731→            <CardTitle className="flex items-center gap-2">
+   732→              <Layers className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   733→              Question Type
+   734→            </CardTitle>
+   735→            <CardDescription>Choose the format of the questions.</CardDescription>
+   736→          </CardHeader>
+   737→          <CardContent>
+   738→            <div className="grid sm:grid-cols-2 gap-3">
+   739→              {QUESTION_TYPES.map((q) => (
+   740→                <OptionCard
+   741→                  key={q.key}
+   742→                  active={questionType === q.key}
+   743→                  onClick={() => setQuestionType(q.key)}
+   744→                  icon={Layers}
+   745→                  title={q.label}
+   746→                  hint={q.hint}
+   747→                />
+   748→              ))}
+   749→            </div>
+   750→          </CardContent>
+   751→        </Card>
+   752→      );
+   753→    }
+   754→
+   755→    // step 5 — review
+   756→    return (
+   757→      <Card className="border-violet-500/30">
+   758→        <CardHeader>
+   759→          <CardTitle className="flex items-center gap-2">
+   760→            <Sparkles className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   761→            Review & Generate
+   762→          </CardTitle>
+   763→          <CardDescription>Confirm the configuration, then generate the MCQ set.</CardDescription>
+   764→        </CardHeader>
+   765→        <CardContent className="space-y-5">
+   766→          <div className="rounded-xl border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-fuchsia-500/5 p-5">
+   767→            <div className="flex items-center gap-2 mb-4">
+   768→              <ListChecks className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+   769→              <h3 className="font-semibold text-sm">MCQ Configuration</h3>
+   770→            </div>
+   771→            <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+   772→              <ConfigRow label="Source" value={source} />
+   773→              <ConfigRow label="Topic" value={effectiveTopic} />
+   774→              <ConfigRow
+   775→                label="Difficulty"
+   776→                value={difficulty === "Mixed Difficulty" ? "Mixed" : difficulty}
+   777→              />
+   778→              <ConfigRow label="Questions" value={String(effectiveCount)} />
+   779→              <ConfigRow label="Type" value={questionType} />
+   780→              <ConfigRow label="Mode" value={mode} highlight />
+   781→            </dl>
+   782→            {examName && <ConfigRow label="Target exam" value={examName} className="mt-3" />}
+   783→          </div>
+   784→
+   785→          <div className="flex items-start gap-2 text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
+   786→            <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+   787→            <p>
+   788→              {mode === "Strict PDF Mode"
+   789→                ? "Strict PDF Mode: every question will be grounded in your uploaded content, with source passages quoted."
+   790→                : "Practice Mode: AI will generate exam-grade questions on the chosen topic without grounding content."}
+   791→            </p>
+   792→          </div>
+   793→
+   794→          <Button
+   795→            onClick={handleGenerate}
+   796→            disabled={loading}
+   797→            className="w-full h-12 text-base font-semibold bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-lg shadow-violet-500/20"
+   798→          >
+   799→            {loading ? (
+   800→              <>
+   801→                <Sparkles className="h-4 w-4 animate-pulse" />
+   802→                Generating...
+   803→              </>
+   804→            ) : (
+   805→              <>
+   806→                <Play className="h-4 w-4" />
+   807→                Generate Questions
+   808→              </>
+   809→            )}
+   810→          </Button>
+   811→        </CardContent>
+   812→      </Card>
+   813→    );
+   814→  }
+   815→
+   816→  // ----------------- render question card (test mode + results) -----------------
+   817→  function renderQuestionCard(m: GeneratedMCQ, idx: number) {
+   818→    const userAns = answers[m.id];
+   819→    const state = submitted ? answerStateFor(m) : null;
+   820→    const correctSet = new Set(m.correctAnswer.split(",").map((s) => s.trim()).filter(Boolean));
+   821→    const isActive = idx === activeQ;
+   822→    const StateIcon = state ? ANSWER_BADGE[state].icon : null;
+   823→
+   824→    return (
+   825→      <Card
+   826→        key={m.id}
+   827→        className={cn(
+   828→          "transition-all",
+   829→          isActive && !submitted && "ring-2 ring-violet-500/30 border-violet-500/40",
+   830→          state === "correct" && "border-emerald-500/30",
+   831→          state === "wrong" && "border-rose-500/30",
+   832→          state === "unattempted" && "border-zinc-500/30",
+   833→        )}
+   834→        id={`q-${m.id}`}
+   835→      >
+   836→        <CardHeader>
+   837→          <div className="flex items-start justify-between gap-3">
+   838→            <div className="flex items-start gap-3 flex-1">
+   839→              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-sm font-bold">
+   840→                {idx + 1}
+   841→              </span>
+   842→              <div className="flex-1 min-w-0">
+   843→                <CardTitle className="text-base leading-relaxed font-medium">
+   844→                  {m.question}
+   845→                </CardTitle>
+   846→                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+   847→                  <Badge variant="outline" className={DIFFICULTY_BADGE[m.difficulty]}>
+   848→                    {m.difficulty}
+   849→                  </Badge>
+   850→                  {m.topic && (
+   851→                    <Badge variant="outline" className="text-muted-foreground border-border">
+   852→                      <Tag className="h-3 w-3" /> {m.topic}
+   853→                    </Badge>
+   854→                  )}
+   855→                  {m.validationStatus === "needs-review" && (
+   856→                    <Badge
+   857→                      variant="outline"
+   858→                      className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+   859→                    >
+   860→                      <AlertTriangle className="h-3 w-3" /> Needs review
+   861→                    </Badge>
+   862→                  )}
+   863→                  {state && StateIcon && (
+   864→                    <Badge variant="outline" className={ANSWER_BADGE[state].className}>
+   865→                      <StateIcon className="h-3 w-3" /> {ANSWER_BADGE[state].label}
+   866→                    </Badge>
+   867→                  )}
+   868→                </div>
+   869→              </div>
+   870→            </div>
+   871→          </div>
+   872→        </CardHeader>
+   873→        <CardContent className="space-y-3">
+   874→          <div className="grid gap-2">
+   875→            {m.options.map((opt, i) => {
+   876→              const isSelected = userAns === opt;
+   877→              const isCorrect = correctSet.has(opt);
+   878→              const letter = String.fromCharCode(65 + i);
+   879→              // visual state per option
+   880→              let optClass = "border-border hover:border-violet-500/30 hover:bg-violet-500/5";
+   881→              if (submitted) {
+   882→                if (isCorrect) {
+   883→                  optClass = "border-emerald-500/50 bg-emerald-500/10";
+   884→                } else if (isSelected) {
+   885→                  optClass = "border-rose-500/50 bg-rose-500/10";
+   886→                } else {
+   887→                  optClass = "border-border opacity-60";
+   888→                }
+   889→              } else if (isSelected) {
+   890→                optClass = "border-violet-500 bg-violet-500/10 ring-1 ring-violet-500/30";
+   891→              }
+   892→              return (
+   893→                <button
+   894→                  key={i}
+   895→                  type="button"
+   896→                  disabled={submitted}
+   897→                  onClick={() => selectAnswer(m.id, opt)}
+   898→                  className={cn(
+   899→                    "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-all",
+   900→                    optClass,
+   901→                    submitted && "cursor-default",
+   902→                  )}
+   903→                >
+   904→                  <span
+   905→                    className={cn(
+   906→                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-bold border",
+   907→                      isSelected && !submitted && "border-violet-500 bg-violet-500 text-white",
+   908→                      submitted && isCorrect && "border-emerald-500 bg-emerald-500 text-white",
+   909→                      submitted && isSelected && !isCorrect && "border-rose-500 bg-rose-500 text-white",
+   910→                      (!isSelected || submitted) && !isCorrect && !(submitted && isSelected) && "border-border text-muted-foreground",
+   911→                    )}
+   912→                  >
+   913→                    {letter}
+   914→                  </span>
+   915→                  <span className="flex-1">{opt}</span>
+   916→                  {submitted && isCorrect && (
+   917→                    <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+   918→                  )}
+   919→                  {submitted && isSelected && !isCorrect && (
+   920→                    <X className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+   921→                  )}
+   922→                </button>
+   923→              );
+   924→            })}
+   925→          </div>
+   926→
+   927→          {/* post-submit explanation + source */}
+   928→          {submitted && (
+   929→            <motion.div
+   930→              initial={{ opacity: 0, y: 8 }}
+   931→              animate={{ opacity: 1, y: 0 }}
+   932→              className="space-y-3 pt-2"
+   933→            >
+   934→              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+   935→                <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-1">
+   936→                  Explanation
+   937→                </div>
+   938→                <p className="text-foreground/90 leading-relaxed">{m.explanation}</p>
+   939→              </div>
+   940→              <div className="flex flex-wrap items-center gap-2 text-xs">
+   941→                <span className="text-muted-foreground">Your answer:</span>
+   942→                <Badge
+   943→                  variant="outline"
+   944→                  className={
+   945→                    state === "correct"
+   946→                      ? ANSWER_BADGE.correct.className
+   947→                      : state === "wrong"
+   948→                        ? ANSWER_BADGE.wrong.className
+   949→                        : ANSWER_BADGE.unattempted.className
+   950→                  }
+   951→                >
+   952→                  {userAns ?? "—"}
+   953→                </Badge>
+   954→                <span className="text-muted-foreground ml-2">Correct:</span>
+   955→                <Badge variant="outline" className={ANSWER_BADGE.correct.className}>
+   956→                  {m.correctAnswer}
+   957→                </Badge>
+   958→              </div>
+   959→              {m.sourcePassage && (
+   960→                <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 text-xs">
+   961→                  <div className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400 font-medium mb-1">
+   962→                    <FileText className="h-3.5 w-3.5" /> Source passage
+   963→                    {typeof m.sourcePage === "number" && (
+   964→                      <Badge variant="outline" className="ml-1 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+   965→                        Page {m.sourcePage}
+   966→                      </Badge>
+   967→                    )}
+   968→                  </div>
+   969→                  <p className="text-foreground/80 italic leading-relaxed">“{m.sourcePassage}”</p>
+   970→                </div>
+   971→              )}
+   972→            </motion.div>
+   973→          )}
+   974→        </CardContent>
+   975→      </Card>
+   976→    );
+   977→  }
+   978→
+   979→  // ----------------- render MCQ set (after generation) -----------------
+   980→  function renderResults() {
+   981→    if (!mcqSet) return null;
+   982→    const score = computeScore();
+   983→
+   984→    return (
+   985→      <div className="space-y-5">
+   986→        {/* summary card */}
+   987→        <Card className="border-violet-500/20">
+   988→          <CardHeader>
+   989→            <div className="flex items-start justify-between gap-3 flex-wrap">
+   990→              <div>
+   991→                <CardTitle className="flex items-center gap-2">
+   992→                  <ListChecks className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   993→                  {mcqSet.topic}
+   994→                </CardTitle>
+   995→                <CardDescription className="mt-1">
+   996→                  {mcqSet.questionCount} questions · {mcqSet.questionType}
+   997→                </CardDescription>
+   998→              </div>
+   999→              <div className="flex items-center gap-2">
+  1000→                <Badge variant="outline" className="bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30">
+  1001→                  <Sparkles className="h-3 w-3" /> {mcqSet.mode}
+  1002→                </Badge>
+  1003→                <Badge variant="outline" className={DIFFICULTY_BADGE[mcqSet.difficulty] ?? DIFFICULTY_BADGE.Mixed}>
+  1004→                  {mcqSet.difficulty}
+  1005→                </Badge>
+  1006→              </div>
+  1007→            </div>
+  1008→          </CardHeader>
+  1009→          <CardContent>
+  1010→            <dl className="grid sm:grid-cols-3 gap-4 text-sm">
+  1011→              <ConfigRow label="Source" value={mcqSet.source} compact />
+  1012→              <ConfigRow label="Question type" value={mcqSet.questionType} compact />
+  1013→              <ConfigRow label="Mode" value={mcqSet.mode} compact />
+  1014→            </dl>
+  1015→          </CardContent>
+  1016→        </Card>
+  1017→
+  1018→        {/* score summary (after submit) */}
+  1019→        {submitted && (
+  1020→          <motion.div
+  1021→            initial={{ opacity: 0, y: 8 }}
+  1022→            animate={{ opacity: 1, y: 0 }}
+  1023→          >
+  1024→            <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-teal-500/5">
+  1025→              <CardContent className="py-5">
+  1026→                <div className="flex items-center gap-3 mb-4">
+  1027→                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 text-white">
+  1028→                    <Award className="h-5 w-5" />
+  1029→                  </div>
+  1030→                  <div>
+  1031→                    <div className="text-sm font-semibold">Test complete</div>
+  1032→                    <div className="text-xs text-muted-foreground">
+  1033→                      Finished in {formatTimer(elapsed)} · {score.attempted} of {score.total} attempted
+  1034→                    </div>
+  1035→                  </div>
+  1036→                </div>
+  1037→                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  1038→                  <ScoreStat label="Correct" value={score.correct} className="text-emerald-600 dark:text-emerald-400" icon={Check} />
+  1039→                  <ScoreStat label="Incorrect" value={score.incorrect} className="text-rose-600 dark:text-rose-400" icon={X} />
+  1040→                  <ScoreStat label="Skipped" value={score.unattempted} className="text-zinc-600 dark:text-zinc-300" icon={CircleDashed} />
+  1041→                  <ScoreStat label="Accuracy" value={`${score.accuracy}%`} className="text-violet-600 dark:text-violet-400" icon={Target} />
+  1042→                </div>
+  1043→              </CardContent>
+  1044→            </Card>
+  1045→          </motion.div>
+  1046→        )}
+  1047→
+  1048→        {/* test mode: palette + timer + questions */}
+  1049→        {!submitted && (
+  1050→          <div className="grid lg:grid-cols-[1fr_220px] gap-5">
+  1051→            <div className="space-y-4 order-2 lg:order-1">
+  1052→              {mcqSet.mcqs.map((m, i) => renderQuestionCard(m, i))}
+  1053→            </div>
+  1054→            <div className="order-1 lg:order-2 space-y-4 lg:sticky lg:top-4 self-start">
+  1055→              <Card className="border-violet-500/20">
+  1056→                <CardHeader>
+  1057→                  <CardTitle className="flex items-center justify-between text-sm">
+  1058→                    <span className="flex items-center gap-1.5">
+  1059→                      <Timer className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+  1060→                      Timer
+  1061→                    </span>
+  1062→                    <span className="font-mono text-base tabular-nums">{formatTimer(elapsed)}</span>
+  1063→                  </CardTitle>
+  1064→                </CardHeader>
+  1065→                <CardContent className="space-y-3">
+  1066→                  <div className="text-xs text-muted-foreground">
+  1067→                    Attempted: {Object.keys(answers).length} / {mcqSet.mcqs.length}
+  1068→                  </div>
+  1069→                  {/* palette */}
+  1070→                  <div className="grid grid-cols-5 lg:grid-cols-4 gap-1.5">
+  1071→                    {mcqSet.mcqs.map((m, i) => {
+  1072→                      const answered = !!answers[m.id];
+  1073→                      const isActive = i === activeQ;
+  1074→                      return (
+  1075→                        <button
+  1076→                          key={m.id}
+  1077→                          type="button"
+  1078→                          onClick={() => {
+  1079→                            setActiveQ(i);
+  1080→                            if (typeof document !== "undefined") {
+  1081→                              document.getElementById(`q-${m.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  1082→                            }
+  1083→                          }}
+  1084→                          className={cn(
+  1085→                            "h-8 w-8 rounded-md text-xs font-semibold border transition-all",
+  1086→                            isActive
+  1087→                              ? "border-violet-500 bg-violet-500 text-white"
+  1088→                              : answered
+  1089→                                ? "border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400"
+  1090→                                : "border-border text-muted-foreground hover:border-violet-500/30",
+  1091→                          )}
+  1092→                          aria-label={`Question ${i + 1}${answered ? " (answered)" : ""}`}
+  1093→                        >
+  1094→                          {i + 1}
+  1095→                        </button>
+  1096→                      );
+  1097→                    })}
+  1098→                  </div>
+  1099→                  <Button
+  1100→                    onClick={handleSubmit}
+  1101→                    className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-md shadow-violet-500/20"
+  1102→                  >
+  1103→                    <Send className="h-4 w-4" /> Submit Test
+  1104→                  </Button>
+  1105→                </CardContent>
+  1106→              </Card>
+  1107→            </div>
+  1108→          </div>
+  1109→        )}
+  1110→
+  1111→        {/* results: render all questions with explanations */}
+  1112→        {submitted && (
+  1113→          <div className="space-y-4">
+  1114→            {mcqSet.mcqs.map((m, i) => renderQuestionCard(m, i))}
+  1115→          </div>
+  1116→        )}
+  1117→
+  1118→        {/* sources */}
+  1119→        <Card>
+  1120→          <CardHeader>
+  1121→            <CardTitle className="flex items-center gap-2 text-sm">
+  1122→              <FileText className="h-4 w-4" /> Sources
+  1123→            </CardTitle>
+  1124→          </CardHeader>
+  1125→          <CardContent>
+  1126→            <SourceBadgeList sources={mcqSet.sources} />
+  1127→          </CardContent>
+  1128→        </Card>
+  1129→
+  1130→        {/* action bar */}
+  1131→        <div className="flex flex-wrap gap-2">
+  1132→          <Button
+  1133→            onClick={handleSave}
+  1134→            className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white"
+  1135→          >
+  1136→            <Save className="h-4 w-4" /> Save to My Research
+  1137→          </Button>
+  1138→          <Button variant="outline" onClick={handleGenerateAnother}>
+  1139→            <RotateCcw className="h-4 w-4" /> Generate another set
+  1140→          </Button>
+  1141→          {submitted && (
+  1142→            <Button variant="outline" onClick={resetTestState}>
+  1143→              <RefreshCw className="h-4 w-4" /> Retake test
+  1144→            </Button>
+  1145→          )}
+  1146→        </div>
+  1147→      </div>
+  1148→    );
+  1149→  }
+  1150→
+  1151→  // ============================================================
+  1152→  // MAIN RENDER
+  1153→  // ============================================================
+  1154→  return (
+  1155→    <div className="space-y-6">
+  1156→      {/* header */}
+  1157→      <div className="flex items-start gap-3">
+  1158→        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md shadow-violet-500/20">
+  1159→          <ListChecks className="h-5 w-5" />
+  1160→        </div>
+  1161→        <div className="flex-1 min-w-0">
+  1162→          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">PDF-Grounded MCQ Generator</h1>
+  1163→          <p className="text-sm text-muted-foreground mt-0.5">
+  1164→            Configure a 5-step guided workflow, then take an instant test with auto-graded results.
+  1165→          </p>
+  1166→        </div>
+  1167→      </div>
+  1168→
+  1169→      {mcqSet ? (
+  1170→        renderResults()
+  1171→      ) : (
+  1172→        <>
+  1173→          <Stepper current={step} onBack={(s) => setStep(s)} />
+  1174→
+  1175→          {loading ? (
+  1176→            <Card className="border-violet-500/20">
+  1177→              <CardContent>
+  1178→                <LoadingState label="Generating grounded MCQs — validating answers, tagging sources..." />
+  1179→              </CardContent>
+  1180→            </Card>
+  1181→          ) : (
+  1182→            <>
+  1183→              {renderStep()}
+  1184→
+  1185→              {/* step nav */}
+  1186→              {step < 5 && (
+  1187→                <div className="flex items-center justify-between gap-2">
+  1188→                  <Button
+  1189→                    variant="outline"
+  1190→                    onClick={() => handleBack()}
+  1191→                    disabled={step === 1}
+  1192→                  >
+  1193→                    <ChevronLeft className="h-4 w-4" /> Back
+  1194→                  </Button>
+  1195→                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+  1196→                    Step {step} of 5
+  1197→                  </div>
+  1198→                  <Button
+  1199→                    onClick={handleNext}
+  1200→                    disabled={!canProceedFromStep(step)}
+  1201→                    className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white"
+  1202→                  >
+  1203→                    Next <ChevronRight className="h-4 w-4" />
+  1204→                  </Button>
+  1205→                </div>
+  1206→              )}
+  1207→
+  1208→              {step === 5 && (
+  1209→                <div className="flex items-center justify-start gap-2">
+  1210→                  <Button variant="outline" onClick={() => handleBack()}>
+  1211→                    <ChevronLeft className="h-4 w-4" /> Back
+  1212→                  </Button>
+  1213→                </div>
+  1214→              )}
+  1215→
+  1216→              {step === 1 && !canProceedFromStep(1) && source !== "Topic" && (
+  1217→                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+  1218→                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+  1219→                  Paste some content above to enable Strict PDF Mode (or switch to Topic source).
+  1220→                </p>
+  1221→              )}
+  1222→            </>
+  1223→          )}
+  1224→        </>
+  1225→      )}
+  1226→    </div>
+  1227→  );
+  1228→}
+  1229→
+  1230→// ---------------- small presentational helpers ----------------
+  1231→function ConfigRow({
+  1232→  label,
+  1233→  value,
+  1234→  highlight,
+  1235→  compact,
+  1236→  className,
+  1237→}: {
+  1238→  label: string;
+  1239→  value: string;
+  1240→  highlight?: boolean;
+  1241→  compact?: boolean;
+  1242→  className?: string;
+  1243→}) {
+  1244→  return (
+  1245→    <div className={cn("flex items-center justify-between gap-3", className)}>
+  1246→      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+  1247→      <dd
+  1248→        className={cn(
+  1249→          "font-medium text-right",
+  1250→          compact ? "text-sm" : "text-sm",
+  1251→          highlight && "text-violet-600 dark:text-violet-400",
+  1252→        )}
+  1253→      >
+  1254→        {value}
+  1255→      </dd>
+  1256→    </div>
+  1257→  );
+  1258→}
+  1259→
+  1260→function ScoreStat({
+  1261→  label,
+  1262→  value,
+  1263→  className,
+  1264→  icon: Icon,
+  1265→}: {
+  1266→  label: string;
+  1267→  value: number | string;
+  1268→  className?: string;
+  1269→  icon: typeof Check;
+  1270→}) {
+  1271→  return (
+  1272→    <div className="rounded-lg border border-border bg-background/60 p-3">
+  1273→      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+  1274→        <Icon className={cn("h-3 w-3", className)} />
+  1275→        {label}
+  1276→      </div>
+  1277→      <div className={cn("text-2xl font-bold tabular-nums mt-1", className)}>{value}</div>
+  1278→    </div>
+  1279→  );
+  1280→}
+  1281→

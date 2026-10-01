@@ -1,0 +1,1128 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+     4→import { motion, AnimatePresence } from "framer-motion";
+     5→import { toast } from "sonner";
+     6→import {
+     7→  Timer,
+     8→  Play,
+     9→  Pause,
+    10→  Square,
+    11→  RotateCcw,
+    12→  Flame,
+    13→  Clock,
+    14→  Calendar,
+    15→  Plus,
+    16→  Trash2,
+    17→  Trophy,
+    18→  Brain,
+    19→  Coffee,
+    20→  CheckCircle2,
+    21→  SkipForward,
+    22→} from "lucide-react";
+    23→
+    24→import { useStudyStore, type StudySession } from "@/store/study-store";
+    25→import { Button } from "@/components/ui/button";
+    26→import { Input } from "@/components/ui/input";
+    27→import { Label } from "@/components/ui/label";
+    28→import { Badge } from "@/components/ui/badge";
+    29→import { Progress } from "@/components/ui/progress";
+    30→import { ScrollArea } from "@/components/ui/scroll-area";
+    31→import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+    32→import {
+    33→  Card,
+    34→  CardHeader,
+    35→  CardTitle,
+    36→  CardDescription,
+    37→  CardContent,
+    38→} from "@/components/ui/card";
+    39→import {
+    40→  Dialog,
+    41→  DialogTrigger,
+    42→  DialogContent,
+    43→  DialogHeader,
+    44→  DialogTitle,
+    45→  DialogDescription,
+    46→  DialogFooter,
+    47→  DialogClose,
+    48→} from "@/components/ui/dialog";
+    49→import {
+    50→  Select,
+    51→  SelectTrigger,
+    52→  SelectValue,
+    53→  SelectContent,
+    54→  SelectItem,
+    55→} from "@/components/ui/select";
+    56→
+    57→// ----- Constants ---------------------------------------------------------
+    58→
+    59→const POMODORO_WORK = 25 * 60; // seconds
+    60→const POMODORO_BREAK = 5 * 60; // seconds
+    61→
+    62→type Mode = "pomodoro" | "free";
+    63→type Phase = "work" | "break";
+    64→
+    65→// ----- Helpers -----------------------------------------------------------
+    66→
+    67→function fmt(sec: number): string {
+    68→  const s = Math.max(0, Math.floor(sec));
+    69→  const m = Math.floor(s / 60);
+    70→  const r = s % 60;
+    71→  return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+    72→}
+    73→
+    74→/** Local YYYY-MM-DD key for a date. */
+    75→function dayKey(d: Date): string {
+    76→  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    77→    d.getDate()
+    78→  ).padStart(2, "0")}`;
+    79→}
+    80→
+    81→/** Get the Monday of the week containing `d` (local). */
+    82→function startOfWeek(d: Date): Date {
+    83→  const x = new Date(d);
+    84→  const day = (x.getDay() + 6) % 7; // Mon = 0 ... Sun = 6
+    85→  x.setHours(0, 0, 0, 0);
+    86→  x.setDate(x.getDate() - day);
+    87→  return x;
+    88→}
+    89→
+    90→const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    91→
+    92→// ----- Sound (Web Audio) -------------------------------------------------
+    93→
+    94→let audioCtx: AudioContext | null = null;
+    95→function getAudioCtx(): AudioContext | null {
+    96→  if (typeof window === "undefined") return null;
+    97→  if (!audioCtx) {
+    98→    try {
+    99→      const Ctor =
+   100→        (window as any).AudioContext || (window as any).webkitAudioContext;
+   101→      audioCtx = Ctor ? new Ctor() : null;
+   102→    } catch {
+   103→      audioCtx = null;
+   104→    }
+   105→  }
+   106→  return audioCtx;
+   107→}
+   108→
+   109→function playBeep(freq = 880, durationMs = 320) {
+   110→  const ctx = getAudioCtx();
+   111→  if (!ctx) return;
+   112→  try {
+   113→    if (ctx.state === "suspended") void ctx.resume();
+   114→    const now = ctx.currentTime;
+   115→    const osc = ctx.createOscillator();
+   116→    const gain = ctx.createGain();
+   117→    osc.type = "sine";
+   118→    osc.frequency.value = freq;
+   119→    gain.gain.setValueAtTime(0.0001, now);
+   120→    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+   121→    gain.gain.exponentialRampToValueAtTime(0.0001, now + durationMs / 1000);
+   122→    osc.connect(gain).connect(ctx.destination);
+   123→    osc.start(now);
+   124→    osc.stop(now + durationMs / 1000);
+   125→  } catch {
+   126→    /* ignore */
+   127→  }
+   128→}
+   129→
+   130→function playChime() {
+   131→  playBeep(880, 240);
+   132→  setTimeout(() => playBeep(1175, 320), 220);
+   133→}
+   134→
+   135→// ----- Stats -------------------------------------------------------------
+   136→function computeStreaks(sessions: StudySession[]) {
+   137→  const completed = sessions.filter((s) => s.completed);
+   138→  const daySet = new Set(completed.map((s) => dayKey(new Date(s.date))));
+   139→
+   140→  let current = 0;
+   141→  // Walk backwards from today; allow today to be empty (streak still alive)
+   142→  const cursor = new Date();
+   143→  cursor.setHours(0, 0, 0, 0);
+   144→  // If today has no session, start checking from yesterday for "current"
+   145→  let probe = new Date(cursor);
+   146→  if (!daySet.has(dayKey(probe))) {
+   147→    probe.setDate(probe.getDate() - 1);
+   148→  }
+   149→  while (daySet.has(dayKey(probe))) {
+   150→    current += 1;
+   151→    probe.setDate(probe.getDate() - 1);
+   152→  }
+   153→
+   154→  // Longest streak: walk all distinct sorted days
+   155→  const sortedDays = Array.from(daySet).sort();
+   156→  let longest = 0;
+   157→  let run = 0;
+   158→  let prev: Date | null = null;
+   159→  for (const k of sortedDays) {
+   160→    const d = new Date(k + "T00:00:00");
+   161→    if (prev) {
+   162→      const diffDays = Math.round(
+   163→        (d.getTime() - prev.getTime()) / 86400000
+   164→      );
+   165→      if (diffDays === 1) run += 1;
+   166→      else run = 1;
+   167→    } else {
+   168→      run = 1;
+   169→    }
+   170→    longest = Math.max(longest, run);
+   171→    prev = d;
+   172→  }
+   173→
+   174→  return { current, longest, totalSessions: completed.length };
+   175→}
+   176→
+   177→function computeWeek(sessions: StudySession[]) {
+   178→  const weekStart = startOfWeek(new Date());
+   179→  const totals = [0, 0, 0, 0, 0, 0, 0];
+   180→  let weekMinutes = 0;
+   181→  for (const s of sessions) {
+   182→    if (!s.completed) continue;
+   183→    const d = new Date(s.date);
+   184→    const diffDays = Math.floor(
+   185→      (startOfWeek(d).getTime() - weekStart.getTime()) / 86400000
+   186→    );
+   187→    if (diffDays === 0) {
+   188→      const idx = (d.getDay() + 6) % 7;
+   189→      totals[idx] += s.durationMinutes;
+   190→      weekMinutes += s.durationMinutes;
+   191→    }
+   192→  }
+   193→  return { totals, weekMinutes };
+   194→}
+   195→
+   196→// ----- Main component ----------------------------------------------------
+   197→
+   198→export function StudyTimer() {
+   199→  const sessions = useStudyStore((s) => s.sessions);
+   200→  const addSession = useStudyStore((s) => s.addSession);
+   201→  const deleteSession = useStudyStore((s) => s.deleteSession);
+   202→
+   203→  // form / subject tagging
+   204→  const [subject, setSubject] = useState("");
+   205→  const [topic, setTopic] = useState("");
+   206→
+   207→  // timer mode
+   208→  const [mode, setMode] = useState<Mode>("pomodoro");
+   209→  const [phase, setPhase] = useState<Phase>("work");
+   210→  const [secondsLeft, setSecondsLeft] = useState(POMODORO_WORK);
+   211→  const [running, setRunning] = useState(false);
+   212→  // free-timer custom minutes
+   213→  const [freeMinutes, setFreeMinutes] = useState(45);
+   214→  const [freeInput, setFreeInput] = useState("45");
+   215→
+   216→  // confetti burst
+   217→  const [burst, setBurst] = useState(false);
+   218→  const burstTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+   219→
+   220→  // interval
+   221→  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   222→
+   223→  // ---- total seconds for current timer (for progress ring) ----
+   224→  const totalSeconds = useMemo(() => {
+   225→    if (mode === "pomodoro") return phase === "work" ? POMODORO_WORK : POMODORO_BREAK;
+   226→    return Math.max(1, Math.min(180, freeMinutes)) * 60;
+   227→  }, [mode, phase, freeMinutes]);
+   228→
+   229→  // NOTE: secondsLeft is reset in event handlers (onModeChange, handleSkip,
+   230→  // handleReset, applyFreeMinutes, handleComplete) — no useEffect needed.
+   231→
+   232→  // ---- cleanup on unmount ----
+   233→  useEffect(() => {
+   234→    return () => {
+   235→      if (intervalRef.current) clearInterval(intervalRef.current);
+   236→      if (burstTimer.current) clearTimeout(burstTimer.current);
+   237→    };
+   238→  }, []);
+   239→
+   240→  // ---- save a work session ----
+   241→  const saveWorkSession = useCallback(
+   242→    (durationMinutes: number, m: Mode, subj: string, top: string) => {
+   243→      addSession({
+   244→        subject: subj.trim() || "Untitled",
+   245→        topic: top.trim() || "General",
+   246→        durationMinutes,
+   247→        date: new Date().toISOString(),
+   248→        mode: m,
+   249→        completed: true,
+   250→      });
+   251→    },
+   252→    [addSession]
+   253→  );
+   254→
+   255→  // ---- trigger completion: sound + toast + burst ----
+   256→  const celebrate = useCallback((msg: string) => {
+   257→    playChime();
+   258→    setBurst(true);
+   259→    if (burstTimer.current) clearTimeout(burstTimer.current);
+   260→    burstTimer.current = setTimeout(() => setBurst(false), 1800);
+   261→    toast.success(msg, {
+   262→      description: "Great focus — session saved to your history.",
+   263→      duration: 4000,
+   264→    });
+   265→  }, []);
+   266→
+   267→  // ---- handle phase completion ----
+   268→  const handleComplete = useCallback(() => {
+   269→    if (mode === "pomodoro") {
+   270→      if (phase === "work") {
+   271→        // Save the work session
+   272→        saveWorkSession(25, "pomodoro", subject, topic);
+   273→        celebrate("Pomodoro complete! Time for a 5-min break.");
+   274→        setPhase("break");
+   275→        setSecondsLeft(POMODORO_BREAK);
+   276→        // keep running so break auto-starts
+   277→      } else {
+   278→        // Break finished — back to work, auto pause
+   279→        playBeep(660, 200);
+   280→        toast.info("Break over. Ready for the next pomodoro?", {
+   281→          duration: 4000,
+   282→        });
+   283→        setPhase("work");
+   284→        setSecondsLeft(POMODORO_WORK);
+   285→        setRunning(false);
+   286→      }
+   287→    } else {
+   288→      // Free timer complete
+   289→      const mins = Math.max(1, Math.min(180, freeMinutes));
+   290→      saveWorkSession(mins, "free", subject, topic);
+   291→      celebrate(`Focus session complete — ${mins} min logged!`);
+   292→      setRunning(false);
+   293→      setSecondsLeft(mins * 60);
+   294→    }
+   295→  }, [mode, phase, subject, topic, freeMinutes, saveWorkSession, celebrate]);
+   296→
+   297→  // ---- interval effect ----
+   298→  useEffect(() => {
+   299→    if (!running) {
+   300→      if (intervalRef.current) {
+   301→        clearInterval(intervalRef.current);
+   302→        intervalRef.current = null;
+   303→      }
+   304→      return;
+   305→    }
+   306→    intervalRef.current = setInterval(() => {
+   307→      setSecondsLeft((prev) => {
+   308→        if (prev <= 1) {
+   309→          // we'll handle completion in the next tick to avoid setState-in-callback warning
+   310→          return 0;
+   311→        }
+   312→        return prev - 1;
+   313→      });
+   314→    }, 1000);
+   315→    return () => {
+   316→      if (intervalRef.current) clearInterval(intervalRef.current);
+   317→      intervalRef.current = null;
+   318→    };
+   319→  }, [running]);
+   320→
+   321→  // watch for hitting zero while running
+   322→  useEffect(() => {
+   323→    if (running && secondsLeft === 0) {
+   324→      // Defer completion to escape the effect body (avoids
+   325→      // cascading renders & setState-in-effect lint rule).
+   326→      const id = setTimeout(() => handleComplete(), 0);
+   327→      return () => clearTimeout(id);
+   328→    }
+   329→  }, [secondsLeft, running, handleComplete]);
+   330→
+   331→  // ---- controls ----
+   332→  const canStart =
+   333→    subject.trim().length > 0 && (mode === "pomodoro" || freeMinutes >= 1);
+   334→
+   335→  const toggleRun = () => {
+   336→    if (!canStart) {
+   337→      toast.error("Add a subject first", {
+   338→        description: "Tag every focus session with a subject + topic.",
+   339→      });
+   340→      return;
+   341→    }
+   342→    // resume audio context on user gesture
+   343→    const ctx = getAudioCtx();
+   344→    if (ctx && ctx.state === "suspended") void ctx.resume();
+   345→    setRunning((r) => !r);
+   346→  };
+   347→
+   348→  const handleReset = () => {
+   349→    setRunning(false);
+   350→    if (mode === "pomodoro") {
+   351→      setPhase("work");
+   352→      setSecondsLeft(POMODORO_WORK);
+   353→    } else {
+   354→      const m = Math.max(1, Math.min(180, freeMinutes));
+   355→      setSecondsLeft(m * 60);
+   356→    }
+   357→  };
+   358→
+   359→  const handleSkip = () => {
+   360→    if (mode === "pomodoro") {
+   361→      if (phase === "work") {
+   362→        // Skipping work does NOT save (no completion)
+   363→        setPhase("break");
+   364→        setSecondsLeft(POMODORO_BREAK);
+   365→      } else {
+   366→        setPhase("work");
+   367→        setSecondsLeft(POMODORO_WORK);
+   368→        setRunning(false);
+   369→      }
+   370→    } else {
+   371→      setRunning(false);
+   372→      const m = Math.max(1, Math.min(180, freeMinutes));
+   373→      setSecondsLeft(m * 60);
+   374→    }
+   375→  };
+   376→
+   377→  const onModeChange = (m: string) => {
+   378→    setRunning(false);
+   379→    const next = m as Mode;
+   380→    setMode(next);
+   381→    if (next === "pomodoro") {
+   382→      setPhase("work");
+   383→      setSecondsLeft(POMODORO_WORK);
+   384→    } else {
+   385→      const mn = Math.max(1, Math.min(180, freeMinutes));
+   386→      setSecondsLeft(mn * 60);
+   387→    }
+   388→  };
+   389→
+   390→  const applyFreeMinutes = () => {
+   391→    const n = parseInt(freeInput, 10);
+   392→    if (isNaN(n) || n < 1) {
+   393→      toast.error("Enter a number between 1 and 180");
+   394→      return;
+   395→    }
+   396→    const clamped = Math.max(1, Math.min(180, n));
+   397→    setFreeMinutes(clamped);
+   398→    setFreeInput(String(clamped));
+   399→    if (!running) setSecondsLeft(clamped * 60);
+   400→  };
+   401→
+   402→  // ---- derived stats ----
+   403→  const streaks = useMemo(() => computeStreaks(sessions), [sessions]);
+   404→  const week = useMemo(() => computeWeek(sessions), [sessions]);
+   405→  const maxDay = Math.max(1, ...week.totals);
+   406→
+   407→  const todayKey = dayKey(new Date());
+   408→  const todaySessions = useMemo(
+   409→    () => sessions.filter((s) => dayKey(new Date(s.date)) === todayKey),
+   410→    [sessions, todayKey]
+   411→  );
+   412→  const recentSessions = useMemo(() => sessions.slice(0, 20), [sessions]);
+   413→
+   414→  // ---- progress for ring ----
+   415→  const progress = totalSeconds > 0 ? 1 - secondsLeft / totalSeconds : 0;
+   416→  const radius = 110;
+   417→  const circumference = 2 * Math.PI * radius;
+   418→  const dashOffset = circumference * (1 - progress);
+   419→
+   420→  const ringGradient =
+   421→    phase === "work"
+   422→      ? "url(#gradViolet)"
+   423→      : "url(#gradEmerald)";
+   424→
+   425→  return (
+   426→    <div className="space-y-6">
+   427→      {/* Header */}
+   428→      <motion.div
+   429→        initial={{ opacity: 0, y: 8 }}
+   430→        animate={{ opacity: 1, y: 0 }}
+   431→        transition={{ duration: 0.3 }}
+   432→      >
+   433→        <div className="flex items-center gap-3">
+   434→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-500/30">
+   435→            <Timer className="h-5 w-5" />
+   436→          </div>
+   437→          <div>
+   438→            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+   439→              Study Timer
+   440→            </h1>
+   441→            <p className="text-sm text-muted-foreground">
+   442→              Focus sessions with Pomodoro. Track streaks. Build consistency.
+   443→            </p>
+   444→          </div>
+   445→        </div>
+   446→      </motion.div>
+   447→
+   448→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   449→        {/* ---------------- LEFT: timer ---------------- */}
+   450→        <Card className="lg:col-span-2 relative overflow-hidden">
+   451→          <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl" />
+   452→          <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl" />
+   453→
+   454→          <CardHeader>
+   455→            <CardTitle className="flex items-center gap-2 text-base">
+   456→              <Brain className="h-4 w-4 text-violet-500" /> Focus Engine
+   457→            </CardTitle>
+   458→            <CardDescription>
+   459→              Tag each session with a subject + topic, then start the timer.
+   460→            </CardDescription>
+   461→          </CardHeader>
+   462→
+   463→          <CardContent className="space-y-5">
+   464→            {/* Subject + Topic */}
+   465→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   466→              <div className="space-y-1.5">
+   467→                <Label htmlFor="study-subject">Subject</Label>
+   468→                <Input
+   469→                  id="study-subject"
+   470→                  placeholder="e.g. Quantitative Aptitude"
+   471→                  value={subject}
+   472→                  onChange={(e) => setSubject(e.target.value)}
+   473→                  maxLength={60}
+   474→                />
+   475→              </div>
+   476→              <div className="space-y-1.5">
+   477→                <Label htmlFor="study-topic">Topic</Label>
+   478→                <Input
+   479→                  id="study-topic"
+   480→                  placeholder="e.g. Time, Speed & Distance"
+   481→                  value={topic}
+   482→                  onChange={(e) => setTopic(e.target.value)}
+   483→                  maxLength={80}
+   484→                />
+   485→              </div>
+   486→            </div>
+   487→
+   488→            {/* Mode tabs */}
+   489→            <Tabs value={mode} onValueChange={onModeChange}>
+   490→              <TabsList className="w-full grid grid-cols-2">
+   491→                <TabsTrigger value="pomodoro" className="gap-1.5">
+   492→                  <Timer className="h-3.5 w-3.5" /> Pomodoro (25/5)
+   493→                </TabsTrigger>
+   494→                <TabsTrigger value="free" className="gap-1.5">
+   495→                  <Clock className="h-3.5 w-3.5" /> Free Timer
+   496→                </TabsTrigger>
+   497→              </TabsList>
+   498→
+   499→              <TabsContent value="pomodoro" className="mt-4 space-y-4">
+   500→                <PhaseRing
+   501→                  secondsLeft={secondsLeft}
+   502→                  totalSeconds={totalSeconds}
+   503→                  phase={phase}
+   504→                  ringGradient={ringGradient}
+   505→                  dashOffset={dashOffset}
+   506→                  circumference={circumference}
+   507→                  radius={radius}
+   508→                />
+   509→                <PhaseSwitcher phase={phase} onSkip={handleSkip} />
+   510→              </TabsContent>
+   511→
+   512→              <TabsContent value="free" className="mt-4 space-y-4">
+   513→                <div className="flex justify-center items-center gap-2">
+   514→                  <Label htmlFor="free-min" className="text-xs text-muted-foreground m-0">
+   515→                    Minutes
+   516→                  </Label>
+   517→                  <Input
+   518→                    id="free-min"
+   519→                    type="number"
+   520→                    min={1}
+   521→                    max={180}
+   522→                    value={freeInput}
+   523→                    onChange={(e) => setFreeInput(e.target.value)}
+   524→                    onBlur={applyFreeMinutes}
+   525→                    onKeyDown={(e) => {
+   526→                      if (e.key === "Enter") applyFreeMinutes();
+   527→                    }}
+   528→                    className="w-24 text-center"
+   529→                  />
+   530→                  <span className="text-xs text-muted-foreground">
+   531→                    (1–180)
+   532→                  </span>
+   533→                </div>
+   534→                <PhaseRing
+   535→                  secondsLeft={secondsLeft}
+   536→                  totalSeconds={totalSeconds}
+   537→                  phase={"work"}
+   538→                  ringGradient={ringGradient}
+   539→                  dashOffset={dashOffset}
+   540→                  circumference={circumference}
+   541→                  radius={radius}
+   542→                  freeLabel={`${freeMinutes} min focus`}
+   543→                />
+   544→              </TabsContent>
+   545→            </Tabs>
+   546→
+   547→            {/* Controls */}
+   548→            <div className="flex flex-wrap items-center justify-center gap-2">
+   549→              <Button
+   550→                size="lg"
+   551→                onClick={toggleRun}
+   552→                disabled={mode === "pomodoro" && phase === "break" ? false : !canStart}
+   553→                className={`h-11 px-6 text-sm font-semibold text-white shadow-lg transition-all ${
+   554→                  running
+   555→                    ? "bg-gradient-to-r from-rose-500 to-orange-500 shadow-rose-500/30"
+   556→                    : "bg-gradient-to-r from-violet-500 to-fuchsia-500 shadow-violet-500/30"
+   557→                }`}
+   558→              >
+   559→                {running ? (
+   560→                  <>
+   561→                    <Pause className="h-4 w-4" /> Pause
+   562→                  </>
+   563→                ) : (
+   564→                  <>
+   565→                    <Play className="h-4 w-4" /> Start
+   566→                  </>
+   567→                )}
+   568→              </Button>
+   569→              <Button variant="outline" size="lg" onClick={handleReset} className="h-11">
+   570→                <RotateCcw className="h-4 w-4" /> Reset
+   571→              </Button>
+   572→              <Button variant="outline" size="lg" onClick={handleSkip} className="h-11">
+   573→                <SkipForward className="h-4 w-4" /> Skip
+   574→              </Button>
+   575→            </div>
+   576→
+   577→            <p className="text-center text-xs text-muted-foreground">
+   578→              {mode === "pomodoro"
+   579→                ? phase === "work"
+   580→                  ? "25 min focus → 5 min break, auto-cycles."
+   581→                  : "On break. Skip back to work anytime."
+   582→                : `Custom focus: ${freeMinutes} min. Auto-saves on completion.`}
+   583→            </p>
+   584→          </CardContent>
+   585→
+   586→          {/* Emoji burst overlay */}
+   587→          <AnimatePresence>
+   588→            {burst && (
+   589→              <motion.div
+   590→                key="burst"
+   591→                className="pointer-events-none absolute inset-0 flex items-center justify-center"
+   592→                initial={{ opacity: 0 }}
+   593→                animate={{ opacity: 1 }}
+   594→                exit={{ opacity: 0 }}
+   595→              >
+   596→                {["🎉", "⭐", "🔥", "✨", "💯", "🚀", "🧠"].map((e, i) => (
+   597→                  <motion.span
+   598→                    key={i}
+   599→                    className="absolute text-3xl sm:text-4xl"
+   600→                    initial={{ x: 0, y: 0, opacity: 0, scale: 0.5 }}
+   601→                    animate={{
+   602→                      x: (i - 3) * 70,
+   603→                      y: -120 - (i % 3) * 30,
+   604→                      opacity: [0, 1, 0],
+   605→                      scale: 1.2,
+   606→                      rotate: (i - 3) * 20,
+   607→                    }}
+   608→                    transition={{ duration: 1.6, delay: i * 0.05 }}
+   609→                  >
+   610→                    {e}
+   611→                  </motion.span>
+   612→                ))}
+   613→              </motion.div>
+   614→            )}
+   615→          </AnimatePresence>
+   616→        </Card>
+   617→
+   618→        {/* ---------------- RIGHT: stats + history ---------------- */}
+   619→        <div className="space-y-4">
+   620→          {/* Streak card */}
+   621→          <Card className="relative overflow-hidden border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-fuchsia-500/5 to-transparent">
+   622→            <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-fuchsia-500/20 blur-2xl" />
+   623→            <CardHeader>
+   624→              <CardTitle className="flex items-center gap-2 text-base">
+   625→                <Flame className="h-4 w-4 text-amber-500" /> Streak Power
+   626→              </CardTitle>
+   627→              <CardDescription>Consistency compounds. Keep it lit.</CardDescription>
+   628→            </CardHeader>
+   629→            <CardContent className="space-y-4">
+   630→              <div className="flex items-end gap-2">
+   631→                <span className="text-4xl font-bold leading-none bg-gradient-to-r from-violet-500 to-fuchsia-500 bg-clip-text text-transparent">
+   632→                  {streaks.current}
+   633→                </span>
+   634→                <span className="text-sm text-muted-foreground mb-1">day streak</span>
+   635→              </div>
+   636→              <div className="grid grid-cols-3 gap-2 text-center">
+   637→                <div className="rounded-lg border border-border bg-background/50 p-2">
+   638→                  <div className="text-lg font-semibold">{streaks.longest}</div>
+   639→                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+   640→                    Longest
+   641→                  </div>
+   642→                </div>
+   643→                <div className="rounded-lg border border-border bg-background/50 p-2">
+   644→                  <div className="text-lg font-semibold">{streaks.totalSessions}</div>
+   645→                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+   646→                    Sessions
+   647→                  </div>
+   648→                </div>
+   649→                <div className="rounded-lg border border-border bg-background/50 p-2">
+   650→                  <div className="text-lg font-semibold">{week.weekMinutes}</div>
+   651→                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+   652→                    This Week
+   653→                  </div>
+   654→                </div>
+   655→              </div>
+   656→              {streaks.current >= 3 && (
+   657→                <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs">
+   658→                  <Trophy className="h-3.5 w-3.5 text-amber-500" />
+   659→                  <span className="font-medium text-amber-600 dark:text-amber-400">
+   660→                    {streaks.current}-day streak — you&apos;re on fire!
+   661→                  </span>
+   662→                </div>
+   663→              )}
+   664→            </CardContent>
+   665→          </Card>
+   666→
+   667→          {/* Add manual session */}
+   668→          <ManualSessionDialog onAdd={addSession} />
+   669→
+   670→          {/* Today's sessions */}
+   671→          <Card>
+   672→            <CardHeader className="pb-3">
+   673→              <CardTitle className="flex items-center justify-between text-base">
+   674→                <span className="flex items-center gap-2">
+   675→                  <Calendar className="h-4 w-4 text-violet-500" /> Today&apos;s Sessions
+   676→                </span>
+   677→                <Badge variant="outline" className="text-[10px]">
+   678→                  {todaySessions.length}
+   679→                </Badge>
+   680→              </CardTitle>
+   681→            </CardHeader>
+   682→            <CardContent className="pt-0">
+   683→              {todaySessions.length === 0 ? (
+   684→                <p className="text-xs text-muted-foreground py-4 text-center">
+   685→                  No sessions yet today. Start your first pomodoro above.
+   686→                </p>
+   687→              ) : (
+   688→                <div className="space-y-2 max-h-56 overflow-y-auto pr-1 study-scroll">
+   689→                  {todaySessions.map((s) => (
+   690→                    <SessionRow
+   691→                      key={s.id}
+   692→                      session={s}
+   693→                      onDelete={() => deleteSession(s.id)}
+   694→                    />
+   695→                  ))}
+   696→                </div>
+   697→              )}
+   698→            </CardContent>
+   699→          </Card>
+   700→
+   701→          {/* Weekly chart */}
+   702→          <Card>
+   703→            <CardHeader className="pb-3">
+   704→              <CardTitle className="flex items-center gap-2 text-base">
+   705→                <Trophy className="h-4 w-4 text-violet-500" /> This Week
+   706→              </CardTitle>
+   707→              <CardDescription>Minutes studied per day</CardDescription>
+   708→            </CardHeader>
+   709→            <CardContent>
+   710→              <div className="flex items-end justify-between gap-1.5 h-32">
+   711→                {week.totals.map((min, i) => {
+   712→                  const h = Math.round((min / maxDay) * 100);
+   713→                  const isToday =
+   714→                    dayKey(new Date()) ===
+   715→                    dayKey(
+   716→                      new Date(
+   717→                        startOfWeek(new Date()).getTime() + i * 86400000
+   718→                      )
+   719→                    );
+   720→                  return (
+   721→                    <div
+   722→                      key={i}
+   723→                      className="flex-1 flex flex-col items-center gap-1"
+   724→                    >
+   725→                      <div className="text-[10px] text-muted-foreground h-3">
+   726→                        {min > 0 ? min : ""}
+   727→                      </div>
+   728→                      <div className="w-full h-20 flex items-end">
+   729→                        <motion.div
+   730→                          className={`w-full rounded-t-md ${
+   731→                            isToday
+   732→                              ? "bg-gradient-to-t from-fuchsia-500 to-violet-400"
+   733→                              : "bg-gradient-to-t from-violet-500/40 to-violet-400/30"
+   734→                          }`}
+   735→                          initial={{ height: 0 }}
+   736→                          animate={{ height: `${Math.max(4, h)}%` }}
+   737→                          transition={{ duration: 0.4, delay: i * 0.05 }}
+   738→                        />
+   739→                      </div>
+   740→                      <div
+   741→                        className={`text-[10px] ${
+   742→                          isToday
+   743→                            ? "font-semibold text-violet-500"
+   744→                            : "text-muted-foreground"
+   745→                        }`}
+   746→                      >
+   747→                        {DAY_LABELS[i]}
+   748→                      </div>
+   749→                    </div>
+   750→                  );
+   751→                })}
+   752→              </div>
+   753→              <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+   754→                <span>Total: {week.weekMinutes} min</span>
+   755→                <span>Goal: 150 min/day</span>
+   756→              </div>
+   757→            </CardContent>
+   758→          </Card>
+   759→
+   760→          {/* Recent sessions */}
+   761→          <Card>
+   762→            <CardHeader className="pb-3">
+   763→              <CardTitle className="text-base">Recent Sessions</CardTitle>
+   764→              <CardDescription>Last 20 across all days</CardDescription>
+   765→            </CardHeader>
+   766→            <CardContent className="pt-0">
+   767→              {recentSessions.length === 0 ? (
+   768→                <p className="text-xs text-muted-foreground py-4 text-center">
+   769→                  Your study history will appear here.
+   770→                </p>
+   771→              ) : (
+   772→                <ScrollArea className="h-64 pr-3">
+   773→                  <div className="space-y-2">
+   774→                    {recentSessions.map((s) => (
+   775→                      <SessionRow
+   776→                        key={s.id}
+   777→                        session={s}
+   778→                        onDelete={() => deleteSession(s.id)}
+   779→                        showDate
+   780→                      />
+   781→                    ))}
+   782→                  </div>
+   783→                </ScrollArea>
+   784→              )}
+   785→            </CardContent>
+   786→          </Card>
+   787→        </div>
+   788→      </div>
+   789→
+   790→      <style jsx global>{`
+   791→        .study-scroll::-webkit-scrollbar {
+   792→          width: 6px;
+   793→        }
+   794→        .study-scroll::-webkit-scrollbar-thumb {
+   795→          background: hsl(var(--border));
+   796→          border-radius: 3px;
+   797→        }
+   798→      `}</style>
+   799→    </div>
+   800→  );
+   801→}
+   802→
+   803→// ----- Subcomponents -----------------------------------------------------
+   804→
+   805→function PhaseRing({
+   806→  secondsLeft,
+   807→  totalSeconds,
+   808→  phase,
+   809→  ringGradient,
+   810→  dashOffset,
+   811→  circumference,
+   812→  radius,
+   813→  freeLabel,
+   814→}: {
+   815→  secondsLeft: number;
+   816→  totalSeconds: number;
+   817→  phase: Phase;
+   818→  ringGradient: string;
+   819→  dashOffset: number;
+   820→  circumference: number;
+   821→  radius: number;
+   822→  freeLabel?: string;
+   823→}) {
+   824→  const pct =
+   825→    totalSeconds > 0 ? Math.round(((totalSeconds - secondsLeft) / totalSeconds) * 100) : 0;
+   826→  const isWork = phase === "work";
+   827→  return (
+   828→    <div className="relative mx-auto flex h-[260px] w-[260px] items-center justify-center">
+   829→      <svg className="absolute inset-0 -rotate-90" viewBox="0 0 260 260">
+   830→        <defs>
+   831→          <linearGradient id="gradViolet" x1="0%" y1="0%" x2="100%" y2="100%">
+   832→            <stop offset="0%" stopColor="#a855f7" />
+   833→            <stop offset="100%" stopColor="#e879f9" />
+   834→          </linearGradient>
+   835→          <linearGradient id="gradEmerald" x1="0%" y1="0%" x2="100%" y2="100%">
+   836→            <stop offset="0%" stopColor="#10b981" />
+   837→            <stop offset="100%" stopColor="#34d399" />
+   838→          </linearGradient>
+   839→        </defs>
+   840→        {/* track */}
+   841→        <circle
+   842→          cx="130"
+   843→          cy="130"
+   844→          r={radius}
+   845→          fill="none"
+   846→          stroke="currentColor"
+   847→          strokeWidth="10"
+   848→          className="text-border"
+   849→        />
+   850→        {/* progress */}
+   851→        <circle
+   852→          cx="130"
+   853→          cy="130"
+   854→          r={radius}
+   855→          fill="none"
+   856→          stroke={ringGradient}
+   857→          strokeWidth="10"
+   858→          strokeLinecap="round"
+   859→          strokeDasharray={circumference}
+   860→          strokeDashoffset={dashOffset}
+   861→          style={{ transition: "stroke-dashoffset 1s linear" }}
+   862→        />
+   863→      </svg>
+   864→      <div className="relative z-10 flex flex-col items-center">
+   865→        <span
+   866→          className={`text-[10px] uppercase tracking-[0.2em] font-semibold ${
+   867→            isWork ? "text-violet-500" : "text-emerald-500"
+   868→          }`}
+   869→        >
+   870→          {freeLabel ? "Free Focus" : isWork ? "Work" : "Break"}
+   871→        </span>
+   872→        <span className="mt-1 text-5xl font-bold tabular-nums tracking-tight">
+   873→          {fmt(secondsLeft)}
+   874→        </span>
+   875→        <span className="mt-1 text-xs text-muted-foreground">{pct}% complete</span>
+   876→      </div>
+   877→    </div>
+   878→  );
+   879→}
+   880→
+   881→function PhaseSwitcher({
+   882→  phase,
+   883→  onSkip,
+   884→}: {
+   885→  phase: Phase;
+   886→  onSkip: () => void;
+   887→}) {
+   888→  return (
+   889→    <div className="flex items-center justify-center gap-2">
+   890→      <Badge
+   891→        variant="outline"
+   892→        className={`gap-1.5 ${
+   893→          phase === "work"
+   894→            ? "border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-300"
+   895→            : "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+   896→        }`}
+   897→      >
+   898→        {phase === "work" ? (
+   899→          <>
+   900→            <Brain className="h-3 w-3" /> Work phase
+   901→          </>
+   902→        ) : (
+   903→          <>
+   904→            <Coffee className="h-3 w-3" /> Break phase
+   905→          </>
+   906→        )}
+   907→      </Badge>
+   908→      <Button
+   909→        variant="ghost"
+   910→        size="sm"
+   911→        onClick={onSkip}
+   912→        className="h-7 text-xs"
+   913→      >
+   914→        {phase === "work" ? (
+   915→          <>
+   916→            <SkipForward className="h-3 w-3" /> Skip to break
+   917→          </>
+   918→        ) : (
+   919→          <>
+   920→            <SkipForward className="h-3 w-3" /> Skip to work
+   921→          </>
+   922→        )}
+   923→      </Button>
+   924→    </div>
+   925→  );
+   926→}
+   927→
+   928→function SessionRow({
+   929→  session,
+   930→  onDelete,
+   931→  showDate,
+   932→}: {
+   933→  session: StudySession;
+   934→  onDelete: () => void;
+   935→  showDate?: boolean;
+   936→}) {
+   937→  const d = new Date(session.date);
+   938→  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+   939→  const dateStr = d.toLocaleDateString([], { month: "short", day: "numeric" });
+   940→  return (
+   941→    <div className="group flex items-start gap-2 rounded-lg border border-border p-2.5 hover:bg-accent/40 transition">
+   942→      <div
+   943→        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+   944→          session.mode === "pomodoro"
+   945→            ? "bg-violet-500/15 text-violet-500"
+   946→            : "bg-fuchsia-500/15 text-fuchsia-500"
+   947→        }`}
+   948→      >
+   949→        {session.completed ? (
+   950→          <CheckCircle2 className="h-3.5 w-3.5" />
+   951→        ) : (
+   952→          <Square className="h-3.5 w-3.5" />
+   953→        )}
+   954→      </div>
+   955→      <div className="min-w-0 flex-1">
+   956→        <div className="flex items-center justify-between gap-2">
+   957→          <p className="truncate text-sm font-medium">{session.subject}</p>
+   958→          <span className="text-[10px] text-muted-foreground shrink-0">
+   959→            {showDate ? dateStr : time}
+   960→          </span>
+   961→        </div>
+   962→        <div className="flex items-center justify-between gap-2">
+   963→          <p className="truncate text-xs text-muted-foreground">{session.topic}</p>
+   964→          <span className="text-[10px] text-muted-foreground shrink-0 flex items-center gap-0.5">
+   965→            <Clock className="h-3 w-3" /> {session.durationMinutes}m
+   966→          </span>
+   967→        </div>
+   968→        <div className="mt-1 flex items-center gap-1">
+   969→          <Badge
+   970→            variant="outline"
+   971→            className={`text-[9px] ${
+   972→              session.mode === "pomodoro"
+   973→                ? "border-violet-500/30 text-violet-600 dark:text-violet-300"
+   974→                : "border-fuchsia-500/30 text-fuchsia-600 dark:text-fuchsia-300"
+   975→            }`}
+   976→          >
+   977→            {session.mode}
+   978→          </Badge>
+   979→        </div>
+   980→      </div>
+   981→      <Button
+   982→        variant="ghost"
+   983→        size="icon"
+   984→        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition"
+   985→        onClick={onDelete}
+   986→        aria-label="Delete session"
+   987→      >
+   988→        <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+   989→      </Button>
+   990→    </div>
+   991→  );
+   992→}
+   993→
+   994→function ManualSessionDialog({
+   995→  onAdd,
+   996→}: {
+   997→  onAdd: (s: Omit<StudySession, "id">) => void;
+   998→}) {
+   999→  const [open, setOpen] = useState(false);
+  1000→  const [subject, setSubject] = useState("");
+  1001→  const [topic, setTopic] = useState("");
+  1002→  const [duration, setDuration] = useState("25");
+  1003→  const [mode, setMode] = useState<"pomodoro" | "free">("pomodoro");
+  1004→  const [date, setDate] = useState(() => {
+  1005→    const d = new Date();
+  1006→    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+  1007→      d.getDate()
+  1008→    ).padStart(2, "0")}`;
+  1009→  });
+  1010→
+  1011→  const reset = () => {
+  1012→    setSubject("");
+  1013→    setTopic("");
+  1014→    setDuration("25");
+  1015→    setMode("pomodoro");
+  1016→  };
+  1017→
+  1018→  const handleAdd = () => {
+  1019→    if (!subject.trim()) {
+  1020→      toast.error("Subject is required");
+  1021→      return;
+  1022→    }
+  1023→    const mins = parseInt(duration, 10);
+  1024→    if (isNaN(mins) || mins < 1 || mins > 600) {
+  1025→      toast.error("Duration must be 1–600 minutes");
+  1026→      return;
+  1027→    }
+  1028→    const iso = new Date(date + "T" + new Date().toTimeString().slice(0, 8)).toISOString();
+  1029→    onAdd({
+  1030→      subject: subject.trim(),
+  1031→      topic: topic.trim() || "General",
+  1032→      durationMinutes: mins,
+  1033→      date: iso,
+  1034→      mode,
+  1035→      completed: true,
+  1036→    });
+  1037→    toast.success("Manual session added");
+  1038→    reset();
+  1039→    setOpen(false);
+  1040→  };
+  1041→
+  1042→  return (
+  1043→    <Dialog open={open} onOpenChange={setOpen}>
+  1044→      <DialogTrigger asChild>
+  1045→        <Button variant="outline" className="w-full gap-1.5">
+  1046→          <Plus className="h-4 w-4" /> Add manual session
+  1047→        </Button>
+  1048→      </DialogTrigger>
+  1049→      <DialogContent>
+  1050→        <DialogHeader>
+  1051→          <DialogTitle>Log a past study session</DialogTitle>
+  1052→          <DialogDescription>
+  1053→            Track sessions you completed offline — yesterday&apos;s revision, last
+  1054→            weekend&apos;s mock, etc.
+  1055→          </DialogDescription>
+  1056→        </DialogHeader>
+  1057→        <div className="space-y-3">
+  1058→          <div className="space-y-1.5">
+  1059→            <Label htmlFor="m-subject">Subject</Label>
+  1060→            <Input
+  1061→              id="m-subject"
+  1062→              placeholder="e.g. General Studies"
+  1063→              value={subject}
+  1064→              onChange={(e) => setSubject(e.target.value)}
+  1065→              maxLength={60}
+  1066→            />
+  1067→          </div>
+  1068→          <div className="space-y-1.5">
+  1069→            <Label htmlFor="m-topic">Topic</Label>
+  1070→            <Input
+  1071→              id="m-topic"
+  1072→              placeholder="e.g. Indian Polity — Fundamental Rights"
+  1073→              value={topic}
+  1074→              onChange={(e) => setTopic(e.target.value)}
+  1075→              maxLength={80}
+  1076→            />
+  1077→          </div>
+  1078→          <div className="grid grid-cols-2 gap-3">
+  1079→            <div className="space-y-1.5">
+  1080→              <Label htmlFor="m-duration">Duration (min)</Label>
+  1081→              <Input
+  1082→                id="m-duration"
+  1083→                type="number"
+  1084→                min={1}
+  1085→                max={600}
+  1086→                value={duration}
+  1087→                onChange={(e) => setDuration(e.target.value)}
+  1088→              />
+  1089→            </div>
+  1090→            <div className="space-y-1.5">
+  1091→              <Label htmlFor="m-date">Date</Label>
+  1092→              <Input
+  1093→                id="m-date"
+  1094→                type="date"
+  1095→                value={date}
+  1096→                onChange={(e) => setDate(e.target.value)}
+  1097→              />
+  1098→            </div>
+  1099→          </div>
+  1100→          <div className="space-y-1.5">
+  1101→            <Label htmlFor="m-mode">Mode</Label>
+  1102→            <Select value={mode} onValueChange={(v) => setMode(v as "pomodoro" | "free")}>
+  1103→              <SelectTrigger id="m-mode" className="w-full">
+  1104→                <SelectValue />
+  1105→              </SelectTrigger>
+  1106→              <SelectContent>
+  1107→                <SelectItem value="pomodoro">Pomodoro</SelectItem>
+  1108→                <SelectItem value="free">Free timer</SelectItem>
+  1109→              </SelectContent>
+  1110→            </Select>
+  1111→          </div>
+  1112→        </div>
+  1113→        <DialogFooter>
+  1114→          <DialogClose asChild>
+  1115→            <Button variant="outline">Cancel</Button>
+  1116→          </DialogClose>
+  1117→          <Button
+  1118→            onClick={handleAdd}
+  1119→            className="bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white"
+  1120→          >
+  1121→            <Plus className="h-4 w-4" /> Add session
+  1122→          </Button>
+  1123→        </DialogFooter>
+  1124→      </DialogContent>
+  1125→    </Dialog>
+  1126→  );
+  1127→}
+  1128→

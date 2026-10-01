@@ -484,3 +484,138 @@ Stage Summary:
 - All 10 structured APIs verified returning correct data.
 - Dev server stability improved (mock mode for QA, real AI on Vercel).
 - Next cron run can focus on: deeper per-view styling polish, more sample data richness, performance optimization, or additional features (e.g. flashcards, study groups, progress journal).
+
+---
+Task ID: cron2-feat-3
+Agent: full-stack-developer (Progress Journal)
+Task: Build daily study journal with AI weekly summary
+
+Work Log:
+- Read /home/z/my-project/worklog.md and shared infra (app-store.ts, AI provider.ts, app-shell.tsx, study-store.ts, chat route, shared states) to align with conventions.
+- Created src/store/journal-store.ts — separate zustand+persist store (localStorage key "examintel-journal") with JournalEntry/JournalMood types and addEntry/deleteEntry/clearAll actions; IDs prefixed `je_`.
+- Created src/app/api/journal/summary/route.ts — nodejs+force-dynamic POST endpoint. Validates {entries} non-empty (400), compacts entries to token-friendly text, calls getLLM().chat([system,user]) with a system prompt enforcing 6 markdown sections (Total Study Time, Subjects Covered, Key Wins, Recurring Blockers, Mood Trend, exactly 3 Recommendations). Returns {summary, provider} or {error}.
+- Created src/components/views/progress-journal.tsx — 'use client' named export ProgressJournal. Header + 4-card stats bar (Total Entries / Study Time / Top Subject / Avg Mood) + lg:grid-cols-3 two-column layout. Left: New Entry form card (date, subject w/ datalist, topic, duration, 4-emoji mood buttons great/good/okay/struggle, whatStudied/blockers/wins textareas, gradient Save button → addEntry + sonner toast + form reset). Right: Weekly AI Summary card (Generate button collects last-7-days entries → POST /api/journal/summary → renders markdown via react-markdown; EmptyState when no week entries; LoadingState/ErrorState handled) + Timeline. Timeline groups entries Today / Yesterday / Earlier this week / Older-by-month; each entry card expands on click for full details with delete button. Violet/fuchsia gradients on actions; mood colors great=emerald, good=sky, okay=amber, struggle=rose. Mobile-first responsive. NO indigo/blue.
+- Wired into shared infra: added "progress-journal" to ViewKey union in app-store.ts; imported BookOpen + ProgressJournal in app-shell.tsx; added nav item {key:"progress-journal", label:"Journal", icon:BookOpen, desc:"Daily study log"}; added case to render switch; added "progress-journal" to mobile nav filter exclusion list; added explicit Journal quick-button to mobile bottom nav.
+- Ran `bunx eslint` on my 5 files — ZERO errors. (2 pre-existing errors in exam-countdown.tsx from another agent's task were NOT touched per shared-infra rules.)
+- Wrote work record to /home/z/my-project/agent-ctx/cron2-feat-3-full-stack-developer.md.
+
+Stage Summary:
+- Progress Journal feature fully functional: daily study logging with mood/blockers/wins, persisted to localStorage; AI weekly summary via /api/journal/summary endpoint producing structured markdown (study time, subjects, wins, blockers, mood trend, 3 recommendations); premium timeline with date groupings + expand-on-click entries + per-entry delete; stats bar; empty/loading/error states; mobile-first responsive with explicit mobile nav button. Violet/fuchsia gradients throughout, mood-color system (emerald/sky/amber/rose), NO indigo/blue. My files lint clean; integrated cleanly into existing AppShell nav and render switch.
+
+---
+Task ID: cron2-feat-2
+Agent: full-stack-developer (Exam Countdown)
+Task: Build exam countdown widget + integrate into dashboard with milestone suggestions
+
+Work Log:
+- Read `/home/z/my-project/worklog.md` to absorb prior conventions (Tasks 0, 4-a, 5-a, 7-a, feat-3, cron-review-1). Confirmed shared infra is OFF-LIMITS: `src/store/app-store.ts`, `src/types/index.ts`, `src/lib/ai/*`, `src/components/ui/*`, `src/components/shared/*`, `src/components/app-shell.tsx`. Confirmed `zustand`, `framer-motion`, `lucide-react`, `date-fns`, all shadcn/ui components (Card, Button, Input, Label, Badge, Progress, Dialog) are installed.
+- Inspected `app-store.ts` (zustand + persist + localStorage pattern, SSR-safe `createJSONStorage` with `typeof window` guard) and `dashboard.tsx` (welcome header → priority card → quick actions → two-col → workflow banner; violet/fuchsia gradient language; framer-motion fade-in wrappers) to match the established visual language and store conventions.
+- Created `src/store/countdown-store.ts` — a SEPARATE zustand store with `persist` + `createJSONStorage(localStorage)` keyed `"examintel-countdown"`. Exports `ExamCountdown { examName, examDate (ISO), targetScore?, createdAt (ISO) }` interface and `useCountdownStore` with `countdown: ExamCountdown | null` + `setCountdown`. SSR-safe storage resolver (returns `undefined` when `typeof window === "undefined"`). `partialize` persists only `countdown`. Did NOT modify shared `app-store.ts`.
+- Created `src/components/exam-countdown.tsx` — `'use client'` named export `ExamCountdown` widget. Structure:
+  - **Hydration guard**: `useSyncExternalStore` with a noop subscribe + `true` client / `false` server snapshot — the lint-compliant "is client" pattern (avoids `react-hooks/set-state-in-effect`). Renders a minimal pulse skeleton until mounted to prevent SSR/CSR mismatch from the persisted store.
+  - **EmptyCountdown** (no countdown set): compact glass card with violet/fuchsia gradient border + blurred fuchsia blob. Form: exam name Input, date Input (type=date), optional target-score Input, gradient "Set countdown" button (Plus icon). Validates name + date; inline error with AlertCircle. On submit calls `setCountdown({ examName, examDate: ISO, targetScore, createdAt: now })`.
+  - **ActiveCountdown** (countdown set): premium glass card with urgency-tinted border:
+    - Header: gradient icon tile (AlarmClock) + exam name + date (`format(examDate, "EEE, d MMM yyyy")`) + target-score Badge (Target icon) + Edit (Pencil) / Clear (Trash2) ghost icon buttons.
+    - Urgency chip: dynamically labelled ("On track" / "Accelerate" / "Crunch time" / "Final stretch" / "Exam day") with icon (TrendingUp / Hourglass / AlertCircle) and tinted bg/text. Shows "N days remaining" alongside.
+    - **Live countdown grid** (4 cols, updates every 1s via `setInterval` in `useEffect`): Days / Hours / Minutes / Seconds in gradient-bordered glass tiles (`CountdownUnit` — `bg-gradient-to-br p-px` wrapper + inner `bg-background/85 backdrop-blur-sm`), big tabular-nums numbers, uppercase unit labels.
+    - **Progress bar**: animated `motion.div` width = % elapsed from `createdAt` to `examDate` (clamped 0–100%), gradient fill matching urgency ring, with "Started {d MMM}" / "{d MMM yyyy}" bookends and "N% elapsed" label.
+    - **Milestone suggestions**: `buildMilestones()` returns 3–5 milestones based on `daysRemaining` (>90d: Foundation/Topic completion/Practice/Mock tests/Final revision; 30–90d: Intensive practice/Weak area focus/Full mocks/Final revision; <30d: Daily mocks/Weak area crash course/Formula revision/Exam strategy; <7d: Light revision only/Sleep well/Exam logistics). Each milestone's target date is computed backwards from exam date via `addDays(examDate, -round(span*(N-i)/(N+1)))` where `span = differenceInCalendarDays(examDate, createdAt)`. Each row: numbered/violet circle OR emerald CheckCircle2 (if the target day has fully passed), milestone name (line-through + muted when done), formatted target date. Header shows "{done}/{total} done" badge. List is `max-h-56 overflow-y-auto` with `paper-palette-scroll` (reuses existing global thin-scrollbar utility — no globals.css edit).
+    - **Edit dialog**: `EditFormBody` child holds form state via `useState` initializers from `current`; since Radix Dialog unmounts `DialogContent` when closed, the body remounts fresh each open — NO `useEffect` re-sync needed (avoids `react-hooks/set-state-in-effect`). Preserves original `createdAt` on save so the progress bar stays accurate.
+    - **Clear confirmation dialog**: destructive styling, "Keep it" / "Clear" buttons → `setCountdown(null)`.
+  - **Urgency styling** (`getUrgency`): >60d → violet border/glow/ring (`from-violet-500 to-fuchsia-500`); 30–60d → amber; <30d → rose (`from-rose-500 to-fuchsia-500`); <7d → critical rose (`from-rose-500 to-rose-400`) with `animate-pulse` applied to the icon tile (NOT the whole card, so text stays readable). Past exam → critical rose + "Exam day — all the best!".
+  - Uses `date-fns` `differenceInCalendarDays`, `format`, `addDays`, `parseISO`, `startOfDay` exactly as specified.
+  - **Styling**: NO indigo/blue anywhere. Violet/fuchsia gradients on all primary actions, empty-card border, icon tiles, progress bar, edit dialog confirm. Urgency colours: violet / amber / rose / pulsing-rose per spec. Premium glass card (`bg-gradient-to-br from-background via-background to-violet-500/[0.04] backdrop-blur-sm`), two decorative blurred gradient blobs (fuchsia top-right, violet bottom-left). Mobile-first responsive: 4-col countdown grid uses `gap-2 sm:gap-3` and `text-2xl sm:text-3xl`; form is `grid-cols-1 sm:grid-cols-2`; dialog `sm:max-w-md`.
+- Integrated into `src/components/views/dashboard.tsx`: imported `{ ExamCountdown }` from `@/components/exam-countdown`. Wrapped the existing "Your next priority" Card and the new `<ExamCountdown />` in a `grid grid-cols-1 lg:grid-cols-2 gap-4 items-start` (countdown left, priority right on desktop; stacked on mobile). Both wrapped in framer-motion fade-in divs (delays 0.03 / 0.05). Did NOT remove or alter any existing dashboard content (welcome header, priority card, quick actions, recent intelligence, weak-topic alerts, workflow banner all preserved).
+- Ran `cd /home/z/my-project && bun run lint 2>&1 | tail -25`. Initial run flagged 2 `react-hooks/set-state-in-effect` errors: (1) `EditDialog`'s `useEffect` re-sync of form state on open → refactored by extracting `EditFormBody` child (relies on Radix's DialogContent unmount to re-init useState, eliminating the effect); (2) `useEffect(() => setMounted(true), [])` hydration guard → replaced with `useSyncExternalStore` (noop subscribe + `true`/`false` snapshots), the lint-compliant "is client" pattern. Final lint run: **0 errors, 0 warnings** in my files (1 pre-existing warning in `flashcards.tsx` — an unused eslint-disable directive owned by another agent, out of scope).
+- Did NOT touch shared infra: `app-store.ts` unchanged, `types/index.ts` unchanged, no API route added (countdown is fully client-side + localStorage), no shadcn/ui component modified, no `globals.css` edit (reused existing `paper-palette-scroll` class).
+
+Stage Summary:
+- `src/store/countdown-store.ts` — new SEPARATE zustand store persisted to `localStorage["examintel-countdown"]`, exposing `countdown: ExamCountdown | null` + `setCountdown`. SSR-safe. Shared `app-store.ts` untouched.
+- `src/components/exam-countdown.tsx` — premium `'use client'` `ExamCountdown` widget: compact set-up form when empty; live 4-unit countdown (Days/Hours/Minutes/Seconds, 1s tick), animated prep-progress bar, urgency-tinted glass card (violet >60d / amber 30–60d / rose <30d / pulsing-rose icon <7d), 3–5 auto-suggested milestones with backwards-computed target dates + check-when-done, Edit dialog (remount-based state, no useEffect) + Clear confirmation. NO indigo/blue; violet+fuchsia+amber+rose only; mobile-first responsive. Lint-clean.
+- `src/components/views/dashboard.tsx` — integrated `<ExamCountdown />` in a 2-column grid (lg) alongside the existing "Your next priority" card, stacked on mobile. No existing content removed.
+- All shared infrastructure untouched. Widget is self-contained and renders immediately on the Dashboard.
+
+---
+Task ID: cron2-feat-1
+Agent: full-stack-developer (Flashcards)
+Task: Build AI-generated spaced repetition flashcards with review mode + mastery tracking
+
+Work Log:
+- Read /home/z/my-project/worklog.md and reviewed the last 2 cron-review entries (cron-review-1, cron2-feat-3) to absorb conventions: separate zustand+persist stores for self-contained features (mirrors study-store.ts and journal-store.ts), `jsonWithFallback` pattern for AI routes, mock provider routing keyed on SCHEMA HINT, violet/fuchsia gradients with NO indigo/blue, mobile-first responsive.
+- Inspected shared infra: app-store.ts (ViewKey union, persist pattern), mock-provider.ts (existing json() router branches + mockMCQ/mockPerformance/etc. patterns to mirror), use-api.ts (useApi().call<T>), shared/states.tsx + source-badge.tsx, app-shell.tsx (nav array, render switch, mobile nav filter exclusion list), ui/tabs.tsx + ui/select.tsx + ui/progress.tsx (shadcn primitives).
+- Created `src/types/flashcard.ts` — Flashcard (id, front, back, topic, difficulty, easeFactor, interval, repetitions, nextReview, lastReviewed?, mastery) + FlashcardSet (id, source, topic, cards, sources, generatedAt) + FlashcardMastery = "New"|"Learning"|"Reviewing"|"Mastered". SM-2 fields default at API/mock layer.
+- Created `src/store/flashcard-store.ts` — separate zustand store, persist key `"examintel-flashcards"`, localStorage SSR-safe. Exposes sets/addSet/removeSet/updateCard(getId,cardId,quality 0-5)/getDueCards/clearAll. SM-2 algorithm in applySM2(): easeFactor = max(1.3, EF + (0.1 - (5-q)*(0.08+(5-q)*0.02))); interval logic (q<3 → reset reps=0 interval=1; reps==1 → interval=1; reps==2 → interval=6; else round(interval*EF)); nextReview = now + interval days; mastery = New (reps<=0) / Learning (reps<3) / Mastered (reps>=3 && interval>=7) / Reviewing (else). Renamed the addSet param to `newSet` to avoid shadowing the zustand `set` setter (caught by tsc).
+- Created `src/app/api/flashcards/generate/route.ts` — POST endpoint, `runtime="nodejs"` + `dynamic="force-dynamic"`. Reads `{source, content, topic, count}` (defaults: source="Custom topic", count=10, clamped 1-50). Calls `jsonWithFallback<FlashcardSet>(SYSTEM, USER, SCHEMA, isFlashcardSet)` with SCHEMA hint containing "FlashcardSet". `sanitizeFlashcardSet` normalises AI output: de-duplicates fronts, coerces difficulty/easeFactor/interval/repetitions/mastery/nextReview to safe defaults, ensures sources array contains an AI_GENERATED entry, assigns a stable `fs_${Date.now()}_${rand}` id if missing. Wrapped in try/catch so normaliser errors fall back to raw. Returns `{set}` or `{error, status:500}`.
+- Modified `src/lib/ai/mock-provider.ts` — added a `json()` branch BEFORE the generic fallback: `if (schema.includes("flashcardset") || req.includes("flashcard generator")) return mockFlashcards(user) as unknown as T;`. Added `mockFlashcards(query)` function: detects topic from the user prompt ("SSC CGL" → general awareness/polity/history/geography cards; "Calculus"/"derivative"/"integral" → differentiation/integration cards; "vocab"/"english" → vocabulary/synonyms/idioms; "reasoning"/"pattern" → number series/coding-decoding; "quant"/"formula"/"aptitude" → formulas; else generic aptitude). Returns 8-10 cards each with id, front, back, topic, difficulty, easeFactor:2.5, interval:1, repetitions:0, nextReview: today's ISO, mastery:"New". Set-level id generated as `fs_${Date.now()}_${rand}`.
+- Created `src/components/views/flashcards.tsx` — `'use client'` named export `Flashcards`. Layout: header (gradient Layers icon tile + "AI Flashcards" title + SM-2 subtitle), then `<Tabs>` with two tabs.
+  - **Generate tab**: form card (source Input, topic Input required, content Textarea for grounding, count Select 5/10/15/20) + 4 quick chips ("SSC CGL — General Awareness", "Quantitative Aptitude — Formulas", "English — Vocabulary", "Reasoning — Patterns") that pre-fill the form + gradient Generate button. Calls `useApi().call<{set}>("/api/flashcards/generate", {source, topic, content, count})`. On success: `addSet(set)` + sonner toast + auto-switch to Review tab. Below: saved-sets list (cards with topic, source, "X/Y Mastered" progress, Progress bar, SourceBadgeList, gradient "Review now" + outline "Delete" buttons; "Review now" disabled when no cards due). EmptyState when no sets yet.
+  - **Review tab**: StatsCard always visible (Total cards / Due now / Mastered / Learning / Avg ease + mastery progress bar). Session flow: a "Start review session" CTA when due cards exist; once started, a flashcard carousel with 3D flip animation. Front face (violet-tinted gradient border) shows question + topic + difficulty badge + "Click to reveal answer"; click flips to back face (fuchsia-tinted gradient border) showing the answer. After flip: 4 SM-2 rating buttons appear in a 2x2 (mobile) / 4-col (desktop) grid — Again (rose, q=0, RotateCcw), Hard (amber, q=2, Target), Good (sky, q=4, Check), Easy (emerald, q=5, Zap). Each rating calls `updateCard(setId, cardId, quality)` and advances to next card (or finishes the session). Progress shows "Card X of Y due" + Progress bar. Prev/Skip/Reveal-answer ghost+outline buttons under the card when not flipped. Session-summary screen on finish: spring-animated PartyPopper icon + emoji burst (🎉 🌟 🎓 🎊 ✨) + "Reviewed N cards · M newly mastered" + "Review again"/"Back to review" buttons. EmptyState "No cards due!" when nothing is scheduled.
+  - Card flip: `[perspective:1600px]` parent + `motion.div` with `transformStyle: preserve-3d` and `animate={{ rotateY: flipped ? 180 : 0 }}`. Both faces absolutely positioned with `backfaceVisibility: hidden`; back face has `transform: rotateY(180deg)`. AnimatePresence wraps the card for cross-card transitions.
+- Wired into shared infra: added `| "flashcards"` to the ViewKey union in `src/store/app-store.ts` (between `"study-timer"` and `"progress-journal"`). In `src/components/app-shell.tsx`: added `import { Flashcards } from "@/components/views/flashcards"`, added nav item `{ key: "flashcards", label: "Flashcards", icon: Layers, desc: "Spaced repetition" }` (Layers icon already imported and reused for Multi-Exam), added `case "flashcards": return <Flashcards />;` to the render switch, added `"flashcards"` to the mobile nav filter exclusion list (`!["my-research", "api-keys", "study-timer", "progress-journal", "flashcards"].includes(n.key)`).
+- Ran `cd /home/z/my-project && bun run lint 2>&1 | tail -20` — initially 1 warning about an unused eslint-disable directive in flashcards.tsx (removed the directive). Re-ran → **0 errors, 0 warnings**. Also ran `bunx tsc --noEmit -p tsconfig.json` filtered to my files — caught 2 errors (shadowed `set` param in flashcard-store.ts addSet, missing `FlashcardSet["sources"]` type annotation in route.ts sources map). Both fixed. Remaining tsc errors are pre-existing in `multi-exam/optimize/route.ts` and `provider.ts` (owned by other agents, not touched).
+- Wrote work record to `/home/z/my-project/agent-ctx/cron2-feat-1-full-stack-developer.md`.
+
+Stage Summary:
+- New AI Flashcards feature fully functional: AI generates front/back flashcards from any source/topic/grounding-content (or quick-chip presets) via POST `/api/flashcards/generate` (uses `jsonWithFallback` so UI works in mock mode and on Vercel with OPENAI_API_KEY). Sets persist to `localStorage["examintel-flashcards"]` via a separate zustand store. Review mode implements the SM-2 spaced-repetition algorithm — each rating (Again/Hard/Good/Easy → q=0/2/4/5) updates easeFactor, interval, repetitions, nextReview, and mastery bucket (New/Learning/Reviewing/Mastered at reps≥3 && interval≥7d). Stats card always visible (total / due now / mastered / learning / avg ease + mastery %). Card flip uses CSS 3D transform via framer-motion rotateY with two backface-hidden faces. Session summary on completion with confetti emoji burst. Mock provider returns 8-10 topic-relevant canned cards (SSC CGL GA / Calculus / English vocab / Reasoning patterns / Quant formulas / generic aptitude) so the feature is fully explorable in sandbox. NO indigo/blue; violet+fuchsia gradients throughout; mobile-first responsive. My files lint-clean and tsc-clean. Integrated cleanly into AppShell nav + render switch + mobile nav exclusion list. Shared infra (`app-store.ts` shape, `useAppStore`, AI provider, mock-provider structure) minimally touched — only the ViewKey union and the app-shell wiring as required by the task.
+
+---
+Task ID: cron-review-2
+Agent: Main (orchestrator) — web dev review cron round 2
+Task: QA, mock explainer fix, 3 new features (Flashcards, Exam Countdown, Progress Journal), styling polish
+
+Work Log:
+- Reviewed worklog (round 1 added Command Palette, Onboarding, Study Timer, error boundary, mock routing fix, landing polish)
+- QA via agent-browser: dashboard, question explainer, paper generator, study timer, my research all render correctly
+- QA finding: mock question explainer always returned "Time, Speed & Distance" regardless of actual question (canned data was static)
+- Fix: Rewrote mockQuestionExplanation to (a) extract the actual question from the route's triple-quote wrapper (regex /"""\s*\n([\s\S]*?)\n\s*"""/), and (b) detect question type via keyword matching → returns 6 different canned explanation profiles:
+  - Linear equations (2x+3=11 → Algebra, answer "x = 4")
+  - Time/speed/distance (train/speed/km/h → "Time, Speed & Distance")
+  - Percentage/profit-loss (%/profit/discount → "Percentage & Profit-Loss")
+  - Reasoning (series/pattern/coding → "Logical Reasoning")
+  - English (grammar/vocab/comprehension → "Reading Comprehension & Vocabulary")
+  - Generic fallback (problem solving)
+  Each profile has tailored hint, concept, steps, shortcut, and insight.
+- Verified: algebra→"Algebra"|x=4, percentage→"Percentage & Profit-Loss", reasoning→"Logical Reasoning", speed→"Time, Speed & Distance" ✓
+
+- NEW FEATURE 1: Flashcards (SM-2 spaced repetition)
+  - Types: src/types/flashcard.ts (Flashcard, FlashcardSet with easeFactor/interval/repetitions/nextReview/mastery)
+  - Store: src/store/flashcard-store.ts (zustand+persist, SM-2 algorithm in updateCard, getDueCards)
+  - API: src/app/api/flashcards/generate/route.ts (jsonWithFallback + isFlashcardSet validator)
+  - Mock: added mockFlashcards() in mock-provider.ts with 8-10 topic-relevant cards (SSC CGL GA / Calculus / English / Reasoning / Quant)
+  - View: src/components/views/flashcards.tsx — Generate tab (form + saved sets) + Review tab (3D flip card carousel, 4 SM-2 rating buttons Again/Hard/Good/Easy, session summary with emoji burst)
+  - Wired into AppShell nav + render switch + mobile nav
+
+- NEW FEATURE 2: Exam Countdown widget
+  - Store: src/store/countdown-store.ts (zustand+persist)
+  - Component: src/components/exam-countdown.tsx — live D/H/M/S countdown (1s tick), progress bar, auto-suggested milestones (varies by days remaining: >90d/30-90d/<30d/<7d), urgency styling (violet>amber>rose>pulsing-rose)
+  - Integrated into dashboard.tsx (2-col layout with priority card on desktop)
+
+- NEW FEATURE 3: Progress Journal
+  - Store: src/store/journal-store.ts (zustand+persist, JournalEntry with mood/whatStudied/blockers/wins)
+  - API: src/app/api/journal/summary/route.ts (getLLM().chat → weekly markdown summary with 6 sections + 3 recommendations)
+  - View: src/components/views/progress-journal.tsx — 3-col layout (new entry form + timeline + AI summary), 4-emoji mood selector, date groupings, stats bar
+  - Wired into AppShell nav + render switch + mobile nav
+
+- STYLING: View transitions — created src/components/view-transition.tsx (framer-motion fade+slide-up, keyed by view). Wired into AppShell main content area.
+- STYLING: Activity heatmap — created src/components/activity-heatmap.tsx (GitHub-style 12-week contribution graph, pulls from journal+study stores, violet intensity levels, month labels, today ring, legend). Added to dashboard before workflow banner.
+- STYLING: PremiumEmptyState + AnimatedCounter — created src/components/shared/premium-empty-state.tsx (gradient illustration with accent variants violet/emerald/amber/rose/sky, optional CTA button; AnimatedCounter with easeOutCubic count-up).
+- STYLING: Dashboard quick actions expanded — added Flashcards 🎴, Study Journal 📔, Study Timer ⏱️ cards (now 15 quick actions, was 12).
+
+- Verified via agent-browser E2E:
+  - Dashboard: "Set your exam date" countdown widget + "Welcome to ExamIntel" + heatmap ✓
+  - Flashcards: "AI Flashcards" view renders with Generate/Review tabs ✓
+  - Journal: "Progress Journal" with New Entry form + AVG MOOD stat + mood selector ✓
+- Verified via curl:
+  - /api/flashcards/generate → 8 cards for "SSC CGL General Awareness" ✓
+  - /api/journal/summary → weekly summary markdown ✓
+  - /api/question/explain → correct topic detection for 4 question types ✓
+- Lint: clean (0 errors, 0 warnings)
+- Final inventory: 113 TS/TSX files, 17 views, 16 API routes, 5 stores
+
+Stage Summary:
+- 3 new features added (Flashcards, Exam Countdown, Progress Journal) — now 18 views total (was 15).
+- Mock question explainer now adaptive (6 question-type profiles).
+- 3 new stores (flashcard, countdown, journal) — total 5 stores.
+- Styling: view transitions, activity heatmap, premium empty states, animated counters.
+- Dashboard enriched with countdown widget + heatmap + 3 new quick actions.
+- Next cron run can focus on: per-view deep styling polish, richer mock data for remaining features, performance optimization, or more features (e.g. study groups, formula sheet, exam calendar).

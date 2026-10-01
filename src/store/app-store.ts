@@ -24,6 +24,8 @@ export type ViewKey =
   | "multi-exam-optimizer"
   | "my-research"
   | "study-timer"
+  | "flashcards"
+  | "progress-journal"
   | "api-keys";
 
 export interface AIStatus {

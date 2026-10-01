@@ -24,9 +24,13 @@ import {
   Save,
   Lightbulb,
   Zap,
+  Timer,
+  BookOpen,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { EmptyState } from "@/components/shared/states";
+import { ExamCountdown } from "@/components/exam-countdown";
+import { ActivityHeatmap } from "@/components/activity-heatmap";
 
 const quickActions: { icon: typeof Search; label: string; view: ViewKey; emoji: string; desc: string }[] = [
   { icon: Search, label: "Research an Exam", view: "exam-researcher", emoji: "🔍", desc: "Exam intelligence report" },
@@ -39,7 +43,10 @@ const quickActions: { icon: typeof Search; label: string; view: ViewKey; emoji: 
   { icon: CalendarRange, label: "Build Preparation Plan", view: "preparation-simulator", emoji: "🎯", desc: "Adaptive journey" },
   { icon: Layers, label: "Optimize Multiple Exams", view: "multi-exam-optimizer", emoji: "🧠", desc: "Combined strategy" },
   { icon: ListChecks, label: "Generate MCQs", view: "mcq-generator", emoji: "🧪", desc: "From PDF or syllabus" },
+  { icon: Layers, label: "Flashcards", view: "flashcards", emoji: "🎴", desc: "Spaced repetition" },
   { icon: TrendingUp, label: "Analyse Performance", view: "my-research", emoji: "📊", desc: "From saved attempts" },
+  { icon: BookOpen, label: "Study Journal", view: "progress-journal", emoji: "📔", desc: "Daily log + AI summary" },
+  { icon: Timer, label: "Study Timer", view: "study-timer", emoji: "⏱️", desc: "Pomodoro + streaks" },
   { icon: Sparkles, label: "Ask AI Assistant", view: "dashboard", emoji: "✨", desc: "Contextual chat" },
 ];
 
@@ -87,52 +94,62 @@ export function Dashboard() {
         </p>
       </motion.div>
 
-      {/* Priority recommendation */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }}>
-        <Card className="relative overflow-hidden border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-fuchsia-500/5 to-transparent">
-          <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-fuchsia-500/20 blur-3xl" />
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-amber-500" />
-              <CardTitle className="text-base">Your next priority</CardTitle>
-            </div>
-            <CardDescription>Intelligent recommendation based on your activity</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {saved.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border p-4 text-sm">
-                <p className="font-medium">Start by researching an exam</p>
-                <p className="mt-1 text-muted-foreground">
-                  ExamIntel will identify the syllabus, build a dependency map, detect prerequisite gaps, and recommend a learning sequence.
-                </p>
-                <Button size="sm" className="mt-3 gap-1.5" onClick={() => setView("exam-researcher")}>
-                  Research your first exam <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
+      {/* Exam countdown + priority recommendation */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.03 }}
+        >
+          <ExamCountdown />
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.05 }}>
+          <Card className="relative overflow-hidden border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-fuchsia-500/5 to-transparent">
+            <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-fuchsia-500/20 blur-3xl" />
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-amber-500" />
+                <CardTitle className="text-base">Your next priority</CardTitle>
               </div>
-            ) : (
-              <div className="rounded-lg border border-violet-500/20 bg-background/40 p-4 text-sm">
-                <p className="font-medium">Example recommendation flow</p>
-                <p className="mt-1 text-muted-foreground">
-                  You are weak in <span className="font-semibold text-foreground">Integration</span>, and Integration is a prerequisite for <span className="font-semibold text-foreground">Differential Equations</span>.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-                  <Badge variant="outline" className="gap-1"><TrendingUp className="h-3 w-3" /> Review Differentiation</Badge>
-                  <Badge variant="outline">Practice 10 questions</Badge>
-                  <Badge variant="outline">Continue Differential Equations</Badge>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setView("dependency-mapper")} className="gap-1.5">
-                    <Network className="h-3.5 w-3.5" /> Open Dependency Map
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setView("question-evolution")} className="gap-1.5">
-                    <Repeat2 className="h-3.5 w-3.5" /> Evolve a question
+              <CardDescription>Intelligent recommendation based on your activity</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {saved.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-sm">
+                  <p className="font-medium">Start by researching an exam</p>
+                  <p className="mt-1 text-muted-foreground">
+                    ExamIntel will identify the syllabus, build a dependency map, detect prerequisite gaps, and recommend a learning sequence.
+                  </p>
+                  <Button size="sm" className="mt-3 gap-1.5" onClick={() => setView("exam-researcher")}>
+                    Research your first exam <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
+              ) : (
+                <div className="rounded-lg border border-violet-500/20 bg-background/40 p-4 text-sm">
+                  <p className="font-medium">Example recommendation flow</p>
+                  <p className="mt-1 text-muted-foreground">
+                    You are weak in <span className="font-semibold text-foreground">Integration</span>, and Integration is a prerequisite for <span className="font-semibold text-foreground">Differential Equations</span>.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                    <Badge variant="outline" className="gap-1"><TrendingUp className="h-3 w-3" /> Review Differentiation</Badge>
+                    <Badge variant="outline">Practice 10 questions</Badge>
+                    <Badge variant="outline">Continue Differential Equations</Badge>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setView("dependency-mapper")} className="gap-1.5">
+                      <Network className="h-3.5 w-3.5" /> Open Dependency Map
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setView("question-evolution")} className="gap-1.5">
+                      <Repeat2 className="h-3.5 w-3.5" /> Evolve a question
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
 
       {/* Quick actions */}
       <div>
@@ -261,6 +278,9 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Activity heatmap */}
+      <ActivityHeatmap />
 
       {/* Workflow banner */}
       <Card className="border-dashed">

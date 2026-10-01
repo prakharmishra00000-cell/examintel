@@ -27,9 +27,11 @@ import {
   Brain,
   Activity,
   Timer,
+  BookOpen,
 } from "lucide-react";
 import { Landing } from "@/components/views/landing";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { ViewTransition } from "@/components/view-transition";
 import { Dashboard } from "@/components/views/dashboard";
 import { ExamResearcher } from "@/components/views/exam-researcher";
 import { ExamComparison } from "@/components/views/exam-comparison";
@@ -43,6 +45,8 @@ import { PreparationSimulator } from "@/components/views/preparation-simulator";
 import { MultiExamOptimizer } from "@/components/views/multi-exam-optimizer";
 import { MyResearch } from "@/components/views/my-research";
 import { StudyTimer } from "@/components/views/study-timer";
+import { ProgressJournal } from "@/components/views/progress-journal";
+import { Flashcards } from "@/components/views/flashcards";
 import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
@@ -66,6 +70,8 @@ const NAV: NavItem[] = [
   { key: "multi-exam-optimizer", label: "Multi-Exam", icon: Layers, desc: "Optimize across exams" },
   { key: "my-research", label: "My Research", icon: Save, desc: "Saved intelligence" },
   { key: "study-timer", label: "Study Timer", icon: Timer, desc: "Pomodoro + streaks" },
+  { key: "progress-journal", label: "Journal", icon: BookOpen, desc: "Daily study log" },
+  { key: "flashcards", label: "Flashcards", icon: Layers, desc: "Spaced repetition" },
   { key: "api-keys", label: "API Keys", icon: KeyRound, desc: "Vercel setup guide" },
 ];
 
@@ -200,6 +206,10 @@ export function AppShell() {
         return <MyResearch />;
       case "study-timer":
         return <StudyTimer />;
+      case "progress-journal":
+        return <ProgressJournal />;
+      case "flashcards":
+        return <Flashcards />;
       case "api-keys":
         return <ApiKeysView />;
       default:
@@ -274,7 +284,9 @@ export function AppShell() {
 
         <main className="flex-1 min-w-0 overflow-x-hidden">
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6">
-            <ErrorBoundary key={currentView}>{render()}</ErrorBoundary>
+            <ErrorBoundary key={currentView}>
+              <ViewTransition viewKey={currentView}>{render()}</ViewTransition>
+            </ErrorBoundary>
           </div>
         </main>
       </div>
@@ -282,7 +294,7 @@ export function AppShell() {
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys", "study-timer"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (
@@ -305,6 +317,13 @@ export function AppShell() {
           >
             <Timer className="h-4 w-4" />
             <span>Timer</span>
+          </button>
+          <button
+            onClick={() => setView("progress-journal")}
+            className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1 text-[10px] min-w-[60px] text-muted-foreground"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span>Journal</span>
           </button>
           <button
             onClick={() => setView("my-research")}
