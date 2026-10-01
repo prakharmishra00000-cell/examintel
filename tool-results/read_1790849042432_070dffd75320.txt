@@ -1,0 +1,702 @@
+     1→"use client";
+     2→
+     3→import { useState } from "react";
+     4→import { motion } from "framer-motion";
+     5→import { toast } from "sonner";
+     6→import {
+     7→  Network,
+     8→  GitBranch,
+     9→  AlertTriangle,
+    10→  ArrowDown,
+    11→  CheckCircle2,
+    12→  XCircle,
+    13→  Sparkles,
+    14→  Save,
+    15→  Wand2,
+    16→  Layers,
+    17→  Route as RouteIcon,
+    18→  ListTree,
+    19→  ChevronRight,
+    20→} from "lucide-react";
+    21→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+    22→import { Button } from "@/components/ui/button";
+    23→import { Badge } from "@/components/ui/badge";
+    24→import { Textarea } from "@/components/ui/textarea";
+    25→import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+    26→import { SourceBadgeList } from "@/components/shared/source-badge";
+    27→import { LoadingState, EmptyState } from "@/components/shared/states";
+    28→import { useAppStore } from "@/store/app-store";
+    29→import { useApi } from "@/hooks/use-api";
+    30→import { cn } from "@/lib/utils";
+    31→import type { DependencyMapReport, DependencyNode, PrerequisiteGap } from "@/types";
+    32→
+    33→type InputType = "exam" | "subject" | "topic" | "syllabus" | "custom";
+    34→
+    35→const INPUT_TYPES: { value: InputType; label: string; hint: string }[] = [
+    36→  { value: "exam", label: "Exam", hint: "Full exam syllabus graph" },
+    37→  { value: "subject", label: "Subject", hint: "A whole subject" },
+    38→  { value: "topic", label: "Topic", hint: "A single topic" },
+    39→  { value: "syllabus", label: "Syllabus PDF text", hint: "Paste syllabus text" },
+    40→  { value: "custom", label: "Custom curriculum", hint: "Your own curriculum" },
+    41→];
+    42→
+    43→const QUICK_CHIPS = [
+    44→  "Calculus",
+    45→  "Engineering Mathematics",
+    46→  "SSC CGL Quantitative Aptitude",
+    47→  "GATE Mechanical Engineering",
+    48→];
+    49→
+    50→const MASTERY_STYLE: Record<
+    51→  DependencyNode["mastery"],
+    52→  { badge: string; dot: string; label: string }
+    53→> = {
+    54→  "Not Started": {
+    55→    badge: "bg-zinc-500/15 text-zinc-600 dark:text-zinc-300 border-zinc-500/30",
+    56→    dot: "bg-zinc-400",
+    57→    label: "Not Started",
+    58→  },
+    59→  Introduced: {
+    60→    badge: "bg-zinc-500/15 text-zinc-600 dark:text-zinc-300 border-zinc-500/30",
+    61→    dot: "bg-zinc-400",
+    62→    label: "Introduced",
+    63→  },
+    64→  Learning: {
+    65→    badge: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    66→    dot: "bg-amber-500",
+    67→    label: "Learning",
+    68→  },
+    69→  Practicing: {
+    70→    badge: "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30",
+    71→    dot: "bg-sky-500",
+    72→    label: "Practicing",
+    73→  },
+    74→  Weak: {
+    75→    badge: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+    76→    dot: "bg-rose-500",
+    77→    label: "Weak",
+    78→  },
+    79→  Improving: {
+    80→    badge: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    81→    dot: "bg-amber-500",
+    82→    label: "Improving",
+    83→  },
+    84→  Strong: {
+    85→    badge: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    86→    dot: "bg-emerald-500",
+    87→    label: "Strong",
+    88→  },
+    89→  Mastered: {
+    90→    badge: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    91→    dot: "bg-emerald-500",
+    92→    label: "Mastered",
+    93→  },
+    94→};
+    95→
+    96→const DIFFICULTY_STYLE: Record<string, string> = {
+    97→  easy: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25",
+    98→  medium: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25",
+    99→  hard: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25",
+   100→  mixed: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/25",
+   101→};
+   102→
+   103→const RELEVANCE_STYLE: Record<string, string> = {
+   104→  high: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/25",
+   105→  medium: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/25",
+   106→  low: "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400 border-zinc-500/25",
+   107→};
+   108→
+   109→export function DependencyMapper() {
+   110→  const { call } = useApi();
+   111→  const setContext = useAppStore((s) => s.setContext);
+   112→  const saveItem = useAppStore((s) => s.saveItem);
+   113→
+   114→  const [inputType, setInputType] = useState<InputType>("topic");
+   115→  const [input, setInput] = useState("");
+   116→  const [loading, setLoading] = useState(false);
+   117→  const [report, setReport] = useState<DependencyMapReport | null>(null);
+   118→  const [error, setError] = useState<string | null>(null);
+   119→
+   120→  async function build() {
+   121→    const trimmed = input.trim();
+   122→    if (!trimmed) {
+   123→      toast.error("Enter something to map", {
+   124→        description: "Type an exam, subject, topic, or paste a syllabus.",
+   125→      });
+   126→      return;
+   127→    }
+   128→    setLoading(true);
+   129→    setError(null);
+   130→    const res = await call<{ report: DependencyMapReport } | { error: string }>(
+   131→      "/api/dependency/map",
+   132→      { input: trimmed, inputType }
+   133→    );
+   134→    setLoading(false);
+   135→    if (!res) return;
+   136→    if ("error" in res) {
+   137→      setError(res.error);
+   138→      return;
+   139→    }
+   140→    setReport(res.report);
+   141→    setContext(`Dependency map: ${res.report.root}`, "dependency");
+   142→    toast.success("Dependency map ready", {
+   143→      description: `${res.report.nodes.length} nodes · ${res.report.gaps.length} gaps detected`,
+   144→    });
+   145→  }
+   146→
+   147→  function quickFill(value: string) {
+   148→    setInput(value);
+   149→    if (/ssc|gate|upsc|cat|gre|gate|jee|neet/i.test(value)) setInputType("exam");
+   150→    else if (value.length > 40) setInputType("syllabus");
+   151→    else setInputType("topic");
+   152→  }
+   153→
+   154→  function saveToResearch() {
+   155→    if (!report) return;
+   156→    saveItem({
+   157→      type: "dependency",
+   158→      title: report.root,
+   159→      summary: `${report.nodes.length} nodes, ${report.gaps.length} gaps`,
+   160→      data: report,
+   161→    });
+   162→    toast.success("Saved to My Research", {
+   163→      description: `"${report.root}" — ${report.nodes.length} nodes, ${report.gaps.length} gaps`,
+   164→    });
+   165→  }
+   166→
+   167→  return (
+   168→    <div className="space-y-6">
+   169→      {/* Header */}
+   170→      <motion.div
+   171→        initial={{ opacity: 0, y: 8 }}
+   172→        animate={{ opacity: 1, y: 0 }}
+   173→        transition={{ duration: 0.3 }}
+   174→      >
+   175→        <div className="flex items-start gap-3">
+   176→          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/20 to-fuchsia-500/15 border border-violet-500/20">
+   177→            <Network className="h-5 w-5 text-violet-500" />
+   178→          </div>
+   179→          <div className="flex-1">
+   180→            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+   181→              AI Exam Dependency Mapper
+   182→            </h1>
+   183→            <p className="mt-1 text-sm text-muted-foreground">
+   184→              Build a prerequisite knowledge graph. Detect missing foundations before they block you.
+   185→            </p>
+   186→          </div>
+   187→        </div>
+   188→      </motion.div>
+   189→
+   190→      {/* Input form */}
+   191→      <Card className="border-violet-500/20 bg-gradient-to-br from-violet-500/5 via-fuchsia-500/[0.03] to-transparent">
+   192→        <CardHeader>
+   193→          <CardTitle className="text-base flex items-center gap-2">
+   194→            <Wand2 className="h-4 w-4 text-violet-500" />
+   195→            What should I map?
+   196→          </CardTitle>
+   197→          <CardDescription>
+   198→            Choose an input type and tell us the exam, subject, topic, or paste a syllabus.
+   199→          </CardDescription>
+   200→        </CardHeader>
+   201→        <CardContent className="space-y-4">
+   202→          <div>
+   203→            <label className="text-xs font-medium text-muted-foreground mb-2 block">
+   204→              Input type
+   205→            </label>
+   206→            <ToggleGroup
+   207→              type="single"
+   208→              value={inputType}
+   209→              onValueChange={(v) => v && setInputType(v as InputType)}
+   210→              variant="outline"
+   211→              className="flex flex-wrap w-full"
+   212→            >
+   213→              {INPUT_TYPES.map((t) => (
+   214→                <ToggleGroupItem
+   215→                  key={t.value}
+   216→                  value={t.value}
+   217→                  className="flex-1 min-w-fit data-[state=on]:bg-violet-500/15 data-[state=on]:text-violet-600 dark:data-[state=on]:text-violet-300 data-[state=on]:border-violet-500/40"
+   218→                  title={t.hint}
+   219→                >
+   220→                  {t.label}
+   221→                </ToggleGroupItem>
+   222→              ))}
+   223→            </ToggleGroup>
+   224→          </div>
+   225→
+   226→          <div>
+   227→            <label className="text-xs font-medium text-muted-foreground mb-2 block">
+   228→              Input
+   229→            </label>
+   230→            <Textarea
+   231→              value={input}
+   232→              onChange={(e) => setInput(e.target.value)}
+   233→              placeholder={
+   234→                inputType === "syllabus"
+   235→                  ? "Paste the syllabus text here — units, topics, subtopics..."
+   236→                  : inputType === "exam"
+   237→                  ? "e.g. SSC CGL, GATE CS, UPSC CSE Prelims..."
+   238→                  : inputType === "subject"
+   239→                  ? "e.g. Engineering Mathematics, General Studies..."
+   240→                  : inputType === "custom"
+   241→                  ? "Describe the curriculum you want to map..."
+   242→                  : "e.g. Calculus, Probability, Operating Systems..."
+   243→              }
+   244→              className="min-h-24 resize-y"
+   245→              onKeyDown={(e) => {
+   246→                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+   247→                  e.preventDefault();
+   248→                  build();
+   249→                }
+   250→              }}
+   251→            />
+   252→            <p className="mt-1 text-[11px] text-muted-foreground">
+   253→              Tip: <kbd className="rounded bg-muted px-1">⌘/Ctrl</kbd> + <kbd className="rounded bg-muted px-1">Enter</kbd> to build.
+   254→            </p>
+   255→          </div>
+   256→
+   257→          <div>
+   258→            <label className="text-xs font-medium text-muted-foreground mb-2 block">
+   259→              Quick examples
+   260→            </label>
+   261→            <div className="flex flex-wrap gap-2">
+   262→              {QUICK_CHIPS.map((c) => (
+   263→                <button
+   264→                  key={c}
+   265→                  onClick={() => quickFill(c)}
+   266→                  className="rounded-full border border-border bg-background px-3 py-1 text-xs hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300 transition"
+   267→                >
+   268→                  {c}
+   269→                </button>
+   270→              ))}
+   271→            </div>
+   272→          </div>
+   273→
+   274→          <div className="flex flex-wrap items-center gap-2">
+   275→            <Button
+   276→              onClick={build}
+   277→              disabled={loading || !input.trim()}
+   278→              className="gap-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-md shadow-violet-500/20"
+   279→            >
+   280→              {loading ? (
+   281→                <>
+   282→                  <Sparkles className="h-3.5 w-3.5 animate-pulse" /> Mapping...
+   283→                </>
+   284→              ) : (
+   285→                <>
+   286→                  <Network className="h-3.5 w-3.5" /> Build Dependency Map
+   287→                </>
+   288→              )}
+   289→            </Button>
+   290→            {report && (
+   291→              <Button
+   292→                variant="outline"
+   293→                onClick={saveToResearch}
+   294→                className="gap-1.5"
+   295→              >
+   296→                <Save className="h-3.5 w-3.5" /> Save to My Research
+   297→              </Button>
+   298→            )}
+   299→            {report && (
+   300→              <Button
+   301→                variant="ghost"
+   302→                size="sm"
+   303→                onClick={() => {
+   304→                  setReport(null);
+   305→                  setInput("");
+   306→                }}
+   307→                className="ml-auto"
+   308→              >
+   309→                Reset
+   310→              </Button>
+   311→            )}
+   312→          </div>
+   313→        </CardContent>
+   314→      </Card>
+   315→
+   316→      {/* Body */}
+   317→      {loading && (
+   318→        <Card>
+   319→          <CardContent className="p-6">
+   320→            <LoadingState label="Building knowledge graph — mapping prerequisites, detecting gaps, sequencing your learning..." />
+   321→          </CardContent>
+   322→        </Card>
+   323→      )}
+   324→
+   325→      {error && !loading && (
+   326→        <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
+   327→          <div className="flex items-start gap-3">
+   328→            <XCircle className="h-4 w-4 text-rose-500 mt-0.5 shrink-0" />
+   329→            <div className="flex-1 text-sm">
+   330→              <p className="font-medium text-rose-600 dark:text-rose-400">Could not build the map</p>
+   331→              <p className="mt-1 text-muted-foreground">{error}</p>
+   332→              <Button size="sm" variant="outline" onClick={build} className="mt-3 h-7 gap-1.5">
+   333→                Retry
+   334→              </Button>
+   335→            </div>
+   336→          </div>
+   337→        </div>
+   338→      )}
+   339→
+   340→      {!loading && !report && !error && (
+   341→        <EmptyState
+   342→          icon={ListTree}
+   343→          title="No dependency map yet"
+   344→          description="Type a topic, subject, or exam above and click Build. ExamIntel will return a prerequisite graph, detect missing foundations, and recommend a learning sequence."
+   345→        />
+   346→      )}
+   347→
+   348→      {!loading && report && (
+   349→        <ReportView report={report} />
+   350→      )}
+   351→    </div>
+   352→  );
+   353→}
+   354→
+   355→// ============================================================
+   356→// Report View
+   357→// ============================================================
+   358→function ReportView({ report }: { report: DependencyMapReport }) {
+   359→  const byLevel = groupByLevel(report.nodes);
+   360→
+   361→  return (
+   362→    <div className="space-y-6">
+   363→      {/* Summary bar */}
+   364→      <div className="flex flex-wrap items-center gap-2 text-xs">
+   365→        <Badge variant="outline" className="gap-1 border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300">
+   366→          <Network className="h-3 w-3" /> Root: {report.root}
+   367→        </Badge>
+   368→        <Badge variant="outline" className="gap-1">
+   369→          <GitBranch className="h-3 w-3" /> {report.nodes.length} nodes
+   370→        </Badge>
+   371→        <Badge variant="outline" className="gap-1">
+   372→          <Layers className="h-3 w-3" /> {byLevel.length} levels
+   373→        </Badge>
+   374→        <Badge
+   375→          variant="outline"
+   376→          className={cn(
+   377→            "gap-1",
+   378→            report.gaps.length > 0
+   379→              ? "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+   380→              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+   381→          )}
+   382→        >
+   383→          {report.gaps.length > 0 ? (
+   384→            <AlertTriangle className="h-3 w-3" />
+   385→          ) : (
+   386→            <CheckCircle2 className="h-3 w-3" />
+   387→          )}
+   388→          {report.gaps.length} gaps
+   389→        </Badge>
+   390→      </div>
+   391→
+   392→      {/* 1. Graph visualization */}
+   393→      <Card>
+   394→        <CardHeader>
+   395→          <CardTitle className="text-base flex items-center gap-2">
+   396→            <GitBranch className="h-4 w-4 text-violet-500" />
+   397→            Dependency Graph
+   398→          </CardTitle>
+   399→          <CardDescription>
+   400→            Prerequisite DAG — read top-to-bottom. Each card lists what it depends on.
+   401→          </CardDescription>
+   402→        </CardHeader>
+   403→        <CardContent>
+   404→          {byLevel.length === 0 ? (
+   405→            <p className="text-sm text-muted-foreground">No nodes returned.</p>
+   406→          ) : (
+   407→            <div className="space-y-0">
+   408→              {byLevel.map((lvl, idx) => (
+   409→                <div key={lvl.level} className="relative">
+   410→                  {/* Level label */}
+   411→                  <div className="flex items-center gap-2 mb-3">
+   412→                    <div className="flex h-6 items-center rounded-full bg-violet-500/10 px-2 text-[11px] font-medium text-violet-600 dark:text-violet-300 border border-violet-500/20">
+   413→                      Level {lvl.level}
+   414→                    </div>
+   415→                    <div className="text-[11px] text-muted-foreground">
+   416→                      {lvl.nodes.length} node{lvl.nodes.length !== 1 ? "s" : ""}
+   417→                    </div>
+   418→                  </div>
+   419→
+   420→                  {/* Nodes at this level */}
+   421→                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 relative">
+   422→                    {lvl.nodes.map((n) => (
+   423→                      <NodeCard key={n.id} node={n} allNodes={report.nodes} />
+   424→                    ))}
+   425→                  </div>
+   426→
+   427→                  {/* Connector to next level */}
+   428→                  {idx < byLevel.length - 1 && (
+   429→                    <div className="flex justify-center py-2.5" aria-hidden>
+   430→                      <div className="flex flex-col items-center text-violet-500/70">
+   431→                        <ArrowDown className="h-3.5 w-3.5" />
+   432→                        <div className="h-4 w-px bg-gradient-to-b from-violet-500/40 to-violet-500/10" />
+   433→                      </div>
+   434→                    </div>
+   435→                  )}
+   436→                </div>
+   437→              ))}
+   438→            </div>
+   439→          )}
+   440→        </CardContent>
+   441→      </Card>
+   442→
+   443→      {/* 2. Prerequisite gaps */}
+   444→      {report.gaps.length > 0 && (
+   445→        <Card className="border-rose-500/30 bg-gradient-to-br from-rose-500/[0.06] via-amber-500/[0.03] to-transparent">
+   446→          <CardHeader>
+   447→            <CardTitle className="text-base flex items-center gap-2">
+   448→              <AlertTriangle className="h-4 w-4 text-rose-500" />
+   449→              Prerequisite Gap Detection
+   450→            </CardTitle>
+   451→            <CardDescription>
+   452→              Missing foundations that will block you. Address these before moving forward.
+   453→            </CardDescription>
+   454→          </CardHeader>
+   455→          <CardContent className="space-y-3">
+   456→            {report.gaps.map((g, i) => (
+   457→              <GapCard key={i} gap={g} index={i} />
+   458→            ))}
+   459→          </CardContent>
+   460→        </Card>
+   461→      )}
+   462→
+   463→      {/* 3. Recommended learning sequence */}
+   464→      <Card>
+   465→        <CardHeader>
+   466→          <CardTitle className="text-base flex items-center gap-2">
+   467→            <RouteIcon className="h-4 w-4 text-violet-500" />
+   468→            Recommended Learning Sequence
+   469→          </CardTitle>
+   470→          <CardDescription>
+   471→            The optimal topological order to study these topics.
+   472→          </CardDescription>
+   473→        </CardHeader>
+   474→        <CardContent>
+   475→          {report.recommendedLearningSequence.length === 0 ? (
+   476→            <p className="text-sm text-muted-foreground">No sequence provided.</p>
+   477→          ) : (
+   478→            <div className="flex flex-wrap items-stretch gap-2">
+   479→              {report.recommendedLearningSequence.map((step, i) => (
+   480→                <div key={i} className="flex items-center gap-2">
+   481→                  <div
+   482→                    className={cn(
+   483→                      "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+   484→                      i === 0
+   485→                        ? "border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-300"
+   486→                        : "border-border bg-background"
+   487→                    )}
+   488→                  >
+   489→                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-bold text-white">
+   490→                      {i + 1}
+   491→                    </span>
+   492→                    <span className="font-medium">{step}</span>
+   493→                  </div>
+   494→                  {i < report.recommendedLearningSequence.length - 1 && (
+   495→                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+   496→                  )}
+   497→                </div>
+   498→              ))}
+   499→            </div>
+   500→          )}
+   501→        </CardContent>
+   502→      </Card>
+   503→
+   504→      {/* 4. Sources */}
+   505→      <Card>
+   506→        <CardHeader>
+   507→          <CardTitle className="text-base flex items-center gap-2">
+   508→            <Sparkles className="h-4 w-4 text-violet-500" />
+   509→            Sources
+   510→          </CardTitle>
+   511→          <CardDescription>Where this dependency analysis came from.</CardDescription>
+   512→        </CardHeader>
+   513→        <CardContent>
+   514→          <SourceBadgeList sources={report.sources} />
+   515→        </CardContent>
+   516→      </Card>
+   517→    </div>
+   518→  );
+   519→}
+   520→
+   521→// ============================================================
+   522→// Node Card
+   523→// ============================================================
+   524→function NodeCard({ node, allNodes }: { node: DependencyNode; allNodes: DependencyNode[] }) {
+   525→  const mastery = MASTERY_STYLE[node.mastery] ?? MASTERY_STYLE["Not Started"];
+   526→  const diffKey = (node.difficulty ?? "").toLowerCase();
+   527→  const diff = DIFFICULTY_STYLE[diffKey] ?? null;
+   528→  const relKey = (node.examRelevance ?? "").toLowerCase();
+   529→  const rel = RELEVANCE_STYLE[relKey] ?? null;
+   530→
+   531→  const prereqNodes = node.prerequisites
+   532→    .map((id) => allNodes.find((n) => n.id === id))
+   533→    .filter(Boolean) as DependencyNode[];
+   534→
+   535→  return (
+   536→    <motion.div
+   537→      initial={{ opacity: 0, y: 6 }}
+   538→      animate={{ opacity: 1, y: 0 }}
+   539→      transition={{ duration: 0.25 }}
+   540→    >
+   541→      <div className="group relative h-full rounded-lg border border-border bg-card p-3 hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-500/5 transition-all">
+   542→        {/* Top row: id + mastery */}
+   543→        <div className="flex items-start justify-between gap-2">
+   544→          <div className="flex items-center gap-1.5">
+   545→            <code className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+   546→              {node.id}
+   547→            </code>
+   548→            {node.level !== undefined && (
+   549→              <span className="text-[10px] text-muted-foreground">L{node.level}</span>
+   550→            )}
+   551→          </div>
+   552→          <Badge variant="outline" className={cn("gap-1 text-[10px] px-1.5 py-0", mastery.badge)}>
+   553→            <span className={cn("h-1.5 w-1.5 rounded-full", mastery.dot)} />
+   554→            {mastery.label}
+   555→          </Badge>
+   556→        </div>
+   557→
+   558→        {/* Topic / subtopic / concept */}
+   559→        <div className="mt-2">
+   560→          <p className="font-semibold leading-tight">{node.topic}</p>
+   561→          {node.subtopic && (
+   562→            <p className="mt-0.5 text-xs text-muted-foreground">{node.subtopic}</p>
+   563→          )}
+   564→          {node.concept && (
+   565→            <p className="mt-1 text-xs italic text-foreground/70">"{node.concept}"</p>
+   566→          )}
+   567→        </div>
+   568→
+   569→        {/* Badges: difficulty + exam relevance */}
+   570→        <div className="mt-2 flex flex-wrap gap-1.5">
+   571→          {diff && node.difficulty && (
+   572→            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", diff)}>
+   573→              {node.difficulty}
+   574→            </Badge>
+   575→          )}
+   576→          {rel && node.examRelevance && (
+   577→            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", rel)}>
+   578→              Relevance: {node.examRelevance}
+   579→            </Badge>
+   580→          )}
+   581→        </div>
+   582→
+   583→        {/* Prerequisites */}
+   584→        <div className="mt-2.5 border-t border-border/60 pt-2">
+   585→          {prereqNodes.length > 0 ? (
+   586→            <div className="space-y-1">
+   587→              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+   588→                Depends on
+   589→              </p>
+   590→              <div className="flex flex-wrap gap-1">
+   591→                {prereqNodes.map((p) => (
+   592→                  <span
+   593→                    key={p.id}
+   594→                    className="inline-flex items-center gap-1 rounded border border-violet-500/20 bg-violet-500/5 px-1.5 py-0.5 text-[10px] text-violet-600 dark:text-violet-300"
+   595→                  >
+   596→                    <ArrowDown className="h-2.5 w-2.5 rotate-[-45deg]" />
+   597→                    {p.topic}
+   598→                  </span>
+   599→                ))}
+   600→              </div>
+   601→            </div>
+   602→          ) : (
+   603→            <p className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+   604→              <CheckCircle2 className="h-2.5 w-2.5" /> No prerequisites (foundation)
+   605→            </p>
+   606→          )}
+   607→        </div>
+   608→      </div>
+   609→    </motion.div>
+   610→  );
+   611→}
+   612→
+   613→// ============================================================
+   614→// Gap Card
+   615→// ============================================================
+   616→function GapCard({ gap, index }: { gap: PrerequisiteGap; index: number }) {
+   617→  return (
+   618→    <motion.div
+   619→      initial={{ opacity: 0, y: 6 }}
+   620→      animate={{ opacity: 1, y: 0 }}
+   621→      transition={{ duration: 0.25, delay: index * 0.04 }}
+   622→      className="rounded-lg border border-rose-500/30 bg-rose-500/[0.04] p-4"
+   623→    >
+   624→      <div className="flex items-start gap-3">
+   625→        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 shrink-0">
+   626→          <AlertTriangle className="h-3.5 w-3.5" />
+   627→        </div>
+   628→        <div className="flex-1 min-w-0">
+   629→          <div className="flex flex-wrap items-baseline gap-x-2">
+   630→            <p className="font-semibold text-rose-700 dark:text-rose-300">
+   631→              {gap.missingPrerequisite}
+   632→            </p>
+   633→            {gap.estimatedEffort && (
+   634→              <Badge
+   635→                variant="outline"
+   636→                className="text-[10px] border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+   637→              >
+   638→                {gap.estimatedEffort}
+   639→              </Badge>
+   640→            )}
+   641→          </div>
+   642→          <p className="mt-1 text-sm text-muted-foreground">{gap.whyItMatters}</p>
+   643→
+   644→          {/* Recommended sequence */}
+   645→          {gap.recommendedSequence.length > 0 && (
+   646→            <div className="mt-3">
+   647→              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">
+   648→                Recommended sequence
+   649→              </p>
+   650→              <ol className="space-y-1">
+   651→                {gap.recommendedSequence.map((s, i) => (
+   652→                  <li key={i} className="flex items-start gap-2 text-sm">
+   653→                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-[10px] font-bold text-rose-600 dark:text-rose-400">
+   654→                      {i + 1}
+   655→                    </span>
+   656→                    <span className="text-foreground/90">{s}</span>
+   657→                  </li>
+   658→                ))}
+   659→              </ol>
+   660→            </div>
+   661→          )}
+   662→
+   663→          {/* Practice recommendations */}
+   664→          {gap.practiceRecommendations.length > 0 && (
+   665→            <div className="mt-3">
+   666→              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">
+   667→                Practice recommendations
+   668→              </p>
+   669→              <div className="flex flex-wrap gap-1.5">
+   670→                {gap.practiceRecommendations.map((p, i) => (
+   671→                  <span
+   672→                    key={i}
+   673→                    className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-700 dark:text-amber-300"
+   674→                  >
+   675→                    <Sparkles className="h-2.5 w-2.5" />
+   676→                    {p}
+   677→                  </span>
+   678→                ))}
+   679→              </div>
+   680→            </div>
+   681→          )}
+   682→        </div>
+   683→      </div>
+   684→    </motion.div>
+   685→  );
+   686→}
+   687→
+   688→// ============================================================
+   689→// Helpers
+   690→// ============================================================
+   691→function groupByLevel(nodes: DependencyNode[]): { level: number; nodes: DependencyNode[] }[] {
+   692→  const map = new Map<number, DependencyNode[]>();
+   693→  for (const n of nodes) {
+   694→    const lv = n.level ?? 0;
+   695→    if (!map.has(lv)) map.set(lv, []);
+   696→    map.get(lv)!.push(n);
+   697→  }
+   698→  return Array.from(map.entries())
+   699→    .sort((a, b) => a[0] - b[0])
+   700→    .map(([level, nodes]) => ({ level, nodes }));
+   701→}
+   702→

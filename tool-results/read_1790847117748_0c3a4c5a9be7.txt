@@ -1,0 +1,1997 @@
+     1→MASTER BUILD PROMPT
+     2→Build a Production-Ready AI-Powered Competitive Exam Intelligence & Preparation Platform
+     3→Build a production-ready, modern AI SaaS platform specifically designed for competitive-exam aspirants preparing for technical and non-technical examinations.
+     4→The platform must NOT feel like a generic AI chatbot, generic LMS, generic question bank, or simple study planner.
+     5→It should feel like an AI Exam Intelligence System that can:
+     6→Research exams
+     7→Understand official exam notifications
+     8→Compare multiple exams
+     9→Map common and exam-specific syllabi
+    10→Build prerequisite/dependency graphs
+    11→Detect knowledge gaps
+    12→Analyse official PDFs
+    13→Answer questions from documents
+    14→Explain questions at multiple levels
+    15→Transform existing questions into new practice questions
+    16→Generate personalized question papers
+    17→Generate PDF-grounded MCQs
+    18→Create adaptive preparation plans
+    19→Optimize preparation across multiple exams
+    20→Simulate preparation journeys
+    21→Analyse performance
+    22→Dynamically replan preparation
+    23→The central product principle is:
+    24→Give me an exam, syllabus, question, question paper, or PDF — and turn it into actionable preparation intelligence.
+    25→The overall experience should follow:
+    26→Research → Understand → Map → Compare → Diagnose → Practice → Generate → Prepare → Simulate → Analyse → Adapt
+    27→
+    28→1. CORE PRODUCT VISION
+    29→Combine the following major AI systems into one integrated platform:
+    30→Exam Researcher
+    31→Exam Comparison Engine
+    32→Common Syllabus Intelligence
+    33→Preparation Overlap Analyzer
+    34→AI Exam Dependency Mapper
+    35→AI Question Explainer
+    36→AI Question Evolution Lab
+    37→AI Personalized Question Paper Generator
+    38→AI Preparation Simulator
+    39→AI Multi-Exam Preparation Optimizer
+    40→PDF Exam Analyzer
+    41→PDF-Grounded MCQ Generator
+    42→Personalized Preparation Intelligence
+    43→Exam Knowledge Graph
+    44→Performance Intelligence Engine
+    45→Exam Knowledge Base
+    46→Contextual AI Assistant
+    47→These systems must share data instead of operating as isolated tools.
+    48→For example:
+    49→Exam Researcher
+    50→→ identifies syllabus
+    51→Syllabus
+    52→→ feeds Dependency Mapper
+    53→Dependency Mapper
+    54→→ detects prerequisite gaps
+    55→Question Explainer
+    56→→ identifies question concepts
+    57→Question Evolution Lab
+    58→→ creates variants of those concepts
+    59→Question Paper Generator
+    60→→ uses exam pattern + syllabus + question intelligence
+    61→Performance Engine
+    62→→ identifies weak concepts
+    63→Preparation Simulator
+    64→→ uses weaknesses + dependencies + available time
+    65→Multi-Exam Optimizer
+    66→→ combines all of this across multiple target exams.
+    67→
+    68→2. MAIN DASHBOARD
+    69→Create a premium dashboard after login.
+    70→Dashboard sections
+    71→Welcome message
+    72→Primary target exam
+    73→Upcoming exams
+    74→Saved exams
+    75→Recently researched exams
+    76→Recent PDF analyses
+    77→Recent question explanations
+    78→Question evolution sessions
+    79→Generated question papers
+    80→Preparation simulations
+    81→Multi-exam preparation plans
+    82→Dependency maps
+    83→Generated MCQ sets
+    84→Preparation progress
+    85→Weak-topic alerts
+    86→Recommended next actions
+    87→Quick AI actions
+    88→Quick Actions
+    89→Create attractive cards/buttons:
+    90→🔍 Research an Exam
+    91→⚖️ Compare Exams
+    92→🧩 Map Syllabus Dependencies
+    93→📄 Analyse PDF
+    94→🧠 Explain Question
+    95→🔄 Evolve Question
+    96→📝 Generate Question Paper
+    97→🎯 Build Preparation Plan
+    98→🧠 Optimize Multiple Exams
+    99→🧪 Start Preparation Simulation
+   100→📝 Generate MCQs
+   101→📊 Analyse Performance
+   102→The dashboard should intelligently recommend actions.
+   103→Example:
+   104→Your next priority
+   105→You are weak in Integration, and Integration is a prerequisite for Differential Equations.
+   106→Recommended:
+   107→Review Integration → Practice 10 questions → Continue Differential Equations
+   108→
+   109→3. EXAM RESEARCHER
+   110→Create an AI-powered Exam Researcher.
+   111→User enters:
+   112→SSC CGL
+   113→or:
+   114→GATE Mechanical Engineering
+   115→or:
+   116→RRB JE
+   117→or any other competitive examination.
+   118→The AI generates a structured exam intelligence report.
+   119→
+   120→Basic Information
+   121→Provide:
+   122→Exam name
+   123→Conducting organisation
+   124→Exam purpose
+   125→Official website
+   126→Exam frequency
+   127→Known/expected cycle information
+   128→Qualification
+   129→Age limit
+   130→Nationality requirements
+   131→Important eligibility conditions
+   132→Clearly distinguish current verified information from historical information. 4. EXAM STRUCTURE
+   133→Show only stages relevant to that particular examination.
+   134→Possible stages:
+   135→Preliminary examination
+   136→Tier 1
+   137→Tier 2
+   138→Tier 3
+   139→Mains
+   140→Interview
+   141→Skill test
+   142→Typing test
+   143→Physical test
+   144→Document verification
+   145→Medical examination
+   146→Final selection
+   147→Display the actual sequence for the selected exam.
+   148→
+   149→5. SYLLABUS INTELLIGENCE
+   150→Break the syllabus into a structured hierarchy:
+   151→Subject → Topic → Subtopic → Concept
+   152→Example:
+   153→Quantitative Aptitude
+   154→
+   155→→ Arithmetic
+   156→
+   157→→ Percentage
+   158→
+   159→→ Profit & Loss
+   160→
+   161→→ Ratio
+   162→
+   163→→ Time & Work
+   164→For technical exams:
+   165→Engineering Mathematics
+   166→
+   167→→ Calculus
+   168→
+   169→→ Differentiation
+   170→
+   171→→ Integration
+   172→
+   173→→ Differential Equations
+   174→Each topic should support:
+   175→Description
+   176→Subtopics
+   177→Concepts
+   178→Prerequisites
+   179→Related concepts
+   180→Question types
+   181→Difficulty
+   182→Exam relevance
+   183→Previous-year question references where available
+   184→
+   185→6. EXAM PATTERN
+   186→Show:
+   187→Number of questions
+   188→Maximum marks
+   189→Duration
+   190→Question type
+   191→Marking scheme
+   192→Negative marking
+   193→Section-wise distribution
+   194→Sectional timing
+   195→Qualifying requirements
+   196→Stage-specific rules
+   197→Never invent missing information.
+   198→
+   199→7. CAREER INFORMATION
+   200→Where reliable information is available:
+   201→Posts
+   202→Departments
+   203→Job roles
+   204→Pay level/pay scale
+   205→Basic salary
+   206→Allowances
+   207→Career progression
+   208→Work profile
+   209→Posting information where officially available
+   210→Clearly distinguish official information from AI-generated interpretation.
+   211→
+   212→8. PREPARATION INFORMATION
+   213→AI should additionally explain:
+   214→Difficulty characteristics
+   215→Frequently tested topics
+   216→Important subjects
+   217→Common preparation mistakes
+   218→Recommended preparation sequence
+   219→Previous-year-question importance
+   220→Topic dependencies
+   221→High-priority prerequisite concepts
+   222→Do not present AI analysis as official exam information.
+   223→
+   224→9. EXAM COMPARISON ENGINE
+   225→Create a powerful feature:
+   226→Compare Exams
+   227→User can select multiple exams.
+   228→Example:
+   229→SSC CGL + SSC CHSL + RRB NTPC
+   230→Compare:
+   231→Eligibility
+   232→Qualification
+   233→Age
+   234→Exam stages
+   235→Subjects
+   236→Syllabus
+   237→Exam pattern
+   238→Marking scheme
+   239→Negative marking
+   240→Difficulty characteristics
+   241→Posts
+   242→Job roles
+   243→Salary/pay structure
+   244→Preparation overlap
+   245→Career pathways
+   246→Prerequisite differences
+   247→Additional preparation requirements
+   248→The comparison must be generated from structured exam data rather than a generic AI response.
+   249→
+   250→10. COMMON SYLLABUS INTELLIGENCE
+   251→After comparing exams, identify:
+   252→COMMON SYLLABUS
+   253→Show topics appearing across selected examinations.
+   254→Example:
+   255→Common
+   256→Percentage
+   257→Ratio
+   258→Average
+   259→Reasoning
+   260→English
+   261→General Awareness
+   262→Then identify:
+   263→EXAM-SPECIFIC TOPICS
+   264→SSC CGL
+   265→Topic A
+   266→Topic B
+   267→Topic C
+   268→RRB NTPC
+   269→Topic X
+   270→Topic Y
+   271→SSC CHSL
+   272→Topic Z
+   273→Show the relationship visually.
+   274→
+   275→11. PREPARATION OVERLAP ANALYSIS
+   276→Determine how preparation for one exam supports another.
+   277→Example:
+   278→User is preparing for SSC CGL.
+   279→AI explains which areas of that preparation can support RRB NTPC.
+   280→Use transparent categories:
+   281→Very High overlap
+   282→High overlap
+   283→Moderate overlap
+   284→Limited overlap
+   285→Do NOT invent numerical percentages unless they are calculated from a sufficiently complete structured syllabus dataset.
+   286→Show:
+   287→Existing Preparation
+   288→Topics already covered.
+   289→Additional Preparation
+   290→Topics still required.
+   291→Reason
+   292→Explain why those topics are additional.
+   293→
+   294→12. AI EXAM DEPENDENCY MAPPER
+   295→Create a dedicated feature:
+   296→AI Exam Dependency Mapper
+   297→The user can provide:
+   298→An exam
+   299→A syllabus
+   300→A subject
+   301→A topic
+   302→A PDF syllabus
+   303→A custom learning curriculum
+   304→The AI builds a prerequisite knowledge graph.
+   305→Example:
+   306→Calculus
+   307→→ Differentiation
+   308→→ Integration
+   309→→ Differential Equations
+   310→Another example:
+   311→Arithmetic
+   312→→ Ratio
+   313→→ Percentage
+   314→→ Profit & Loss
+   315→→ Mixture
+   316→→ Time & Work
+   317→For technical exams:
+   318→Engineering Mathematics
+   319→→ Calculus
+   320→→ Differential Calculus
+   321→→ Integral Calculus
+   322→→ Differential Equations
+   323→
+   324→Dependency Graph
+   325→Visualize:
+   326→FOUNDATION
+   327→   ↓
+   328→Prerequisite A
+   329→   ↓
+   330→Concept B
+   331→   ↓
+   332→Concept C
+   333→   ↓
+   334→Advanced Topic
+   335→Nodes should contain:
+   336→Topic
+   337→Subtopic
+   338→Concept
+   339→Difficulty
+   340→Prerequisites
+   341→Dependent topics
+   342→Exam relevance
+   343→Mastery status
+   344→Edges represent:
+   345→Required before
+   346→Strong prerequisite
+   347→Recommended prerequisite
+   348→Related concept 13. PREREQUISITE GAP DETECTION
+   349→The Dependency Mapper must detect missing foundations.
+   350→Example:
+   351→User wants to study:
+   352→Differential Equations
+   353→AI identifies:
+   354→Differentiation ✓
+   355→Integration ✕
+   356→Basic Calculus ✓
+   357→Algebra ✓
+   358→Then report:
+   359→Prerequisite Gap Detected
+   360→Integration should be reviewed before continuing with Differential Equations.
+   361→Provide:
+   362→Missing prerequisite
+   363→Why it matters
+   364→Recommended learning sequence
+   365→Practice recommendations
+   366→Estimated study effort when enough information exists
+   367→Never pretend the user has mastered something without evidence.
+   368→
+   369→14. DEPENDENCY-AWARE PREPARATION
+   370→Connect Dependency Mapper directly to Preparation Simulator.
+   371→If a student is weak in a prerequisite, the preparation planner should automatically account for it.
+   372→Example:
+   373→Target:
+   374→Differential Equations
+   375→
+   376→Detected gaps:
+   377→Integration
+   378→Basic differentiation
+   379→
+   380→Recommended sequence:
+   381→
+   382→1. Review Differentiation
+   383→2. Practice Integration
+   384→3. Learn Differential Equations
+   385→4. Solve PYQs
+   386→5. Attempt mixed problems
+   387→The system should avoid scheduling advanced topics before necessary foundations unless the user explicitly chooses otherwise.
+   388→
+   389→15. AI QUESTION EXPLAINER
+   390→Create a dedicated feature.
+   391→User can:
+   392→Type a question
+   393→Paste a question
+   394→Upload an image
+   395→Upload a question PDF
+   396→AI understands the question and explains it progressively.
+   397→
+   398→Level 1 — QUICK HINT
+   399→Give only a small hint.
+   400→Do not immediately reveal the full solution.
+   401→Example:
+   402→Think about the relationship between speed, distance and time.
+   403→Button:
+   404→Show Concept
+   405→
+   406→Level 2 — CONCEPT
+   407→Explain:
+   408→Concept name
+   409→Core rule/formula
+   410→Why it applies
+   411→Important shortcut
+   412→Common mistake
+   413→Button:
+   414→Show Detailed Solution
+   415→
+   416→Level 3 — DETAILED SOLUTION
+   417→Provide:
+   418→Step-by-step solution
+   419→Formula
+   420→Substitution
+   421→Calculation
+   422→Final answer
+   423→Explanation of each step
+   424→
+   425→Level 4 — EXAM SHORTCUT
+   426→Where applicable:
+   427→Shortcut method
+   428→Mental calculation
+   429→Elimination technique
+   430→Time-saving approach
+   431→
+   432→Level 5 — LEARNING INSIGHT
+   433→Explain:
+   434→What should you remember from this question?
+   435→Also provide:
+   436→Subject
+   437→Topic
+   438→Subtopic
+   439→Concept
+   440→Difficulty
+   441→Question type
+   442→Related concepts
+   443→Prerequisites
+   444→This information should feed the Knowledge Graph.
+   445→
+   446→16. AI QUESTION EVOLUTION LAB
+   447→Create a major feature called:
+   448→Question Evolution Lab
+   449→Purpose:
+   450→Take one real question, such as a PYQ, and transform it into a structured family of new practice questions.
+   451→Example:
+   452→Original PYQ
+   453→↓
+   454→
+   455→Concept extraction
+   456→↓
+   457→
+   458→Difficulty analysis
+   459→↓
+   460→
+   461→Question structure analysis
+   462→↓
+   463→
+   464→Question evolution
+   465→
+   466→17. QUESTION EVOLUTION LEVELS
+   467→For every source question, generate up to five evolution levels.
+   468→LEVEL 1 — SAME CONCEPT, EASIER
+   469→Keep the underlying concept the same but simplify:
+   470→Numbers
+   471→Language
+   472→Reasoning complexity
+   473→Calculation
+   474→Number of steps
+   475→Purpose:
+   476→Build conceptual confidence.
+   477→
+   478→LEVEL 2 — SAME CONCEPT, DIFFERENT FRAMING
+   479→Keep the same core concept but change:
+   480→Scenario
+   481→Wording
+   482→Question structure
+   483→Context
+   484→Data presentation
+   485→Purpose:
+   486→Ensure the student understands the concept rather than memorizing the original question.
+   487→
+   488→LEVEL 3 — MULTI-CONCEPT
+   489→Combine the original concept with another related concept.
+   490→Example:
+   491→Percentage + Ratio
+   492→or:
+   493→Integration + Differential Equations
+   494→Purpose:
+   495→Test concept integration.
+   496→
+   497→LEVEL 4 — DIFFICULT VARIANT
+   498→Increase:
+   499→Complexity
+   500→Number of steps
+   501→Distractor quality
+   502→Calculation difficulty
+   503→Conceptual depth
+   504→Purpose:
+   505→Prepare students for difficult questions.
+   506→
+   507→LEVEL 5 — EXAM-TRAP VARIANT
+   508→Create a legitimate difficult question designed around common misconceptions.
+   509→Examples:
+   510→Similar-looking formulas
+   511→Unit traps
+   512→Sign errors
+   513→Logical traps
+   514→Close answer choices
+   515→Misleading wording
+   516→Do not create ambiguous or invalid questions merely to make them difficult.
+   517→
+   518→18. QUESTION EVOLUTION OUTPUT
+   519→For each evolved question store:
+   520→Source question ID
+   521→Original question
+   522→Core concept
+   523→Subject
+   524→Topic
+   525→Subtopic
+   526→Difficulty
+   527→Evolution level
+   528→Question
+   529→Options
+   530→Correct answer
+   531→Explanation
+   532→Shortcut where applicable
+   533→Common trap
+   534→Source/reference
+   535→Validation status
+   536→The system must prevent the evolved question from accidentally changing the underlying concept. 19. QUESTION EVOLUTION VALIDATION
+   537→Every generated question should pass validation where technically possible.
+   538→Check:
+   539→Single correct answer for standard MCQs
+   540→Mathematical correctness
+   541→Option consistency
+   542→Explanation consistency
+   543→Difficulty consistency
+   544→Source concept consistency
+   545→No contradictory information
+   546→No accidental duplicate
+   547→No unsupported factual claims
+   548→If confidence is low, flag the question for review rather than presenting it as verified.
+   549→
+   550→20. QUESTION EVOLUTION ENGINE AS A PRACTICE MULTIPLIER
+   551→The platform should treat the Question Evolution Lab as a way to expand a limited question bank into a much larger practice system.
+   552→One real question can become:
+   553→Original PYQ
+   554→   │
+   555→   ├── Level 1: Easier
+   556→   ├── Level 2: Reframed
+   557→   ├── Level 3: Multi-concept
+   558→   ├── Level 4: Difficult
+   559→   └── Level 5: Exam-trap
+   560→The platform should maintain lineage between the original and every generated variant.
+   561→This enables:
+   562→Practice families
+   563→Concept mastery
+   564→Progressive difficulty
+   565→Weakness-specific practice
+   566→PYQ-based learning
+   567→Variant generation
+   568→Adaptive question selection
+   569→Do not represent generated variants as original PYQs.
+   570→Clearly label:
+   571→AI-generated variant based on this source question
+   572→
+   573→21. AI PERSONALIZED QUESTION PAPER GENERATOR
+   574→Create:
+   575→AI Personalized Question Paper Generator
+   576→The user configures:
+   577→Exam
+   578→Number of questions
+   579→Duration
+   580→Subjects
+   581→Topics
+   582→Difficulty
+   583→Question types
+   584→Marking scheme
+   585→Negative marking
+   586→Section distribution
+   587→Optional weak-topic weighting
+   588→Optional PYQ-pattern influence
+   589→Example:
+   590→Exam: GATE ME
+   591→Questions: 65
+   592→Duration: 180 minutes
+   593→The AI generates a paper according to:
+   594→Official/verified syllabus
+   595→Known exam structure
+   596→Question distribution where reliable data exists
+   597→Difficulty configuration
+   598→Question types
+   599→Marking scheme
+   600→Negative marking
+   601→Previous patterns where reliable data exists
+   602→Do not claim the generated paper is an official paper or exact prediction.
+   603→
+   604→22. PERSONALIZED PAPER MODES
+   605→Support:
+   606→Exam Simulation
+   607→Replicate the configured exam structure as closely as supported by verified data.
+   608→Weakness-Focused
+   609→Increase practice from topics identified as weak.
+   610→Balanced Practice
+   611→Distribute questions across selected topics.
+   612→Concept Mastery
+   613→Focus on selected concepts.
+   614→PYQ-Inspired
+   615→Generate structurally similar questions without falsely presenting them as original PYQs.
+   616→Mixed Difficulty
+   617→Use configurable easy/medium/hard distribution.
+   618→
+   619→23. QUESTION PAPER OUTPUT
+   620→After generation provide:
+   621→Question paper
+   622→Question navigation
+   623→Timer
+   624→Question palette
+   625→Mark for review
+   626→Previous/Next
+   627→Section navigation
+   628→Submit test
+   629→Auto-save attempt state
+   630→After submission generate:
+   631→Answer Key
+   632→For every question:
+   633→Correct answer
+   634→Question type
+   635→Topic
+   636→Difficulty
+   637→Detailed Solutions
+   638→Provide step-by-step explanations where applicable.
+   639→Performance Analysis
+   640→Include:
+   641→Score
+   642→Accuracy
+   643→Correct
+   644→Incorrect
+   645→Unattempted
+   646→Time used
+   647→Average time/question
+   648→Topic-wise performance
+   649→Difficulty-wise performance
+   650→Question-type performance
+   651→Negative-mark impact where applicable
+   652→
+   653→24. PERSONALIZED QUESTION PAPER ANALYSIS FRAMEWORK
+   654→After a generated paper, identify:
+   655→Strengths
+   656→Strong concepts/topics.
+   657→Weak Areas
+   658→Low-accuracy topics.
+   659→Time Management
+   660→Questions consuming excessive time.
+   661→Conceptual Errors
+   662→Repeated conceptual mistakes.
+   663→Calculation Errors
+   664→Repeated calculation mistakes.
+   665→Question Selection Errors
+   666→Questions that could have been skipped or approached differently.
+   667→Recommended Practice
+   668→Generate a follow-up practice set.
+   669→Example:
+   670→Weak area: Integration
+   671→
+   672→Recommended:
+   673→Review prerequisite → solve 5 Level-1 variants → 10 Level-2 variants → 5 PYQs → mixed test.
+   674→25. PDF EXAM ANALYZER
+   675→Allow users to upload:
+   676→Official exam notifications
+   677→Syllabus PDFs
+   678→Previous-year papers
+   679→Exam pattern documents
+   680→Recruitment notifications
+   681→Study material
+   682→Notes
+   683→Question papers
+   684→The AI must analyse the uploaded document.
+   685→It must distinguish between:
+   686→Information found in uploaded PDF
+   687→and
+   688→AI-generated interpretation
+   689→Never fabricate information that is not supported by the document. 26. PDF ANALYSIS REPORT
+   690→After upload generate:
+   691→Document Overview
+   692→Document title
+   693→Organisation
+   694→Exam
+   695→Year
+   696→Document type
+   697→Number of pages
+   698→Important sections
+   699→Extracted Information
+   700→Only show categories actually found:
+   701→Eligibility
+   702→Age
+   703→Qualification
+   704→Important dates
+   705→Exam pattern
+   706→Selection process
+   707→Syllabus
+   708→Marking scheme
+   709→Application details
+   710→Other rules
+   711→
+   712→27. ASK QUESTIONS ABOUT PDF
+   713→After analysis provide:
+   714→Ask anything about this document
+   715→Examples:
+   716→What is the age limit?
+   717→What is the negative marking?
+   718→How many stages are there?
+   719→What is the syllabus for Tier 2?
+   720→Answers should be primarily grounded in the uploaded document.
+   721→Where possible show:
+   722→Source: Page 12
+   723→or:
+   724→Source: Examination Scheme section
+   725→
+   726→28. PDF-GROUNDED MCQ GENERATOR
+   727→When the user clicks:
+   728→Generate MCQs from PDF
+   729→DO NOT immediately generate questions.
+   730→Create a guided configuration workflow.
+   731→
+   732→STEP 1 — SELECT TOPIC
+   733→Extract topics from the PDF.
+   734→Examples:
+   735→Eligibility
+   736→Exam Pattern
+   737→Syllabus
+   738→General Awareness
+   739→Quantitative Aptitude
+   740→Reasoning
+   741→Recruitment Rules
+   742→Allow:
+   743→Custom Topic
+   744→
+   745→STEP 2 — DIFFICULTY
+   746→Options:
+   747→Easy
+   748→Medium
+   749→Hard
+   750→Mixed Difficulty
+   751→
+   752→STEP 3 — NUMBER OF QUESTIONS
+   753→Options:
+   754→5
+   755→10
+   756→20
+   757→30
+   758→50
+   759→Custom
+   760→
+   761→STEP 4 — QUESTION TYPE
+   762→Options where appropriate:
+   763→MCQ
+   764→Multiple correct
+   765→Assertion & Reason
+   766→Match the following
+   767→Statement-based
+   768→True/False
+   769→Only enable question types appropriate to the selected source/exam.
+   770→
+   771→STEP 5 — GENERATE
+   772→Display:
+   773→MCQ Configuration
+   774→
+   775→Source: Uploaded PDF
+   776→Topic: Quantitative Aptitude
+   777→Difficulty: Hard
+   778→Questions: 20
+   779→Type: MCQ
+   780→Mode: Strict PDF Mode
+   781→Button:
+   782→Generate Questions
+   783→
+   784→29. PDF-GROUNDED QUESTION GENERATION RULES
+   785→In:
+   786→Strict PDF Mode
+   787→Every generated question must be based on information contained in the uploaded PDF.
+   788→Each generated question should internally contain:
+   789→Source passage/concept
+   790→Topic
+   791→Difficulty
+   792→Question
+   793→Options
+   794→Correct answer
+   795→Explanation
+   796→Source/page reference
+   797→Do not expose internal chain-of-thought.
+   798→Provide concise explanations instead.
+   799→
+   800→30. MCQ TEST MODE
+   801→Provide:
+   802→Timer
+   803→Question navigation
+   804→Mark for review
+   805→Previous/Next
+   806→Submit
+   807→Question palette
+   808→Attempted/unattempted indicators
+   809→After submission:
+   810→Result
+   811→Show:
+   812→Score
+   813→Accuracy
+   814→Correct
+   815→Incorrect
+   816→Unattempted
+   817→Time used
+   818→Topic-wise performance
+   819→Difficulty-wise performance
+   820→
+   821→31. AI PERFORMANCE ANALYSIS
+   822→After every meaningful test/practice session identify:
+   823→Strengths
+   824→Topics with strong performance.
+   825→Weak Areas
+   826→Topics with poor accuracy.
+   827→Conceptual Problems
+   828→Repeated errors involving the same concept.
+   829→Prerequisite Problems
+   830→Errors caused by missing foundational concepts.
+   831→Recommended Action
+   832→Example:
+   833→Revise Percentage → Practice 15 medium variants → Attempt a mixed quiz.
+   834→Recommendations should connect to the Dependency Mapper and Question Evolution Lab.
+   835→
+   836→32. AI QUESTION GENERATION MODES
+   837→Support:
+   838→Strict Source Mode
+   839→Only uploaded PDF/source.
+   840→Source + Exam Mode
+   841→PDF + selected exam syllabus/pattern.
+   842→Practice Mode
+   843→Generate similar questions based on the selected topic.
+   844→Evolution Mode
+   845→Generate variants of a source question.
+   846→Clearly display the active mode.
+   847→
+   848→33. AI MULTI-EXAM PREPARATION OPTIMIZER
+   849→Create a major feature:
+   850→Multi-Exam Preparation Optimizer
+   851→This is specifically designed for students preparing for multiple examinations simultaneously.
+   852→Example:
+   853→Primary:
+   854→SSC CGL
+   855→
+   856→Secondary:
+   857→Banking PO
+   858→
+   859→Backup:
+   860→Railway
+   861→Instead of generating three independent preparation plans, the AI creates one combined preparation strategy.
+   862→
+   863→34. MULTI-EXAM KNOWLEDGE MAP
+   864→Build a visual structure such as:
+   865→MULTI-EXAM PREPARATION
+   866→│
+   867→├── COMMON
+   868→│   ├── Quantitative Aptitude
+   869→│   ├── Reasoning
+   870→│   └── English
+   871→│
+   872→├── CGL-SPECIFIC
+   873→│   ├── GK
+   874→│   └── Additional Topics
+   875→│
+   876→├── BANK-SPECIFIC
+   877→│   ├── Banking Awareness
+   878→│   └── Additional Topics
+   879→│
+   880→└── RAILWAY-SPECIFIC
+   881→    └── Additional Topics
+   882→The exact topics must come from the structured exam data.
+   883→
+   884→35. COMBINED PREPARATION STRATEGYThe optimizer should identify:
+   885→Common Preparation
+   886→Topics that support multiple exams.
+   887→Exam-Specific Preparation
+   888→Topics unique or significantly different.
+   889→Priority
+   890→Which common foundations should be completed first.
+   891→Dependency
+   892→Which topics must precede advanced topics.
+   893→Scheduling
+   894→When to introduce exam-specific preparation.
+   895→Revision
+   896→Shared revision where appropriate.
+   897→Mock Testing
+   898→Exam-specific mock tests closer to the relevant exam.
+   899→
+   900→36. MULTI-EXAM PREPARATION OPTIMIZATION
+   901→The AI should attempt to minimize duplicated effort.
+   902→Example:
+   903→Instead of:
+   904→Monday — CGL Quant
+   905→Tuesday — Bank Quant
+   906→Wednesday — Railway Quant
+   907→it may structure preparation around the shared topic where appropriate:
+   908→Monday — Percentage foundation
+   909→Tuesday — Percentage practice
+   910→Wednesday — CGL-specific applications
+   911→Thursday — Banking-specific applications
+   912→Friday — Railway-specific applications
+   913→Do not assume that topics are identical merely because their names are similar.
+   914→The system must inspect topic definitions and requirements.
+   915→
+   916→37. MULTI-EXAM CONFLICT DETECTION
+   917→Detect conflicts such as:
+   918→Different exam patterns
+   919→Different question styles
+   920→Different time limits
+   921→Different negative marking
+   922→Different topic depth
+   923→Different required awareness areas
+   924→Different technical requirements
+   925→Show:
+   926→Preparation Conflict
+   927→and explain why separate preparation is required.
+   928→
+   929→38. MULTI-EXAM PRIORITY ENGINE
+   930→Allow users to define:
+   931→Primary exam
+   932→Secondary exam
+   933→Backup exam
+   934→Exam dates
+   935→Target scores
+   936→Available hours
+   937→The AI generates a priority-aware schedule.
+   938→Example:
+   939→Shared Foundation
+   940→        ↓
+   941→Primary Exam Focus
+   942→        ↓
+   943→Secondary Exam Maintenance
+   944→        ↓
+   945→Exam-Specific Mock Practice
+   946→Do not independently decide the user's priorities.
+   947→Use user-provided priorities and clearly stated scheduling constraints.
+   948→
+   949→39. AI PREPARATION SIMULATOR
+   950→Build:
+   951→Preparation Simulator
+   952→User enters:
+   953→Target exam
+   954→Exam date
+   955→Current preparation level
+   956→Subjects
+   957→Available hours/day
+   958→Days available/week
+   959→Current strengths
+   960→Weak subjects
+   961→Previous preparation
+   962→Target score/goal
+   963→Multiple-exam status
+   964→AI generates a simulated preparation journey.
+   965→
+   966→40. PREPARATION JOURNEY
+   967→Create:
+   968→Phase 1 — Foundation
+   969→Concept building.
+   970→Phase 2 — Topic Completion
+   971→Complete syllabus systematically.
+   972→Phase 3 — Practice
+   973→Topic-wise questions and PYQs.
+   974→Phase 4 — Revision
+   975→Spaced revision.
+   976→Phase 5 — Mock Tests
+   977→Full-length simulations.
+   978→Phase 6 — Final Revision
+   979→High-priority topics and weak areas.
+   980→Dependency relationships must influence the order.
+   981→
+   982→41. DAILY PREPARATION SIMULATOR
+   983→Generate realistic day-by-day schedules.
+   984→Example:
+   985→Day 1
+   986→2 hours Quantitative Aptitude
+   987→
+   988→1 hour Reasoning
+   989→
+   990→1 hour English
+   991→Day 2
+   992→...
+   993→Adapt to available study time.
+   994→If user has:
+   995→2 hours/day
+   996→create a genuine 2-hour plan.
+   997→If:
+   998→6 hours/day
+   999→create a genuine 6-hour plan.
+  1000→Do not simply multiply a 2-hour schedule.
+  1001→
+  1002→42. ADAPTIVE REPLANNING
+  1003→If user says:
+  1004→I missed 3 days.
+  1005→Ask:
+  1006→How would you like to recover?
+  1007→Options:
+  1008→Compress schedule
+  1009→Extend schedule
+  1010→Increase daily study time
+  1011→Keep original exam date and redistribute topics
+  1012→Then regenerate the plan.
+  1013→Dependency order, exam date, weak areas and remaining syllabus must be preserved.
+  1014→
+  1015→43. PERSONALIZED PREPARATION INTELLIGENCE
+  1016→The system should continuously combine:
+  1017→Performance
+  1018→Weak topics
+  1019→Prerequisite gaps
+  1020→Question history
+  1021→Mock results
+  1022→Available time
+  1023→Exam dates
+  1024→Multiple exam priorities
+  1025→Revision history
+  1026→into recommendations.
+  1027→Example:
+  1028→Your accuracy in Integration is improving, but Differential Equations remains blocked by two prerequisite gaps.
+  1029→44. EXAM KNOWLEDGE GRAPH
+  1030→Create an internal structured model:
+  1031→Exam → Stage → Subject → Topic → Subtopic → Concept → Prerequisite → Question → Question Variant
+  1032→Example:
+  1033→SSC CGL
+  1034→ ↓
+  1035→Tier 1
+  1036→ ↓
+  1037→Quantitative Aptitude
+  1038→ ↓
+  1039→Arithmetic
+  1040→ ↓
+  1041→Percentage
+  1042→ ↓
+  1043→Profit & Loss
+  1044→ ↓
+  1045→Question
+  1046→ ↓
+  1047→AI Variants
+  1048→This graph should power:
+  1049→Dependency mapping
+  1050→Question explanation
+  1051→Question evolution
+  1052→Question generation
+  1053→Preparation planning
+  1054→Multi-exam optimization
+  1055→Performance analysis 45. SEARCH / RESEARCH SYSTEM
+  1056→Where current/external information is required, use reliable sources.
+  1057→Priority:
+  1058→Official government/exam authority websites
+  1059→Official notifications
+  1060→Official PDFs
+  1061→Official syllabus documents
+  1062→Do not present outdated information as current.
+  1063→For dynamic information show:
+  1064→Last verified: [date]
+  1065→and:
+  1066→Source: Official website
+  1067→
+  1068→46. SOURCE TRUST SYSTEM
+  1069→Every factual exam claim should have a source where possible.
+  1070→Use badges:
+  1071→🟢 Official Source
+  1072→🔵 Uploaded Document
+  1073→🟡 AI Analysis
+  1074→⚪ User Input
+  1075→For generated questions:
+  1076→🟣 AI-Generated
+  1077→Clearly distinguish original/source questions from AI-generated variants.
+  1078→
+  1079→47. SAVED RESEARCH
+  1080→Users can save:
+  1081→Exams
+  1082→Comparisons
+  1083→Dependency maps
+  1084→PDF analyses
+  1085→Questions
+  1086→Question evolution families
+  1087→MCQ sets
+  1088→Generated papers
+  1089→Preparation plans
+  1090→Multi-exam strategies
+  1091→Performance reports
+  1092→Create:
+  1093→My Research
+  1094→and
+  1095→My Preparation
+  1096→
+  1097→48. CONTEXTUAL AI CHAT
+  1098→Include a contextual AI assistant.
+  1099→The assistant must know the current workflow context.
+  1100→If viewing SSC CGL:
+  1101→Explain Tier 1 Quantitative Aptitude.
+  1102→If viewing a PDF:
+  1103→Summarise this section.
+  1104→If viewing a question:
+  1105→Explain this using a shortcut.
+  1106→If viewing a dependency graph:
+  1107→Why do I need Integration before Differential Equations?
+  1108→If viewing a comparison:
+  1109→What additional topics are required for Exam B?
+  1110→If viewing a multi-exam plan:
+  1111→Reduce my daily study time to 4 hours.
+  1112→If viewing a question evolution family:
+  1113→Give me five more Level 3 variants.
+  1114→The assistant must preserve context while navigating within the workflow.
+  1115→
+  1116→49. UI / UX
+  1117→Design should feel like a premium AI product.
+  1118→Style
+  1119→Dark/light mode
+  1120→Modern cards
+  1121→Subtle gradients
+  1122→Carefully used glassmorphism
+  1123→Clean typography
+  1124→Smooth animations
+  1125→Micro-interactions
+  1126→Responsive layouts
+  1127→Mobile-first
+  1128→Desktop optimized
+  1129→Avoid:
+  1130→Overly complicated dashboards
+  1131→Excessive animations
+  1132→Clutter
+  1133→Generic chatbot appearance
+  1134→Huge unnecessary sidebars
+  1135→Information overload
+  1136→
+  1137→50. VISUAL KNOWLEDGE GRAPH UI
+  1138→Dependency maps and multi-exam maps should have interactive visualizations.
+  1139→Users should be able to:
+  1140→Zoom
+  1141→Pan
+  1142→Expand nodes
+  1143→Collapse branches
+  1144→Click concepts
+  1145→View prerequisites
+  1146→View dependent concepts
+  1147→View related questions
+  1148→View mastery status
+  1149→Jump directly to practice
+  1150→Example:
+  1151→Calculus
+  1152→   │
+  1153→   ├── Differentiation
+  1154→   │      │
+  1155→   │      └── Applications
+  1156→   │
+  1157→   └── Integration
+  1158→          │
+  1159→          └── Differential Equations
+  1160→
+  1161→51. MAIN NAVIGATION
+  1162→Use:
+  1163→Home
+  1164→Exams
+  1165→Compare
+  1166→Dependency Map
+  1167→Question AI
+  1168→Question Lab
+  1169→Paper Generator
+  1170→Preparation
+  1171→Multi-Exam
+  1172→PDF Lab
+  1173→MCQ Generator
+  1174→My Research
+  1175→Profile
+  1176→On mobile use a compact navigation system or bottom navigation.
+  1177→
+  1178→52. TECH STACK
+  1179→Use a modern production-ready stack.
+  1180→Frontend
+  1181→Next.js
+  1182→React
+  1183→TypeScript
+  1184→Tailwind CSS
+  1185→Backend
+  1186→Next.js API routes/server actions or equivalent backend.
+  1187→Database
+  1188→PostgreSQL/Supabase.
+  1189→Store:
+  1190→Users
+  1191→Exams
+  1192→Exam stages
+  1193→Subjects
+  1194→Topics
+  1195→Subtopics
+  1196→Concepts
+  1197→Dependencies
+  1198→Saved research
+  1199→Uploaded documents
+  1200→Document chunks
+  1201→Questions
+  1202→Question variants
+  1203→MCQs
+  1204→Question papers
+  1205→Attempts
+  1206→Preparation plans
+  1207→Multi-exam plans
+  1208→Progress
+  1209→Performance data
+  1210→
+  1211→53. AUTHENTICATION
+  1212→Implement secure:
+  1213→Email/password
+  1214→OAuth where available
+  1215→Session management
+  1216→User authorization
+  1217→Users must only access their own private resources unless explicitly shared.
+  1218→
+  1219→54. FILE STORAGE
+  1220→Use secure cloud storage.
+  1221→Support:
+  1222→PDF
+  1223→Images
+  1224→Supported document formats
+  1225→Implement:
+  1226→File size limits
+  1227→MIME validation
+  1228→Secure URLs
+  1229→Access control
+  1230→
+  1231→55. DOCUMENT AI / RAG
+  1232→Implement a proper RAG pipeline.
+  1233→PDF Upload
+  1234→↓
+  1235→Text Extraction
+  1236→↓
+  1237→Page Identification
+  1238→↓
+  1239→OCR if required
+  1240→↓
+  1241→Chunking
+  1242→↓
+  1243→Metadata Extraction
+  1244→↓
+  1245→Embeddings
+  1246→↓
+  1247→Vector Database
+  1248→↓
+  1249→Semantic Retrieval
+  1250→↓
+  1251→Context Construction
+  1252→↓
+  1253→LLM
+  1254→↓
+  1255→Grounded Answer
+  1256→↓
+  1257→Source Citation
+  1258→Metadata:
+  1259→Document ID
+  1260→Page number
+  1261→Section
+  1262→Topic
+  1263→Chunk ID
+  1264→Source type
+  1265→Confidence where applicable
+  1266→
+  1267→56. OCR SUPPORT
+  1268→If PDF pages are scanned:
+  1269→Use OCR where possible.
+  1270→Clearly display:
+  1271→Some information was extracted using OCR and may require verification.
+  1272→Flag uncertain extraction. 57. AI RESPONSE ARCHITECTURE
+  1273→Do not let frontend depend on uncontrolled free-form AI responses.
+  1274→Use structured JSON schemas for:
+  1275→Exam information
+  1276→Comparison
+  1277→Syllabus
+  1278→Dependency graphs
+  1279→Question explanations
+  1280→Question evolution
+  1281→Generated question papers
+  1282→Preparation plans
+  1283→Multi-exam strategies
+  1284→MCQs
+  1285→PDF analysis
+  1286→Performance analysis
+  1287→Validate AI output before displaying it.
+  1288→
+  1289→58. QUESTION VALIDATION ARCHITECTURE
+  1290→Create a validation layer for generated questions.
+  1291→Validate:
+  1292→Correct answer
+  1293→Options
+  1294→Explanation
+  1295→Mathematical consistency
+  1296→Source grounding
+  1297→Difficulty
+  1298→Topic
+  1299→Question type
+  1300→Duplicate detection
+  1301→Ambiguity detection
+  1302→If validation fails:
+  1303→Generation
+  1304→↓
+  1305→Validation
+  1306→↓
+  1307→FAIL
+  1308→↓
+  1309→Regenerate / Flag
+  1310→Never blindly display invalid generated questions.
+  1311→
+  1312→59. ERROR HANDLING
+  1313→Handle:
+  1314→Invalid PDF
+  1315→Scanned PDF
+  1316→Empty document
+  1317→Unsupported format
+  1318→AI timeout
+  1319→API failure
+  1320→Rate limits
+  1321→Very large PDFs
+  1322→Missing source information
+  1323→Conflicting information
+  1324→Failed question validation
+  1325→Failed dependency extraction
+  1326→Insufficient exam data
+  1327→Display useful messages.
+  1328→Never silently fabricate missing information.
+  1329→
+  1330→60. CONFLICTING INFORMATION
+  1331→If different reliable sources disagree:
+  1332→Show:
+  1333→Conflicting Information Detected
+  1334→Display:
+  1335→Source A
+  1336→Source B
+  1337→Dates
+  1338→Relevant differences
+  1339→Do not silently select one without explanation.
+  1340→For current exam rules, prioritize the latest authoritative source where appropriate.
+  1341→
+  1342→61. SECURITY
+  1343→Implement:
+  1344→Authentication
+  1345→Authorization
+  1346→Secure file access
+  1347→File size limits
+  1348→MIME validation
+  1349→Rate limiting
+  1350→API key protection
+  1351→Server-side AI API calls
+  1352→Input sanitization
+  1353→Secure database queries
+  1354→Protection against prompt injection from uploaded documents
+  1355→Uploaded PDFs must be treated as untrusted data.
+  1356→Do not allow instructions inside a PDF to override the application's system/developer rules.
+  1357→
+  1358→62. FREEMIUM-READY ARCHITECTURE
+  1359→Design architecture so subscription limits can be added later.
+  1360→Free
+  1361→Potential limits:
+  1362→Limited exam research
+  1363→Limited PDF pages
+  1364→Limited MCQ generations
+  1365→Limited question explanations
+  1366→Limited question evolution
+  1367→Limited generated papers
+  1368→Limited dependency maps
+  1369→Pro
+  1370→Potential features:
+  1371→Higher limits
+  1372→Advanced comparisons
+  1373→Larger PDFs
+  1374→Advanced preparation simulator
+  1375→More MCQs
+  1376→More question variants
+  1377→Advanced analytics
+  1378→Multi-exam optimizer
+  1379→Large question-paper generation
+  1380→Do not require payment integration for the initial MVP unless specifically requested.
+  1381→
+  1382→63. AI BEHAVIOUR RULES
+  1383→The AI must:
+  1384→Never knowingly fabricate exam rules.
+  1385→Prefer official sources for current exam information.
+  1386→Clearly distinguish source facts from AI analysis.
+  1387→Ground PDF answers in uploaded documents.
+  1388→Mention when information cannot be found.
+  1389→Avoid presenting guesses as facts.
+  1390→Handle conflicting information transparently.
+  1391→Preserve page/source references whenever possible.
+  1392→Clearly label AI-generated questions.
+  1393→Never present generated questions as original PYQs.
+  1394→Preserve lineage between original questions and evolved variants.
+  1395→Validate generated questions.
+  1396→Respect exam-specific marking rules when generating papers.
+  1397→Use dependency relationships when creating preparation plans.
+  1398→Avoid claiming unsupported syllabus overlap.
+  1399→Avoid inventing numerical overlap percentages.
+  1400→Adapt recommendations to actual user-provided constraints.
+  1401→
+  1402→64. IDEAL USER FLOW — EXAM RESEARCH
+  1403→User enters:
+  1404→SSC CGL
+  1405→
+  1406→↓
+  1407→Exam Researcher
+  1408→
+  1409→↓
+  1410→Structured Exam Report
+  1411→
+  1412→↓
+  1413→Syllabus Extraction
+  1414→
+  1415→↓
+  1416→Dependency Map
+  1417→
+  1418→↓
+  1419→Preparation Intelligence
+  1420→
+  1421→↓
+  1422→Save Exam
+  1423→
+  1424→65. IDEAL USER FLOW — EXAM COMPARISON
+  1425→Select:
+  1426→
+  1427→SSC CGL
+  1428→SSC CHSL
+  1429→RRB NTPC
+  1430→
+  1431→↓
+  1432→
+  1433→Compare
+  1434→
+  1435→↓
+  1436→
+  1437→Common Syllabus
+  1438→
+  1439→↓
+  1440→
+  1441→Exam-Specific Topics
+  1442→
+  1443→↓
+  1444→
+  1445→Preparation Overlap
+  1446→
+  1447→↓
+  1448→
+  1449→Dependency Differences
+  1450→
+  1451→↓
+  1452→
+  1453→Additional Preparation
+  1454→
+  1455→↓
+  1456→
+  1457→Combined Strategy
+  1458→
+  1459→66. IDEAL USER FLOW — DEPENDENCY MAPPER
+  1460→Upload / Select Syllabus
+  1461→
+  1462→↓
+  1463→
+  1464→AI extracts topics
+  1465→
+  1466→↓
+  1467→
+  1468→AI identifies prerequisite relationships
+  1469→
+  1470→↓
+  1471→
+  1472→Build Knowledge Graph
+  1473→
+  1474→↓
+  1475→
+  1476→Detect prerequisite gaps
+  1477→
+  1478→↓
+  1479→
+  1480→Show recommended learning sequence
+  1481→
+  1482→↓
+  1483→
+  1484→Practice prerequisite concepts
+  1485→
+  1486→↓
+  1487→
+  1488→Unlock advanced topics
+  1489→
+  1490→67. IDEAL USER FLOW — QUESTION EVOLUTION
+  1491→Select PYQ / Question
+  1492→
+  1493→↓
+  1494→
+  1495→Analyse concept
+  1496→
+  1497→↓
+  1498→
+  1499→Identify topic + difficulty
+  1500→
+  1501→↓
+  1502→
+  1503→Generate evolution family
+  1504→
+  1505→↓
+  1506→
+  1507→Level 1
+  1508→↓ Level 2
+  1509→↓
+  1510→
+  1511→Level 3
+  1512→↓
+  1513→
+  1514→Level 4
+  1515→↓
+  1516→
+  1517→Level 5
+  1518→
+  1519→↓
+  1520→
+  1521→Validate
+  1522→
+  1523→↓
+  1524→
+  1525→Practice
+  1526→
+  1527→68. IDEAL USER FLOW — PERSONALIZED QUESTION PAPER
+  1528→Select Exam
+  1529→
+  1530→↓
+  1531→
+  1532→Choose Questions
+  1533→
+  1534→↓
+  1535→
+  1536→Choose Duration
+  1537→
+  1538→↓
+  1539→
+  1540→Choose Topics
+  1541→
+  1542→↓
+  1543→
+  1544→Choose Difficulty
+  1545→
+  1546→↓
+  1547→
+  1548→Choose Question Types
+  1549→
+  1550→↓
+  1551→
+  1552→Configure Marking
+  1553→
+  1554→↓
+  1555→
+  1556→Generate Paper
+  1557→
+  1558→↓
+  1559→
+  1560→Attempt
+  1561→
+  1562→↓
+  1563→
+  1564→Submit
+  1565→
+  1566→↓
+  1567→
+  1568→Answer Key
+  1569→
+  1570→↓
+  1571→
+  1572→Detailed Solutions
+  1573→
+  1574→↓
+  1575→
+  1576→Performance Analysis
+  1577→
+  1578→↓
+  1579→
+  1580→Adaptive Practice
+  1581→
+  1582→69. IDEAL USER FLOW — PDF
+  1583→Upload Notification PDF
+  1584→
+  1585→↓
+  1586→
+  1587→AI Analysis
+  1588→
+  1589→↓
+  1590→
+  1591→Extract Exam Information
+  1592→
+  1593→↓
+  1594→
+  1595→Display Source References
+  1596→
+  1597→↓
+  1598→
+  1599→Ask Questions
+  1600→
+  1601→↓
+  1602→
+  1603→Generate MCQs
+  1604→
+  1605→↓
+  1606→
+  1607→Attempt
+  1608→
+  1609→↓
+  1610→
+  1611→Performance Analysis
+  1612→
+  1613→70. IDEAL USER FLOW — MULTI-EXAM OPTIMIZER
+  1614→Select Exams
+  1615→
+  1616→↓
+  1617→
+  1618→Define Primary / Secondary / Backup
+  1619→
+  1620→↓
+  1621→
+  1622→Map Common Syllabus
+  1623→
+  1624→↓
+  1625→
+  1626→Map Exam-Specific Topics
+  1627→
+  1628→↓
+  1629→
+  1630→Build Dependency Graph
+  1631→
+  1632→↓
+  1633→
+  1634→Identify Shared Preparation
+  1635→
+  1636→↓
+  1637→
+  1638→Identify Separate Preparation
+  1639→
+  1640→↓
+  1641→
+  1642→Detect Conflicts
+  1643→
+  1644→↓
+  1645→
+  1646→Optimize Schedule
+  1647→
+  1648→↓
+  1649→
+  1650→Generate Combined Plan
+  1651→
+  1652→↓
+  1653→
+  1654→Continuously Recalculate
+  1655→
+  1656→71. IDEAL USER FLOW — QUESTION EXPLAINER
+  1657→Question
+  1658→
+  1659→↓
+  1660→
+  1661→Quick Hint
+  1662→
+  1663→↓
+  1664→
+  1665→Concept
+  1666→
+  1667→↓
+  1668→
+  1669→Detailed Solution
+  1670→
+  1671→↓
+  1672→
+  1673→Shortcut
+  1674→
+  1675→↓
+  1676→
+  1677→Learning Insight
+  1678→
+  1679→↓
+  1680→
+  1681→Prerequisite Detection
+  1682→
+  1683→↓
+  1684→
+  1685→Related Practice
+  1686→
+  1687→↓
+  1688→
+  1689→Question Evolution
+  1690→
+  1691→72. IDEAL USER FLOW — PREPARATION SIMULATOR
+  1692→Select Exam
+  1693→
+  1694→↓
+  1695→
+  1696→Exam Date
+  1697→
+  1698→↓
+  1699→
+  1700→Available Hours
+  1701→
+  1702→↓
+  1703→
+  1704→Current Level
+  1705→
+  1706→↓
+  1707→
+  1708→Strengths / Weaknesses
+  1709→
+  1710→↓
+  1711→
+  1712→Dependency Analysis
+  1713→
+  1714→↓
+  1715→
+  1716→Syllabus Analysis
+  1717→
+  1718→↓
+  1719→
+  1720→Preparation Journey
+  1721→
+  1722→↓
+  1723→
+  1724→Daily Plan
+  1725→
+  1726→↓
+  1727→
+  1728→Practice
+  1729→
+  1730→↓
+  1731→
+  1732→Revision
+  1733→
+  1734→↓
+  1735→
+  1736→Mock Tests
+  1737→
+  1738→↓
+  1739→
+  1740→Performance Analysis
+  1741→
+  1742→↓
+  1743→
+  1744→Adaptive Replanning
+  1745→
+  1746→73. LANDING PAGE
+  1747→Create a strong premium SaaS landing page.
+  1748→Hero
+  1749→Your AI Command Center for Competitive Exams
+  1750→Subtitle:
+  1751→Research exams. Compare syllabi. Map prerequisites. Understand difficult questions. Analyse official PDFs. Generate source-grounded MCQs. Evolve PYQs into new practice. Build personalized papers. Optimize preparation across multiple exams.
+  1752→Primary CTA:
+  1753→Start Preparing
+  1754→Secondary CTA:
+  1755→Explore AI Tools
+  1756→
+  1757→74. LANDING PAGE FEATURE SECTIONS
+  1758→Show:
+  1759→Exam Researcher
+  1760→Understand an exam before preparing for it.
+  1761→Exam Comparison
+  1762→Find common syllabus and additional preparation.
+  1763→Dependency Mapper
+  1764→Know what you need to learn first.
+  1765→Question AI
+  1766→Understand difficult questions progressively.
+  1767→Question Evolution Lab
+  1768→Turn one question into an entire practice family.
+  1769→AI Paper Generator
+  1770→Create personalized exam-style papers.
+  1771→Preparation Simulator
+  1772→Build and adapt your preparation journey.
+  1773→Multi-Exam Optimizer
+  1774→Prepare for multiple exams without unnecessarily duplicating effort.
+  1775→PDF Intelligence
+  1776→Turn official documents into actionable information.
+  1777→AI MCQ Generator
+  1778→Generate grounded practice directly from your documents.
+  1779→
+  1780→75. PRODUCT DIFFERENTIATION
+  1781→Do NOT position this as:
+  1782→Another AI chatbot for students.
+  1783→Do NOT position it merely as:
+  1784→An AI study planner.
+  1785→Position it as:
+  1786→AI EXAM INTELLIGENCE PLATFORM
+  1787→Core value proposition:
+  1788→Understand the exam → Understand the syllabus → Understand dependencies → Understand the questions → Generate intelligent practice → Build the preparation strategy → Practice → Measure → Adapt.
+  1789→76. PRODUCTION ARCHITECTURE PRINCIPLE
+  1790→The application must be built as a functional product, not a visual prototype.
+  1791→Implement:
+  1792→Real navigation
+  1793→Working forms
+  1794→State management
+  1795→API architecture
+  1796→Authentication architecture
+  1797→Database schema
+  1798→File upload flow
+  1799→PDF processing architecture
+  1800→RAG architecture
+  1801→Exam research workflow
+  1802→Exam comparison workflow
+  1803→Dependency graph workflow
+  1804→Question explanation workflow
+  1805→Question evolution workflow
+  1806→Personalized paper workflow
+  1807→MCQ generation workflow
+  1808→Multi-exam optimizer
+  1809→Preparation simulator
+  1810→Performance engine
+  1811→Responsive UI
+  1812→Loading states
+  1813→Empty states
+  1814→Error states
+  1815→If an external API/key is unavailable during development:
+  1816→Create a clean provider abstraction and realistic mock data.
+  1817→However:
+  1818→Do not hard-code the entire application around mock data.
+  1819→The production architecture must allow real AI/search/database providers to be connected without rewriting the application. 77. PROVIDER ABSTRACTION
+  1820→Create interfaces for:
+  1821→ExamResearchProvider
+  1822→DocumentParser
+  1823→OCRProvider
+  1824→EmbeddingProvider
+  1825→VectorStore
+  1826→LLMProvider
+  1827→QuestionGenerationProvider
+  1828→QuestionValidationProvider
+  1829→SearchProvider
+  1830→This allows providers to be swapped without changing the core application.
+  1831→
+  1832→78. DATA MODEL
+  1833→Design relational entities approximately around:
+  1834→User
+  1835→Exam
+  1836→ExamStage
+  1837→Subject
+  1838→Topic
+  1839→Subtopic
+  1840→Concept
+  1841→Dependency
+  1842→ExamTopic
+  1843→Question
+  1844→QuestionVariant
+  1845→QuestionAttempt
+  1846→QuestionPaper
+  1847→QuestionPaperQuestion
+  1848→Document
+  1849→DocumentPage
+  1850→DocumentChunk
+  1851→MCQSet
+  1852→MCQ
+  1853→MCQAttempt
+  1854→PreparationPlan
+  1855→PreparationDay
+  1856→PreparationTask
+  1857→MultiExamPlan
+  1858→PerformanceRecord
+  1859→SavedResearch
+  1860→AIInteraction
+  1861→Source
+  1862→Use proper foreign keys and indexes.
+  1863→
+  1864→79. KNOWLEDGE GRAPH RELATIONSHIPS
+  1865→Support relationships such as:
+  1866→Exam
+  1867→  ↓
+  1868→Stage
+  1869→  ↓
+  1870→Subject
+  1871→  ↓
+  1872→Topic
+  1873→  ↓
+  1874→Subtopic
+  1875→  ↓
+  1876→Concept
+  1877→  ↓
+  1878→Prerequisite
+  1879→  ↓
+  1880→Question
+  1881→  ↓
+  1882→Variant
+  1883→And:
+  1884→Exam A
+  1885→   ↘
+  1886→    Common Topic
+  1887→   ↗
+  1888→Exam B
+  1889→And:
+  1890→Question
+  1891→   ↓
+  1892→Concept
+  1893→   ↓
+  1894→Prerequisite
+  1895→   ↓
+  1896→Related Questions
+  1897→   ↓
+  1898→Question Variants
+  1899→
+  1900→80. INTELLIGENT PRACTICE LOOP
+  1901→Create a continuous learning loop:
+  1902→Learn
+  1903→ ↓
+  1904→Practice
+  1905→ ↓
+  1906→Attempt
+  1907→ ↓
+  1908→Analyse
+  1909→ ↓
+  1910→Detect Weakness
+  1911→ ↓
+  1912→Detect Prerequisite Gap
+  1913→ ↓
+  1914→Generate Targeted Questions
+  1915→ ↓
+  1916→Evolve Questions
+  1917→ ↓
+  1918→Retest
+  1919→ ↓
+  1920→Update Mastery
+  1921→This should be one of the platform's core intelligence loops.
+  1922→
+  1923→81. MASTERY MODEL
+  1924→Track concept-level mastery where sufficient data exists.
+  1925→Possible states:
+  1926→Not Started
+  1927→Introduced
+  1928→Learning
+  1929→Practicing
+  1930→Weak
+  1931→Improving
+  1932→Strong
+  1933→Mastered
+  1934→Do not claim "mastery" solely from one correct answer.
+  1935→Use multiple signals such as:
+  1936→Accuracy
+  1937→Difficulty
+  1938→Recency
+  1939→Repeated attempts
+  1940→Question variation performance
+  1941→Prerequisite performance
+  1942→
+  1943→82. AI RECOMMENDATION ENGINE
+  1944→The home dashboard should dynamically recommend the next useful action.
+  1945→Example:
+  1946→Detected:
+  1947→
+  1948→Weak Topic:
+  1949→Integration
+  1950→
+  1951→Prerequisite:
+  1952→Differentiation
+  1953→
+  1954→Upcoming Exam:
+  1955→GATE ME
+  1956→
+  1957→Recommendation:
+  1958→
+  1959→1. Review Differentiation
+  1960→2. Solve 5 Level-1 questions
+  1961→3. Solve 10 Level-2 questions
+  1962→4. Attempt 5 PYQs
+  1963→5. Take Integration mini-test
+  1964→Recommendations should be explainable.
+  1965→
+  1966→83. IMPORTANT DISTINCTION BETWEEN SOURCE TYPES
+  1967→Every piece of information should have provenance.
+  1968→Possible source labels:
+  1969→OFFICIAL
+  1970→UPLOADED_DOCUMENT
+  1971→SEARCH_SOURCE
+  1972→USER_INPUT
+  1973→AI_ANALYSIS
+  1974→AI_GENERATED
+  1975→For generated content, show the underlying source whenever possible.
+  1976→
+  1977→84. FINAL PRODUCT PRINCIPLE
+  1978→The platform should feel like:
+  1979→Google + AI Researcher + Exam Mentor + Knowledge Graph + PDF Intelligence + Question Solver + Question Generator + Adaptive Study Planner
+  1980→specifically engineered for competitive-exam aspirants.
+  1981→The platform's ultimate promise is:
+  1982→Give me an exam, syllabus, PDF, or question — and turn it into actionable preparation intelligence.
+  1983→The application should make the student feel that instead of using ten separate tools for:
+  1984→Exam research
+  1985→Syllabus analysis
+  1986→Comparison
+  1987→Prerequisite mapping
+  1988→Question solving
+  1989→PYQ practice
+  1990→Question generation
+  1991→Mock tests
+  1992→PDF analysis
+  1993→Study planning
+  1994→Multi-exam planning
+  1995→Performance analysis
+  1996→they have one connected AI Exam Intelligence System.
+  1997→Build the complete application around this principle. 

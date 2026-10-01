@@ -1,0 +1,1997 @@
+MASTER BUILD PROMPT
+Build a Production-Ready AI-Powered Competitive Exam Intelligence & Preparation Platform
+Build a production-ready, modern AI SaaS platform specifically designed for competitive-exam aspirants preparing for technical and non-technical examinations.
+The platform must NOT feel like a generic AI chatbot, generic LMS, generic question bank, or simple study planner.
+It should feel like an AI Exam Intelligence System that can:
+Research exams
+Understand official exam notifications
+Compare multiple exams
+Map common and exam-specific syllabi
+Build prerequisite/dependency graphs
+Detect knowledge gaps
+Analyse official PDFs
+Answer questions from documents
+Explain questions at multiple levels
+Transform existing questions into new practice questions
+Generate personalized question papers
+Generate PDF-grounded MCQs
+Create adaptive preparation plans
+Optimize preparation across multiple exams
+Simulate preparation journeys
+Analyse performance
+Dynamically replan preparation
+The central product principle is:
+Give me an exam, syllabus, question, question paper, or PDF — and turn it into actionable preparation intelligence.
+The overall experience should follow:
+Research → Understand → Map → Compare → Diagnose → Practice → Generate → Prepare → Simulate → Analyse → Adapt
+
+1. CORE PRODUCT VISION
+Combine the following major AI systems into one integrated platform:
+Exam Researcher
+Exam Comparison Engine
+Common Syllabus Intelligence
+Preparation Overlap Analyzer
+AI Exam Dependency Mapper
+AI Question Explainer
+AI Question Evolution Lab
+AI Personalized Question Paper Generator
+AI Preparation Simulator
+AI Multi-Exam Preparation Optimizer
+PDF Exam Analyzer
+PDF-Grounded MCQ Generator
+Personalized Preparation Intelligence
+Exam Knowledge Graph
+Performance Intelligence Engine
+Exam Knowledge Base
+Contextual AI Assistant
+These systems must share data instead of operating as isolated tools.
+For example:
+Exam Researcher
+→ identifies syllabus
+Syllabus
+→ feeds Dependency Mapper
+Dependency Mapper
+→ detects prerequisite gaps
+Question Explainer
+→ identifies question concepts
+Question Evolution Lab
+→ creates variants of those concepts
+Question Paper Generator
+→ uses exam pattern + syllabus + question intelligence
+Performance Engine
+→ identifies weak concepts
+Preparation Simulator
+→ uses weaknesses + dependencies + available time
+Multi-Exam Optimizer
+→ combines all of this across multiple target exams.
+
+2. MAIN DASHBOARD
+Create a premium dashboard after login.
+Dashboard sections
+Welcome message
+Primary target exam
+Upcoming exams
+Saved exams
+Recently researched exams
+Recent PDF analyses
+Recent question explanations
+Question evolution sessions
+Generated question papers
+Preparation simulations
+Multi-exam preparation plans
+Dependency maps
+Generated MCQ sets
+Preparation progress
+Weak-topic alerts
+Recommended next actions
+Quick AI actions
+Quick Actions
+Create attractive cards/buttons:
+🔍 Research an Exam
+⚖️ Compare Exams
+🧩 Map Syllabus Dependencies
+📄 Analyse PDF
+🧠 Explain Question
+🔄 Evolve Question
+📝 Generate Question Paper
+🎯 Build Preparation Plan
+🧠 Optimize Multiple Exams
+🧪 Start Preparation Simulation
+📝 Generate MCQs
+📊 Analyse Performance
+The dashboard should intelligently recommend actions.
+Example:
+Your next priority
+You are weak in Integration, and Integration is a prerequisite for Differential Equations.
+Recommended:
+Review Integration → Practice 10 questions → Continue Differential Equations
+
+3. EXAM RESEARCHER
+Create an AI-powered Exam Researcher.
+User enters:
+SSC CGL
+or:
+GATE Mechanical Engineering
+or:
+RRB JE
+or any other competitive examination.
+The AI generates a structured exam intelligence report.
+
+Basic Information
+Provide:
+Exam name
+Conducting organisation
+Exam purpose
+Official website
+Exam frequency
+Known/expected cycle information
+Qualification
+Age limit
+Nationality requirements
+Important eligibility conditions
+Clearly distinguish current verified information from historical information. 4. EXAM STRUCTURE
+Show only stages relevant to that particular examination.
+Possible stages:
+Preliminary examination
+Tier 1
+Tier 2
+Tier 3
+Mains
+Interview
+Skill test
+Typing test
+Physical test
+Document verification
+Medical examination
+Final selection
+Display the actual sequence for the selected exam.
+
+5. SYLLABUS INTELLIGENCE
+Break the syllabus into a structured hierarchy:
+Subject → Topic → Subtopic → Concept
+Example:
+Quantitative Aptitude
+
+→ Arithmetic
+
+→ Percentage
+
+→ Profit & Loss
+
+→ Ratio
+
+→ Time & Work
+For technical exams:
+Engineering Mathematics
+
+→ Calculus
+
+→ Differentiation
+
+→ Integration
+
+→ Differential Equations
+Each topic should support:
+Description
+Subtopics
+Concepts
+Prerequisites
+Related concepts
+Question types
+Difficulty
+Exam relevance
+Previous-year question references where available
+
+6. EXAM PATTERN
+Show:
+Number of questions
+Maximum marks
+Duration
+Question type
+Marking scheme
+Negative marking
+Section-wise distribution
+Sectional timing
+Qualifying requirements
+Stage-specific rules
+Never invent missing information.
+
+7. CAREER INFORMATION
+Where reliable information is available:
+Posts
+Departments
+Job roles
+Pay level/pay scale
+Basic salary
+Allowances
+Career progression
+Work profile
+Posting information where officially available
+Clearly distinguish official information from AI-generated interpretation.
+
+8. PREPARATION INFORMATION
+AI should additionally explain:
+Difficulty characteristics
+Frequently tested topics
+Important subjects
+Common preparation mistakes
+Recommended preparation sequence
+Previous-year-question importance
+Topic dependencies
+High-priority prerequisite concepts
+Do not present AI analysis as official exam information.
+
+9. EXAM COMPARISON ENGINE
+Create a powerful feature:
+Compare Exams
+User can select multiple exams.
+Example:
+SSC CGL + SSC CHSL + RRB NTPC
+Compare:
+Eligibility
+Qualification
+Age
+Exam stages
+Subjects
+Syllabus
+Exam pattern
+Marking scheme
+Negative marking
+Difficulty characteristics
+Posts
+Job roles
+Salary/pay structure
+Preparation overlap
+Career pathways
+Prerequisite differences
+Additional preparation requirements
+The comparison must be generated from structured exam data rather than a generic AI response.
+
+10. COMMON SYLLABUS INTELLIGENCE
+After comparing exams, identify:
+COMMON SYLLABUS
+Show topics appearing across selected examinations.
+Example:
+Common
+Percentage
+Ratio
+Average
+Reasoning
+English
+General Awareness
+Then identify:
+EXAM-SPECIFIC TOPICS
+SSC CGL
+Topic A
+Topic B
+Topic C
+RRB NTPC
+Topic X
+Topic Y
+SSC CHSL
+Topic Z
+Show the relationship visually.
+
+11. PREPARATION OVERLAP ANALYSIS
+Determine how preparation for one exam supports another.
+Example:
+User is preparing for SSC CGL.
+AI explains which areas of that preparation can support RRB NTPC.
+Use transparent categories:
+Very High overlap
+High overlap
+Moderate overlap
+Limited overlap
+Do NOT invent numerical percentages unless they are calculated from a sufficiently complete structured syllabus dataset.
+Show:
+Existing Preparation
+Topics already covered.
+Additional Preparation
+Topics still required.
+Reason
+Explain why those topics are additional.
+
+12. AI EXAM DEPENDENCY MAPPER
+Create a dedicated feature:
+AI Exam Dependency Mapper
+The user can provide:
+An exam
+A syllabus
+A subject
+A topic
+A PDF syllabus
+A custom learning curriculum
+The AI builds a prerequisite knowledge graph.
+Example:
+Calculus
+→ Differentiation
+→ Integration
+→ Differential Equations
+Another example:
+Arithmetic
+→ Ratio
+→ Percentage
+→ Profit & Loss
+→ Mixture
+→ Time & Work
+For technical exams:
+Engineering Mathematics
+→ Calculus
+→ Differential Calculus
+→ Integral Calculus
+→ Differential Equations
+
+Dependency Graph
+Visualize:
+FOUNDATION
+   ↓
+Prerequisite A
+   ↓
+Concept B
+   ↓
+Concept C
+   ↓
+Advanced Topic
+Nodes should contain:
+Topic
+Subtopic
+Concept
+Difficulty
+Prerequisites
+Dependent topics
+Exam relevance
+Mastery status
+Edges represent:
+Required before
+Strong prerequisite
+Recommended prerequisite
+Related concept 13. PREREQUISITE GAP DETECTION
+The Dependency Mapper must detect missing foundations.
+Example:
+User wants to study:
+Differential Equations
+AI identifies:
+Differentiation ✓
+Integration ✕
+Basic Calculus ✓
+Algebra ✓
+Then report:
+Prerequisite Gap Detected
+Integration should be reviewed before continuing with Differential Equations.
+Provide:
+Missing prerequisite
+Why it matters
+Recommended learning sequence
+Practice recommendations
+Estimated study effort when enough information exists
+Never pretend the user has mastered something without evidence.
+
+14. DEPENDENCY-AWARE PREPARATION
+Connect Dependency Mapper directly to Preparation Simulator.
+If a student is weak in a prerequisite, the preparation planner should automatically account for it.
+Example:
+Target:
+Differential Equations
+
+Detected gaps:
+Integration
+Basic differentiation
+
+Recommended sequence:
+
+1. Review Differentiation
+2. Practice Integration
+3. Learn Differential Equations
+4. Solve PYQs
+5. Attempt mixed problems
+The system should avoid scheduling advanced topics before necessary foundations unless the user explicitly chooses otherwise.
+
+15. AI QUESTION EXPLAINER
+Create a dedicated feature.
+User can:
+Type a question
+Paste a question
+Upload an image
+Upload a question PDF
+AI understands the question and explains it progressively.
+
+Level 1 — QUICK HINT
+Give only a small hint.
+Do not immediately reveal the full solution.
+Example:
+Think about the relationship between speed, distance and time.
+Button:
+Show Concept
+
+Level 2 — CONCEPT
+Explain:
+Concept name
+Core rule/formula
+Why it applies
+Important shortcut
+Common mistake
+Button:
+Show Detailed Solution
+
+Level 3 — DETAILED SOLUTION
+Provide:
+Step-by-step solution
+Formula
+Substitution
+Calculation
+Final answer
+Explanation of each step
+
+Level 4 — EXAM SHORTCUT
+Where applicable:
+Shortcut method
+Mental calculation
+Elimination technique
+Time-saving approach
+
+Level 5 — LEARNING INSIGHT
+Explain:
+What should you remember from this question?
+Also provide:
+Subject
+Topic
+Subtopic
+Concept
+Difficulty
+Question type
+Related concepts
+Prerequisites
+This information should feed the Knowledge Graph.
+
+16. AI QUESTION EVOLUTION LAB
+Create a major feature called:
+Question Evolution Lab
+Purpose:
+Take one real question, such as a PYQ, and transform it into a structured family of new practice questions.
+Example:
+Original PYQ
+↓
+
+Concept extraction
+↓
+
+Difficulty analysis
+↓
+
+Question structure analysis
+↓
+
+Question evolution
+
+17. QUESTION EVOLUTION LEVELS
+For every source question, generate up to five evolution levels.
+LEVEL 1 — SAME CONCEPT, EASIER
+Keep the underlying concept the same but simplify:
+Numbers
+Language
+Reasoning complexity
+Calculation
+Number of steps
+Purpose:
+Build conceptual confidence.
+
+LEVEL 2 — SAME CONCEPT, DIFFERENT FRAMING
+Keep the same core concept but change:
+Scenario
+Wording
+Question structure
+Context
+Data presentation
+Purpose:
+Ensure the student understands the concept rather than memorizing the original question.
+
+LEVEL 3 — MULTI-CONCEPT
+Combine the original concept with another related concept.
+Example:
+Percentage + Ratio
+or:
+Integration + Differential Equations
+Purpose:
+Test concept integration.
+
+LEVEL 4 — DIFFICULT VARIANT
+Increase:
+Complexity
+Number of steps
+Distractor quality
+Calculation difficulty
+Conceptual depth
+Purpose:
+Prepare students for difficult questions.
+
+LEVEL 5 — EXAM-TRAP VARIANT
+Create a legitimate difficult question designed around common misconceptions.
+Examples:
+Similar-looking formulas
+Unit traps
+Sign errors
+Logical traps
+Close answer choices
+Misleading wording
+Do not create ambiguous or invalid questions merely to make them difficult.
+
+18. QUESTION EVOLUTION OUTPUT
+For each evolved question store:
+Source question ID
+Original question
+Core concept
+Subject
+Topic
+Subtopic
+Difficulty
+Evolution level
+Question
+Options
+Correct answer
+Explanation
+Shortcut where applicable
+Common trap
+Source/reference
+Validation status
+The system must prevent the evolved question from accidentally changing the underlying concept. 19. QUESTION EVOLUTION VALIDATION
+Every generated question should pass validation where technically possible.
+Check:
+Single correct answer for standard MCQs
+Mathematical correctness
+Option consistency
+Explanation consistency
+Difficulty consistency
+Source concept consistency
+No contradictory information
+No accidental duplicate
+No unsupported factual claims
+If confidence is low, flag the question for review rather than presenting it as verified.
+
+20. QUESTION EVOLUTION ENGINE AS A PRACTICE MULTIPLIER
+The platform should treat the Question Evolution Lab as a way to expand a limited question bank into a much larger practice system.
+One real question can become:
+Original PYQ
+   │
+   ├── Level 1: Easier
+   ├── Level 2: Reframed
+   ├── Level 3: Multi-concept
+   ├── Level 4: Difficult
+   └── Level 5: Exam-trap
+The platform should maintain lineage between the original and every generated variant.
+This enables:
+Practice families
+Concept mastery
+Progressive difficulty
+Weakness-specific practice
+PYQ-based learning
+Variant generation
+Adaptive question selection
+Do not represent generated variants as original PYQs.
+Clearly label:
+AI-generated variant based on this source question
+
+21. AI PERSONALIZED QUESTION PAPER GENERATOR
+Create:
+AI Personalized Question Paper Generator
+The user configures:
+Exam
+Number of questions
+Duration
+Subjects
+Topics
+Difficulty
+Question types
+Marking scheme
+Negative marking
+Section distribution
+Optional weak-topic weighting
+Optional PYQ-pattern influence
+Example:
+Exam: GATE ME
+Questions: 65
+Duration: 180 minutes
+The AI generates a paper according to:
+Official/verified syllabus
+Known exam structure
+Question distribution where reliable data exists
+Difficulty configuration
+Question types
+Marking scheme
+Negative marking
+Previous patterns where reliable data exists
+Do not claim the generated paper is an official paper or exact prediction.
+
+22. PERSONALIZED PAPER MODES
+Support:
+Exam Simulation
+Replicate the configured exam structure as closely as supported by verified data.
+Weakness-Focused
+Increase practice from topics identified as weak.
+Balanced Practice
+Distribute questions across selected topics.
+Concept Mastery
+Focus on selected concepts.
+PYQ-Inspired
+Generate structurally similar questions without falsely presenting them as original PYQs.
+Mixed Difficulty
+Use configurable easy/medium/hard distribution.
+
+23. QUESTION PAPER OUTPUT
+After generation provide:
+Question paper
+Question navigation
+Timer
+Question palette
+Mark for review
+Previous/Next
+Section navigation
+Submit test
+Auto-save attempt state
+After submission generate:
+Answer Key
+For every question:
+Correct answer
+Question type
+Topic
+Difficulty
+Detailed Solutions
+Provide step-by-step explanations where applicable.
+Performance Analysis
+Include:
+Score
+Accuracy
+Correct
+Incorrect
+Unattempted
+Time used
+Average time/question
+Topic-wise performance
+Difficulty-wise performance
+Question-type performance
+Negative-mark impact where applicable
+
+24. PERSONALIZED QUESTION PAPER ANALYSIS FRAMEWORK
+After a generated paper, identify:
+Strengths
+Strong concepts/topics.
+Weak Areas
+Low-accuracy topics.
+Time Management
+Questions consuming excessive time.
+Conceptual Errors
+Repeated conceptual mistakes.
+Calculation Errors
+Repeated calculation mistakes.
+Question Selection Errors
+Questions that could have been skipped or approached differently.
+Recommended Practice
+Generate a follow-up practice set.
+Example:
+Weak area: Integration
+
+Recommended:
+Review prerequisite → solve 5 Level-1 variants → 10 Level-2 variants → 5 PYQs → mixed test.
+25. PDF EXAM ANALYZER
+Allow users to upload:
+Official exam notifications
+Syllabus PDFs
+Previous-year papers
+Exam pattern documents
+Recruitment notifications
+Study material
+Notes
+Question papers
+The AI must analyse the uploaded document.
+It must distinguish between:
+Information found in uploaded PDF
+and
+AI-generated interpretation
+Never fabricate information that is not supported by the document. 26. PDF ANALYSIS REPORT
+After upload generate:
+Document Overview
+Document title
+Organisation
+Exam
+Year
+Document type
+Number of pages
+Important sections
+Extracted Information
+Only show categories actually found:
+Eligibility
+Age
+Qualification
+Important dates
+Exam pattern
+Selection process
+Syllabus
+Marking scheme
+Application details
+Other rules
+
+27. ASK QUESTIONS ABOUT PDF
+After analysis provide:
+Ask anything about this document
+Examples:
+What is the age limit?
+What is the negative marking?
+How many stages are there?
+What is the syllabus for Tier 2?
+Answers should be primarily grounded in the uploaded document.
+Where possible show:
+Source: Page 12
+or:
+Source: Examination Scheme section
+
+28. PDF-GROUNDED MCQ GENERATOR
+When the user clicks:
+Generate MCQs from PDF
+DO NOT immediately generate questions.
+Create a guided configuration workflow.
+
+STEP 1 — SELECT TOPIC
+Extract topics from the PDF.
+Examples:
+Eligibility
+Exam Pattern
+Syllabus
+General Awareness
+Quantitative Aptitude
+Reasoning
+Recruitment Rules
+Allow:
+Custom Topic
+
+STEP 2 — DIFFICULTY
+Options:
+Easy
+Medium
+Hard
+Mixed Difficulty
+
+STEP 3 — NUMBER OF QUESTIONS
+Options:
+5
+10
+20
+30
+50
+Custom
+
+STEP 4 — QUESTION TYPE
+Options where appropriate:
+MCQ
+Multiple correct
+Assertion & Reason
+Match the following
+Statement-based
+True/False
+Only enable question types appropriate to the selected source/exam.
+
+STEP 5 — GENERATE
+Display:
+MCQ Configuration
+
+Source: Uploaded PDF
+Topic: Quantitative Aptitude
+Difficulty: Hard
+Questions: 20
+Type: MCQ
+Mode: Strict PDF Mode
+Button:
+Generate Questions
+
+29. PDF-GROUNDED QUESTION GENERATION RULES
+In:
+Strict PDF Mode
+Every generated question must be based on information contained in the uploaded PDF.
+Each generated question should internally contain:
+Source passage/concept
+Topic
+Difficulty
+Question
+Options
+Correct answer
+Explanation
+Source/page reference
+Do not expose internal chain-of-thought.
+Provide concise explanations instead.
+
+30. MCQ TEST MODE
+Provide:
+Timer
+Question navigation
+Mark for review
+Previous/Next
+Submit
+Question palette
+Attempted/unattempted indicators
+After submission:
+Result
+Show:
+Score
+Accuracy
+Correct
+Incorrect
+Unattempted
+Time used
+Topic-wise performance
+Difficulty-wise performance
+
+31. AI PERFORMANCE ANALYSIS
+After every meaningful test/practice session identify:
+Strengths
+Topics with strong performance.
+Weak Areas
+Topics with poor accuracy.
+Conceptual Problems
+Repeated errors involving the same concept.
+Prerequisite Problems
+Errors caused by missing foundational concepts.
+Recommended Action
+Example:
+Revise Percentage → Practice 15 medium variants → Attempt a mixed quiz.
+Recommendations should connect to the Dependency Mapper and Question Evolution Lab.
+
+32. AI QUESTION GENERATION MODES
+Support:
+Strict Source Mode
+Only uploaded PDF/source.
+Source + Exam Mode
+PDF + selected exam syllabus/pattern.
+Practice Mode
+Generate similar questions based on the selected topic.
+Evolution Mode
+Generate variants of a source question.
+Clearly display the active mode.
+
+33. AI MULTI-EXAM PREPARATION OPTIMIZER
+Create a major feature:
+Multi-Exam Preparation Optimizer
+This is specifically designed for students preparing for multiple examinations simultaneously.
+Example:
+Primary:
+SSC CGL
+
+Secondary:
+Banking PO
+
+Backup:
+Railway
+Instead of generating three independent preparation plans, the AI creates one combined preparation strategy.
+
+34. MULTI-EXAM KNOWLEDGE MAP
+Build a visual structure such as:
+MULTI-EXAM PREPARATION
+│
+├── COMMON
+│   ├── Quantitative Aptitude
+│   ├── Reasoning
+│   └── English
+│
+├── CGL-SPECIFIC
+│   ├── GK
+│   └── Additional Topics
+│
+├── BANK-SPECIFIC
+│   ├── Banking Awareness
+│   └── Additional Topics
+│
+└── RAILWAY-SPECIFIC
+    └── Additional Topics
+The exact topics must come from the structured exam data.
+
+35. COMBINED PREPARATION STRATEGYThe optimizer should identify:
+Common Preparation
+Topics that support multiple exams.
+Exam-Specific Preparation
+Topics unique or significantly different.
+Priority
+Which common foundations should be completed first.
+Dependency
+Which topics must precede advanced topics.
+Scheduling
+When to introduce exam-specific preparation.
+Revision
+Shared revision where appropriate.
+Mock Testing
+Exam-specific mock tests closer to the relevant exam.
+
+36. MULTI-EXAM PREPARATION OPTIMIZATION
+The AI should attempt to minimize duplicated effort.
+Example:
+Instead of:
+Monday — CGL Quant
+Tuesday — Bank Quant
+Wednesday — Railway Quant
+it may structure preparation around the shared topic where appropriate:
+Monday — Percentage foundation
+Tuesday — Percentage practice
+Wednesday — CGL-specific applications
+Thursday — Banking-specific applications
+Friday — Railway-specific applications
+Do not assume that topics are identical merely because their names are similar.
+The system must inspect topic definitions and requirements.
+
+37. MULTI-EXAM CONFLICT DETECTION
+Detect conflicts such as:
+Different exam patterns
+Different question styles
+Different time limits
+Different negative marking
+Different topic depth
+Different required awareness areas
+Different technical requirements
+Show:
+Preparation Conflict
+and explain why separate preparation is required.
+
+38. MULTI-EXAM PRIORITY ENGINE
+Allow users to define:
+Primary exam
+Secondary exam
+Backup exam
+Exam dates
+Target scores
+Available hours
+The AI generates a priority-aware schedule.
+Example:
+Shared Foundation
+        ↓
+Primary Exam Focus
+        ↓
+Secondary Exam Maintenance
+        ↓
+Exam-Specific Mock Practice
+Do not independently decide the user's priorities.
+Use user-provided priorities and clearly stated scheduling constraints.
+
+39. AI PREPARATION SIMULATOR
+Build:
+Preparation Simulator
+User enters:
+Target exam
+Exam date
+Current preparation level
+Subjects
+Available hours/day
+Days available/week
+Current strengths
+Weak subjects
+Previous preparation
+Target score/goal
+Multiple-exam status
+AI generates a simulated preparation journey.
+
+40. PREPARATION JOURNEY
+Create:
+Phase 1 — Foundation
+Concept building.
+Phase 2 — Topic Completion
+Complete syllabus systematically.
+Phase 3 — Practice
+Topic-wise questions and PYQs.
+Phase 4 — Revision
+Spaced revision.
+Phase 5 — Mock Tests
+Full-length simulations.
+Phase 6 — Final Revision
+High-priority topics and weak areas.
+Dependency relationships must influence the order.
+
+41. DAILY PREPARATION SIMULATOR
+Generate realistic day-by-day schedules.
+Example:
+Day 1
+2 hours Quantitative Aptitude
+
+1 hour Reasoning
+
+1 hour English
+Day 2
+...
+Adapt to available study time.
+If user has:
+2 hours/day
+create a genuine 2-hour plan.
+If:
+6 hours/day
+create a genuine 6-hour plan.
+Do not simply multiply a 2-hour schedule.
+
+42. ADAPTIVE REPLANNING
+If user says:
+I missed 3 days.
+Ask:
+How would you like to recover?
+Options:
+Compress schedule
+Extend schedule
+Increase daily study time
+Keep original exam date and redistribute topics
+Then regenerate the plan.
+Dependency order, exam date, weak areas and remaining syllabus must be preserved.
+
+43. PERSONALIZED PREPARATION INTELLIGENCE
+The system should continuously combine:
+Performance
+Weak topics
+Prerequisite gaps
+Question history
+Mock results
+Available time
+Exam dates
+Multiple exam priorities
+Revision history
+into recommendations.
+Example:
+Your accuracy in Integration is improving, but Differential Equations remains blocked by two prerequisite gaps.
+44. EXAM KNOWLEDGE GRAPH
+Create an internal structured model:
+Exam → Stage → Subject → Topic → Subtopic → Concept → Prerequisite → Question → Question Variant
+Example:
+SSC CGL
+ ↓
+Tier 1
+ ↓
+Quantitative Aptitude
+ ↓
+Arithmetic
+ ↓
+Percentage
+ ↓
+Profit & Loss
+ ↓
+Question
+ ↓
+AI Variants
+This graph should power:
+Dependency mapping
+Question explanation
+Question evolution
+Question generation
+Preparation planning
+Multi-exam optimization
+Performance analysis 45. SEARCH / RESEARCH SYSTEM
+Where current/external information is required, use reliable sources.
+Priority:
+Official government/exam authority websites
+Official notifications
+Official PDFs
+Official syllabus documents
+Do not present outdated information as current.
+For dynamic information show:
+Last verified: [date]
+and:
+Source: Official website
+
+46. SOURCE TRUST SYSTEM
+Every factual exam claim should have a source where possible.
+Use badges:
+🟢 Official Source
+🔵 Uploaded Document
+🟡 AI Analysis
+⚪ User Input
+For generated questions:
+🟣 AI-Generated
+Clearly distinguish original/source questions from AI-generated variants.
+
+47. SAVED RESEARCH
+Users can save:
+Exams
+Comparisons
+Dependency maps
+PDF analyses
+Questions
+Question evolution families
+MCQ sets
+Generated papers
+Preparation plans
+Multi-exam strategies
+Performance reports
+Create:
+My Research
+and
+My Preparation
+
+48. CONTEXTUAL AI CHAT
+Include a contextual AI assistant.
+The assistant must know the current workflow context.
+If viewing SSC CGL:
+Explain Tier 1 Quantitative Aptitude.
+If viewing a PDF:
+Summarise this section.
+If viewing a question:
+Explain this using a shortcut.
+If viewing a dependency graph:
+Why do I need Integration before Differential Equations?
+If viewing a comparison:
+What additional topics are required for Exam B?
+If viewing a multi-exam plan:
+Reduce my daily study time to 4 hours.
+If viewing a question evolution family:
+Give me five more Level 3 variants.
+The assistant must preserve context while navigating within the workflow.
+
+49. UI / UX
+Design should feel like a premium AI product.
+Style
+Dark/light mode
+Modern cards
+Subtle gradients
+Carefully used glassmorphism
+Clean typography
+Smooth animations
+Micro-interactions
+Responsive layouts
+Mobile-first
+Desktop optimized
+Avoid:
+Overly complicated dashboards
+Excessive animations
+Clutter
+Generic chatbot appearance
+Huge unnecessary sidebars
+Information overload
+
+50. VISUAL KNOWLEDGE GRAPH UI
+Dependency maps and multi-exam maps should have interactive visualizations.
+Users should be able to:
+Zoom
+Pan
+Expand nodes
+Collapse branches
+Click concepts
+View prerequisites
+View dependent concepts
+View related questions
+View mastery status
+Jump directly to practice
+Example:
+Calculus
+   │
+   ├── Differentiation
+   │      │
+   │      └── Applications
+   │
+   └── Integration
+          │
+          └── Differential Equations
+
+51. MAIN NAVIGATION
+Use:
+Home
+Exams
+Compare
+Dependency Map
+Question AI
+Question Lab
+Paper Generator
+Preparation
+Multi-Exam
+PDF Lab
+MCQ Generator
+My Research
+Profile
+On mobile use a compact navigation system or bottom navigation.
+
+52. TECH STACK
+Use a modern production-ready stack.
+Frontend
+Next.js
+React
+TypeScript
+Tailwind CSS
+Backend
+Next.js API routes/server actions or equivalent backend.
+Database
+PostgreSQL/Supabase.
+Store:
+Users
+Exams
+Exam stages
+Subjects
+Topics
+Subtopics
+Concepts
+Dependencies
+Saved research
+Uploaded documents
+Document chunks
+Questions
+Question variants
+MCQs
+Question papers
+Attempts
+Preparation plans
+Multi-exam plans
+Progress
+Performance data
+
+53. AUTHENTICATION
+Implement secure:
+Email/password
+OAuth where available
+Session management
+User authorization
+Users must only access their own private resources unless explicitly shared.
+
+54. FILE STORAGE
+Use secure cloud storage.
+Support:
+PDF
+Images
+Supported document formats
+Implement:
+File size limits
+MIME validation
+Secure URLs
+Access control
+
+55. DOCUMENT AI / RAG
+Implement a proper RAG pipeline.
+PDF Upload
+↓
+Text Extraction
+↓
+Page Identification
+↓
+OCR if required
+↓
+Chunking
+↓
+Metadata Extraction
+↓
+Embeddings
+↓
+Vector Database
+↓
+Semantic Retrieval
+↓
+Context Construction
+↓
+LLM
+↓
+Grounded Answer
+↓
+Source Citation
+Metadata:
+Document ID
+Page number
+Section
+Topic
+Chunk ID
+Source type
+Confidence where applicable
+
+56. OCR SUPPORT
+If PDF pages are scanned:
+Use OCR where possible.
+Clearly display:
+Some information was extracted using OCR and may require verification.
+Flag uncertain extraction. 57. AI RESPONSE ARCHITECTURE
+Do not let frontend depend on uncontrolled free-form AI responses.
+Use structured JSON schemas for:
+Exam information
+Comparison
+Syllabus
+Dependency graphs
+Question explanations
+Question evolution
+Generated question papers
+Preparation plans
+Multi-exam strategies
+MCQs
+PDF analysis
+Performance analysis
+Validate AI output before displaying it.
+
+58. QUESTION VALIDATION ARCHITECTURE
+Create a validation layer for generated questions.
+Validate:
+Correct answer
+Options
+Explanation
+Mathematical consistency
+Source grounding
+Difficulty
+Topic
+Question type
+Duplicate detection
+Ambiguity detection
+If validation fails:
+Generation
+↓
+Validation
+↓
+FAIL
+↓
+Regenerate / Flag
+Never blindly display invalid generated questions.
+
+59. ERROR HANDLING
+Handle:
+Invalid PDF
+Scanned PDF
+Empty document
+Unsupported format
+AI timeout
+API failure
+Rate limits
+Very large PDFs
+Missing source information
+Conflicting information
+Failed question validation
+Failed dependency extraction
+Insufficient exam data
+Display useful messages.
+Never silently fabricate missing information.
+
+60. CONFLICTING INFORMATION
+If different reliable sources disagree:
+Show:
+Conflicting Information Detected
+Display:
+Source A
+Source B
+Dates
+Relevant differences
+Do not silently select one without explanation.
+For current exam rules, prioritize the latest authoritative source where appropriate.
+
+61. SECURITY
+Implement:
+Authentication
+Authorization
+Secure file access
+File size limits
+MIME validation
+Rate limiting
+API key protection
+Server-side AI API calls
+Input sanitization
+Secure database queries
+Protection against prompt injection from uploaded documents
+Uploaded PDFs must be treated as untrusted data.
+Do not allow instructions inside a PDF to override the application's system/developer rules.
+
+62. FREEMIUM-READY ARCHITECTURE
+Design architecture so subscription limits can be added later.
+Free
+Potential limits:
+Limited exam research
+Limited PDF pages
+Limited MCQ generations
+Limited question explanations
+Limited question evolution
+Limited generated papers
+Limited dependency maps
+Pro
+Potential features:
+Higher limits
+Advanced comparisons
+Larger PDFs
+Advanced preparation simulator
+More MCQs
+More question variants
+Advanced analytics
+Multi-exam optimizer
+Large question-paper generation
+Do not require payment integration for the initial MVP unless specifically requested.
+
+63. AI BEHAVIOUR RULES
+The AI must:
+Never knowingly fabricate exam rules.
+Prefer official sources for current exam information.
+Clearly distinguish source facts from AI analysis.
+Ground PDF answers in uploaded documents.
+Mention when information cannot be found.
+Avoid presenting guesses as facts.
+Handle conflicting information transparently.
+Preserve page/source references whenever possible.
+Clearly label AI-generated questions.
+Never present generated questions as original PYQs.
+Preserve lineage between original questions and evolved variants.
+Validate generated questions.
+Respect exam-specific marking rules when generating papers.
+Use dependency relationships when creating preparation plans.
+Avoid claiming unsupported syllabus overlap.
+Avoid inventing numerical overlap percentages.
+Adapt recommendations to actual user-provided constraints.
+
+64. IDEAL USER FLOW — EXAM RESEARCH
+User enters:
+SSC CGL
+
+↓
+Exam Researcher
+
+↓
+Structured Exam Report
+
+↓
+Syllabus Extraction
+
+↓
+Dependency Map
+
+↓
+Preparation Intelligence
+
+↓
+Save Exam
+
+65. IDEAL USER FLOW — EXAM COMPARISON
+Select:
+
+SSC CGL
+SSC CHSL
+RRB NTPC
+
+↓
+
+Compare
+
+↓
+
+Common Syllabus
+
+↓
+
+Exam-Specific Topics
+
+↓
+
+Preparation Overlap
+
+↓
+
+Dependency Differences
+
+↓
+
+Additional Preparation
+
+↓
+
+Combined Strategy
+
+66. IDEAL USER FLOW — DEPENDENCY MAPPER
+Upload / Select Syllabus
+
+↓
+
+AI extracts topics
+
+↓
+
+AI identifies prerequisite relationships
+
+↓
+
+Build Knowledge Graph
+
+↓
+
+Detect prerequisite gaps
+
+↓
+
+Show recommended learning sequence
+
+↓
+
+Practice prerequisite concepts
+
+↓
+
+Unlock advanced topics
+
+67. IDEAL USER FLOW — QUESTION EVOLUTION
+Select PYQ / Question
+
+↓
+
+Analyse concept
+
+↓
+
+Identify topic + difficulty
+
+↓
+
+Generate evolution family
+
+↓
+
+Level 1
+↓ Level 2
+↓
+
+Level 3
+↓
+
+Level 4
+↓
+
+Level 5
+
+↓
+
+Validate
+
+↓
+
+Practice
+
+68. IDEAL USER FLOW — PERSONALIZED QUESTION PAPER
+Select Exam
+
+↓
+
+Choose Questions
+
+↓
+
+Choose Duration
+
+↓
+
+Choose Topics
+
+↓
+
+Choose Difficulty
+
+↓
+
+Choose Question Types
+
+↓
+
+Configure Marking
+
+↓
+
+Generate Paper
+
+↓
+
+Attempt
+
+↓
+
+Submit
+
+↓
+
+Answer Key
+
+↓
+
+Detailed Solutions
+
+↓
+
+Performance Analysis
+
+↓
+
+Adaptive Practice
+
+69. IDEAL USER FLOW — PDF
+Upload Notification PDF
+
+↓
+
+AI Analysis
+
+↓
+
+Extract Exam Information
+
+↓
+
+Display Source References
+
+↓
+
+Ask Questions
+
+↓
+
+Generate MCQs
+
+↓
+
+Attempt
+
+↓
+
+Performance Analysis
+
+70. IDEAL USER FLOW — MULTI-EXAM OPTIMIZER
+Select Exams
+
+↓
+
+Define Primary / Secondary / Backup
+
+↓
+
+Map Common Syllabus
+
+↓
+
+Map Exam-Specific Topics
+
+↓
+
+Build Dependency Graph
+
+↓
+
+Identify Shared Preparation
+
+↓
+
+Identify Separate Preparation
+
+↓
+
+Detect Conflicts
+
+↓
+
+Optimize Schedule
+
+↓
+
+Generate Combined Plan
+
+↓
+
+Continuously Recalculate
+
+71. IDEAL USER FLOW — QUESTION EXPLAINER
+Question
+
+↓
+
+Quick Hint
+
+↓
+
+Concept
+
+↓
+
+Detailed Solution
+
+↓
+
+Shortcut
+
+↓
+
+Learning Insight
+
+↓
+
+Prerequisite Detection
+
+↓
+
+Related Practice
+
+↓
+
+Question Evolution
+
+72. IDEAL USER FLOW — PREPARATION SIMULATOR
+Select Exam
+
+↓
+
+Exam Date
+
+↓
+
+Available Hours
+
+↓
+
+Current Level
+
+↓
+
+Strengths / Weaknesses
+
+↓
+
+Dependency Analysis
+
+↓
+
+Syllabus Analysis
+
+↓
+
+Preparation Journey
+
+↓
+
+Daily Plan
+
+↓
+
+Practice
+
+↓
+
+Revision
+
+↓
+
+Mock Tests
+
+↓
+
+Performance Analysis
+
+↓
+
+Adaptive Replanning
+
+73. LANDING PAGE
+Create a strong premium SaaS landing page.
+Hero
+Your AI Command Center for Competitive Exams
+Subtitle:
+Research exams. Compare syllabi. Map prerequisites. Understand difficult questions. Analyse official PDFs. Generate source-grounded MCQs. Evolve PYQs into new practice. Build personalized papers. Optimize preparation across multiple exams.
+Primary CTA:
+Start Preparing
+Secondary CTA:
+Explore AI Tools
+
+74. LANDING PAGE FEATURE SECTIONS
+Show:
+Exam Researcher
+Understand an exam before preparing for it.
+Exam Comparison
+Find common syllabus and additional preparation.
+Dependency Mapper
+Know what you need to learn first.
+Question AI
+Understand difficult questions progressively.
+Question Evolution Lab
+Turn one question into an entire practice family.
+AI Paper Generator
+Create personalized exam-style papers.
+Preparation Simulator
+Build and adapt your preparation journey.
+Multi-Exam Optimizer
+Prepare for multiple exams without unnecessarily duplicating effort.
+PDF Intelligence
+Turn official documents into actionable information.
+AI MCQ Generator
+Generate grounded practice directly from your documents.
+
+75. PRODUCT DIFFERENTIATION
+Do NOT position this as:
+Another AI chatbot for students.
+Do NOT position it merely as:
+An AI study planner.
+Position it as:
+AI EXAM INTELLIGENCE PLATFORM
+Core value proposition:
+Understand the exam → Understand the syllabus → Understand dependencies → Understand the questions → Generate intelligent practice → Build the preparation strategy → Practice → Measure → Adapt.
+76. PRODUCTION ARCHITECTURE PRINCIPLE
+The application must be built as a functional product, not a visual prototype.
+Implement:
+Real navigation
+Working forms
+State management
+API architecture
+Authentication architecture
+Database schema
+File upload flow
+PDF processing architecture
+RAG architecture
+Exam research workflow
+Exam comparison workflow
+Dependency graph workflow
+Question explanation workflow
+Question evolution workflow
+Personalized paper workflow
+MCQ generation workflow
+Multi-exam optimizer
+Preparation simulator
+Performance engine
+Responsive UI
+Loading states
+Empty states
+Error states
+If an external API/key is unavailable during development:
+Create a clean provider abstraction and realistic mock data.
+However:
+Do not hard-code the entire application around mock data.
+The production architecture must allow real AI/search/database providers to be connected without rewriting the application. 77. PROVIDER ABSTRACTION
+Create interfaces for:
+ExamResearchProvider
+DocumentParser
+OCRProvider
+EmbeddingProvider
+VectorStore
+LLMProvider
+QuestionGenerationProvider
+QuestionValidationProvider
+SearchProvider
+This allows providers to be swapped without changing the core application.
+
+78. DATA MODEL
+Design relational entities approximately around:
+User
+Exam
+ExamStage
+Subject
+Topic
+Subtopic
+Concept
+Dependency
+ExamTopic
+Question
+QuestionVariant
+QuestionAttempt
+QuestionPaper
+QuestionPaperQuestion
+Document
+DocumentPage
+DocumentChunk
+MCQSet
+MCQ
+MCQAttempt
+PreparationPlan
+PreparationDay
+PreparationTask
+MultiExamPlan
+PerformanceRecord
+SavedResearch
+AIInteraction
+Source
+Use proper foreign keys and indexes.
+
+79. KNOWLEDGE GRAPH RELATIONSHIPS
+Support relationships such as:
+Exam
+  ↓
+Stage
+  ↓
+Subject
+  ↓
+Topic
+  ↓
+Subtopic
+  ↓
+Concept
+  ↓
+Prerequisite
+  ↓
+Question
+  ↓
+Variant
+And:
+Exam A
+   ↘
+    Common Topic
+   ↗
+Exam B
+And:
+Question
+   ↓
+Concept
+   ↓
+Prerequisite
+   ↓
+Related Questions
+   ↓
+Question Variants
+
+80. INTELLIGENT PRACTICE LOOP
+Create a continuous learning loop:
+Learn
+ ↓
+Practice
+ ↓
+Attempt
+ ↓
+Analyse
+ ↓
+Detect Weakness
+ ↓
+Detect Prerequisite Gap
+ ↓
+Generate Targeted Questions
+ ↓
+Evolve Questions
+ ↓
+Retest
+ ↓
+Update Mastery
+This should be one of the platform's core intelligence loops.
+
+81. MASTERY MODEL
+Track concept-level mastery where sufficient data exists.
+Possible states:
+Not Started
+Introduced
+Learning
+Practicing
+Weak
+Improving
+Strong
+Mastered
+Do not claim "mastery" solely from one correct answer.
+Use multiple signals such as:
+Accuracy
+Difficulty
+Recency
+Repeated attempts
+Question variation performance
+Prerequisite performance
+
+82. AI RECOMMENDATION ENGINE
+The home dashboard should dynamically recommend the next useful action.
+Example:
+Detected:
+
+Weak Topic:
+Integration
+
+Prerequisite:
+Differentiation
+
+Upcoming Exam:
+GATE ME
+
+Recommendation:
+
+1. Review Differentiation
+2. Solve 5 Level-1 questions
+3. Solve 10 Level-2 questions
+4. Attempt 5 PYQs
+5. Take Integration mini-test
+Recommendations should be explainable.
+
+83. IMPORTANT DISTINCTION BETWEEN SOURCE TYPES
+Every piece of information should have provenance.
+Possible source labels:
+OFFICIAL
+UPLOADED_DOCUMENT
+SEARCH_SOURCE
+USER_INPUT
+AI_ANALYSIS
+AI_GENERATED
+For generated content, show the underlying source whenever possible.
+
+84. FINAL PRODUCT PRINCIPLE
+The platform should feel like:
+Google + AI Researcher + Exam Mentor + Knowledge Graph + PDF Intelligence + Question Solver + Question Generator + Adaptive Study Planner
+specifically engineered for competitive-exam aspirants.
+The platform's ultimate promise is:
+Give me an exam, syllabus, PDF, or question — and turn it into actionable preparation intelligence.
+The application should make the student feel that instead of using ten separate tools for:
+Exam research
+Syllabus analysis
+Comparison
+Prerequisite mapping
+Question solving
+PYQ practice
+Question generation
+Mock tests
+PDF analysis
+Study planning
+Multi-exam planning
+Performance analysis
+they have one connected AI Exam Intelligence System.
+Build the complete application around this principle. 

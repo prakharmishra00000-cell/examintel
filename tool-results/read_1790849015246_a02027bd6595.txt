@@ -1,0 +1,721 @@
+     1→"use client";
+     2→
+     3→import { useState, useRef, useCallback } from "react";
+     4→import { toast } from "sonner";
+     5→import { motion } from "framer-motion";
+     6→import {
+     7→  Scale,
+     8→  Plus,
+     9→  X,
+    10→  Sparkles,
+    11→  Save,
+    12→  Layers,
+    13→  GitCompare,
+    14→  Route,
+    15→  ListChecks,
+    16→  ShieldCheck,
+    17→  Zap,
+    18→} from "lucide-react";
+    19→
+    20→import { useApi } from "@/hooks/use-api";
+    21→import { useAppStore } from "@/store/app-store";
+    22→import { Button } from "@/components/ui/button";
+    23→import { Input } from "@/components/ui/input";
+    24→import { Badge } from "@/components/ui/badge";
+    25→import {
+    26→  Card,
+    27→  CardContent,
+    28→  CardDescription,
+    29→  CardHeader,
+    30→  CardTitle,
+    31→} from "@/components/ui/card";
+    32→import {
+    33→  Table,
+    34→  TableBody,
+    35→  TableCell,
+    36→  TableHead,
+    37→  TableHeader,
+    38→  TableRow,
+    39→} from "@/components/ui/table";
+    40→import { LoadingState, ErrorState, EmptyState } from "@/components/shared/states";
+    41→import { SourceBadgeList } from "@/components/shared/source-badge";
+    42→import type { ExamComparisonReport } from "@/types";
+    43→import { cn } from "@/lib/utils";
+    44→
+    45→const QUICK_STARTS = [
+    46→  { label: "SSC CGL + SSC CHSL + RRB NTPC", exams: ["SSC CGL", "SSC CHSL", "RRB NTPC"] },
+    47→  { label: "GATE CS + GATE ME", exams: ["GATE CS", "GATE ME"] },
+    48→];
+    49→
+    50→const OVERLAP_STYLES: Record<
+    51→  "Very High" | "High" | "Moderate" | "Limited",
+    52→  { wrap: string; dot: string; ring: string }
+    53→> = {
+    54→  "Very High": {
+    55→    wrap: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    56→    dot: "bg-emerald-500",
+    57→    ring: "ring-emerald-500/20",
+    58→  },
+    59→  High: {
+    60→    wrap: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    61→    dot: "bg-sky-500",
+    62→    ring: "ring-sky-500/20",
+    63→  },
+    64→  Moderate: {
+    65→    wrap: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    66→    dot: "bg-amber-500",
+    67→    ring: "ring-amber-500/20",
+    68→  },
+    69→  Limited: {
+    70→    wrap: "border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
+    71→    dot: "bg-zinc-500",
+    72→    ring: "ring-zinc-500/20",
+    73→  },
+    74→};
+    75→
+    76→// Explicit class strings (so Tailwind JIT can detect them — no dynamic class names).
+    77→const EXAM_PALETTE = [
+    78→  {
+    79→    bgTint: "bg-violet-500/10",
+    80→    dot: "bg-violet-500",
+    81→    from: "from-violet-500/10",
+    82→    border: "border-violet-500/20",
+    83→  },
+    84→  {
+    85→    bgTint: "bg-fuchsia-500/10",
+    86→    dot: "bg-fuchsia-500",
+    87→    from: "from-fuchsia-500/10",
+    88→    border: "border-fuchsia-500/20",
+    89→  },
+    90→  {
+    91→    bgTint: "bg-emerald-500/10",
+    92→    dot: "bg-emerald-500",
+    93→    from: "from-emerald-500/10",
+    94→    border: "border-emerald-500/20",
+    95→  },
+    96→  {
+    97→    bgTint: "bg-sky-500/10",
+    98→    dot: "bg-sky-500",
+    99→    from: "from-sky-500/10",
+   100→    border: "border-sky-500/20",
+   101→  },
+   102→  {
+   103→    bgTint: "bg-amber-500/10",
+   104→    dot: "bg-amber-500",
+   105→    from: "from-amber-500/10",
+   106→    border: "border-amber-500/20",
+   107→  },
+   108→] as const;
+   109→
+   110→export function ExamComparison() {
+   111→  const [exams, setExams] = useState<string[]>([]);
+   112→  const [draft, setDraft] = useState("");
+   113→  const [loading, setLoading] = useState(false);
+   114→  const [error, setError] = useState<string | null>(null);
+   115→  const [report, setReport] = useState<ExamComparisonReport | null>(null);
+   116→  const inputRef = useRef<HTMLInputElement>(null);
+   117→
+   118→  const api = useApi();
+   119→  const saveItem = useAppStore((s) => s.saveItem);
+   120→  const setContext = useAppStore((s) => s.setContext);
+   121→
+   122→  const addExam = useCallback(
+   123→    (raw: string) => {
+   124→      const name = raw.trim();
+   125→      if (!name) return;
+   126→      if (exams.some((e) => e.toLowerCase() === name.toLowerCase())) {
+   127→        toast.warning(`"${name}" is already in your list`);
+   128→        return;
+   129→      }
+   130→      if (exams.length >= 5) {
+   131→        toast.error("You can compare at most 5 exams");
+   132→        return;
+   133→      }
+   134→      setExams((prev) => [...prev, name]);
+   135→      setDraft("");
+   136→    },
+   137→    [exams]
+   138→  );
+   139→
+   140→  const removeExam = (idx: number) => {
+   141→    setExams((prev) => prev.filter((_, i) => i !== idx));
+   142→  };
+   143→
+   144→  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+   145→    if (e.key === "Enter") {
+   146→      e.preventDefault();
+   147→      addExam(draft);
+   148→    }
+   149→    if (e.key === "Backspace" && draft === "" && exams.length > 0) {
+   150→      setExams((prev) => prev.slice(0, -1));
+   151→    }
+   152→  };
+   153→
+   154→  const handleCompare = async () => {
+   155→    if (exams.length < 2) {
+   156→      toast.error("Add at least 2 exams to compare");
+   157→      return;
+   158→    }
+   159→    setLoading(true);
+   160→    setError(null);
+   161→    setReport(null);
+   162→    const data = await api.call<{ report: ExamComparisonReport }>(
+   163→      "/api/exam/compare",
+   164→      { exams }
+   165→    );
+   166→    setLoading(false);
+   167→    if (!data || !data.report) {
+   168→      setError("AI comparison failed. Try again or check the dev log.");
+   169→      return;
+   170→    }
+   171→    setReport(data.report);
+   172→    setContext(`Comparing ${exams.join(" vs ")}`, "comparison");
+   173→    toast.success("Comparison report ready");
+   174→  };
+   175→
+   176→  const handleSave = () => {
+   177→    if (!report) return;
+   178→    const title = (report.examNames.length ? report.examNames : exams).join(" vs ");
+   179→    saveItem({
+   180→      type: "comparison",
+   181→      title,
+   182→      summary: "Comparison report",
+   183→      data: report,
+   184→    });
+   185→    toast.success("Saved to My Research");
+   186→  };
+   187→
+   188→  return (
+   189→    <div className="mx-auto max-w-6xl px-4 py-8">
+   190→      {/* Header */}
+   191→      <motion.header
+   192→        initial={{ opacity: 0, y: -8 }}
+   193→        animate={{ opacity: 1, y: 0 }}
+   194→        transition={{ duration: 0.35 }}
+   195→        className="mb-8"
+   196→      >
+   197→        <div className="flex items-start gap-4">
+   198→          <div className="relative">
+   199→            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 blur-md opacity-50" />
+   200→            <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30">
+   201→              <Scale className="h-5 w-5" />
+   202→            </div>
+   203→          </div>
+   204→          <div className="flex-1">
+   205→            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+   206→              Exam Comparison Engine
+   207→            </h1>
+   208→            <p className="mt-1 text-sm sm:text-base text-muted-foreground">
+   209→              Select multiple exams. Find common syllabus, exam-specific topics, and
+   210→              additional preparation required.
+   211→            </p>
+   212→          </div>
+   213→        </div>
+   214→      </motion.header>
+   215→
+   216→      {/* Picker */}
+   217→      <Card className="border-border/80 shadow-sm">
+   218→        <CardHeader>
+   219→          <CardTitle className="flex items-center gap-2 text-base">
+   220→            <Layers className="h-4 w-4 text-fuchsia-500" />
+   221→            Select exams to compare
+   222→          </CardTitle>
+   223→          <CardDescription>
+   224→            Type an exam name and press Enter or click Add. You need at least 2
+   225→            (max 5).
+   226→          </CardDescription>
+   227→        </CardHeader>
+   228→        <CardContent className="space-y-4">
+   229→          {/* Input + add */}
+   230→          <div className="flex flex-col sm:flex-row gap-2">
+   231→            <Input
+   232→              ref={inputRef}
+   233→              value={draft}
+   234→              onChange={(e) => setDraft(e.target.value)}
+   235→              onKeyDown={handleKeyDown}
+   236→              placeholder="e.g. SSC CGL, UPSC CSE, GATE CS…"
+   237→              className="flex-1"
+   238→              aria-label="Exam name"
+   239→            />
+   240→            <Button
+   241→              type="button"
+   242→              variant="outline"
+   243→              onClick={() => addExam(draft)}
+   244→              className="gap-1.5 sm:w-auto"
+   245→            >
+   246→              <Plus className="h-4 w-4" /> Add
+   247→            </Button>
+   248→          </div>
+   249→
+   250→          {/* Selected chips */}
+   251→          {exams.length > 0 && (
+   252→            <div className="flex flex-wrap gap-2">
+   253→              {exams.map((ex, i) => (
+   254→                <span
+   255→                  key={`${ex}-${i}`}
+   256→                  className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-sm font-medium text-violet-700 dark:text-violet-300"
+   257→                >
+   258→                  {ex}
+   259→                  <button
+   260→                    type="button"
+   261→                    aria-label={`Remove ${ex}`}
+   262→                    onClick={() => removeExam(i)}
+   263→                    className="rounded-full p-0.5 hover:bg-violet-500/20 transition-colors"
+   264→                  >
+   265→                    <X className="h-3 w-3" />
+   266→                  </button>
+   267→                </span>
+   268→              ))}
+   269→              <span className="ml-auto self-center text-xs text-muted-foreground">
+   270→                {exams.length} / 5
+   271→              </span>
+   272→            </div>
+   273→          )}
+   274→
+   275→          {/* Quick starts */}
+   276→          <div className="flex flex-wrap items-center gap-2 pt-1">
+   277→            <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+   278→              <Sparkles className="h-3 w-3" /> Quick start:
+   279→            </span>
+   280→            {QUICK_STARTS.map((q) => (
+   281→              <button
+   282→                key={q.label}
+   283→                type="button"
+   284→                onClick={() => {
+   285→                  setExams([]);
+   286→                  setExams(q.exams);
+   287→                  setTimeout(() => inputRef.current?.focus(), 0);
+   288→                }}
+   289→                disabled={loading}
+   290→                className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium hover:border-fuchsia-500/40 hover:bg-fuchsia-500/10 hover:text-fuchsia-700 dark:hover:text-fuchsia-300 transition-colors disabled:opacity-50"
+   291→              >
+   292→                {q.label}
+   293→              </button>
+   294→            ))}
+   295→          </div>
+   296→
+   297→          {/* Action */}
+   298→          <div className="flex flex-wrap items-center gap-2 pt-2">
+   299→            <Button
+   300→              onClick={handleCompare}
+   301→              disabled={loading || exams.length < 2}
+   302→              className="gap-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-fuchsia-500/20 hover:from-violet-600 hover:to-fuchsia-600 disabled:opacity-50"
+   303→            >
+   304→              <GitCompare className="h-4 w-4" />
+   305→              {loading ? "Comparing…" : "Compare Exams"}
+   306→            </Button>
+   307→            {report && (
+   308→              <Button onClick={handleSave} variant="outline" className="gap-1.5">
+   309→                <Save className="h-4 w-4" /> Save to My Research
+   310→              </Button>
+   311→            )}
+   312→            <span className="text-xs text-muted-foreground ml-auto">
+   313→              {exams.length < 2
+   314→                ? "Add at least 2 exams"
+   315→                : `${exams.length} exam${exams.length === 1 ? "" : "s"} ready`}
+   316→            </span>
+   317→          </div>
+   318→        </CardContent>
+   319→      </Card>
+   320→
+   321→      {/* Body */}
+   322→      <div className="mt-8 space-y-8">
+   323→        {loading && (
+   324→          <Card>
+   325→            <CardContent>
+   326→              <LoadingState label="Comparing syllabi, patterns, and preparation overlap…" />
+   327→            </CardContent>
+   328→          </Card>
+   329→        )}
+   330→
+   331→        {!loading && error && (
+   332→          <ErrorState message={error} onRetry={handleCompare} />
+   333→        )}
+   334→
+   335→        {!loading && !error && !report && (
+   336→          <EmptyState
+   337→            icon={Scale}
+   338→            title="No comparison yet"
+   339→            description="Add 2 or more exams above and hit Compare. The engine will produce a side-by-side table, common syllabus, preparation overlap, career pathways, and prerequisite differences."
+   340→          />
+   341→        )}
+   342→
+   343→        {!loading && !error && report && <ReportView report={report} onSave={handleSave} />}
+   344→      </div>
+   345→    </div>
+   346→  );
+   347→}
+   348→
+   349→// ============================================================
+   350→// Report renderer
+   351→// ============================================================
+   352→function ReportView({
+   353→  report,
+   354→  onSave,
+   355→}: {
+   356→  report: ExamComparisonReport;
+   357→  onSave: () => void;
+   358→}) {
+   359→  const examNames = report.examNames.length ? report.examNames : ["Exam 1", "Exam 2"];
+   360→
+   361→  return (
+   362→    <motion.div
+   363→      initial={{ opacity: 0, y: 8 }}
+   364→      animate={{ opacity: 1, y: 0 }}
+   365→      transition={{ duration: 0.35 }}
+   366→      className="space-y-8"
+   367→    >
+   368→      {/* Top action bar */}
+   369→      <div className="flex flex-wrap items-center gap-3">
+   370→        <div className="flex flex-wrap items-center gap-1.5">
+   371→          {examNames.map((n, i) => (
+   372→            <span key={i} className="text-sm font-semibold">
+   373→              {n}
+   374→              {i < examNames.length - 1 && (
+   375→                <span className="mx-1.5 text-muted-foreground">vs</span>
+   376→              )}
+   377→            </span>
+   378→          ))}
+   379→        </div>
+   380→        <Button onClick={onSave} variant="outline" size="sm" className="ml-auto gap-1.5">
+   381→          <Save className="h-3.5 w-3.5" /> Save to My Research
+   382→        </Button>
+   383→      </div>
+   384→
+   385→      {/* 1. Comparison Table */}
+   386→      <Section
+   387→        icon={GitCompare}
+   388→        title="Side-by-side Comparison"
+   389→        subtitle="Each row is an attribute; each column is an exam."
+   390→      >
+   391→        <div className="overflow-x-auto rounded-lg border border-border">
+   392→          <Table className="min-w-[640px]">
+   393→            <TableHeader>
+   394→              <TableRow className="bg-muted/40 hover:bg-muted/40">
+   395→                <TableHead className="w-44 sticky left-0 z-10 bg-muted/40 backdrop-blur">
+   396→                  Attribute
+   397→                </TableHead>
+   398→                {examNames.map((name, i) => {
+   399→                  const palette = EXAM_PALETTE[i % EXAM_PALETTE.length];
+   400→                  return (
+   401→                    <TableHead key={i} className="font-semibold">
+   402→                      <span
+   403→                        className={cn(
+   404→                          "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5",
+   405→                          palette.bgTint
+   406→                        )}
+   407→                      >
+   408→                        <span
+   409→                          className={cn(
+   410→                            "h-2 w-2 rounded-full",
+   411→                            palette.dot
+   412→                          )}
+   413→                        />
+   414→                        {name}
+   415→                      </span>
+   416→                    </TableHead>
+   417→                  );
+   418→                })}
+   419→              </TableRow>
+   420→            </TableHeader>
+   421→            <TableBody>
+   422→              {report.comparison.length === 0 && (
+   423→                <TableRow>
+   424→                  <TableCell colSpan={examNames.length + 1} className="text-center text-muted-foreground py-6">
+   425→                    No comparison rows generated.
+   426→                  </TableCell>
+   427→                </TableRow>
+   428→              )}
+   429→              {report.comparison.map((row, i) => (
+   430→                <TableRow key={i}>
+   431→                  <TableCell className="font-medium align-top bg-muted/20">
+   432→                    {row.attribute}
+   433→                  </TableCell>
+   434→                  {examNames.map((_, j) => (
+   435→                    <TableCell key={j} className="align-top whitespace-normal min-w-[140px]">
+   436→                      {row.values[j] ?? "—"}
+   437→                    </TableCell>
+   438→                  ))}
+   439→                </TableRow>
+   440→              ))}
+   441→            </TableBody>
+   442→          </Table>
+   443→        </div>
+   444→      </Section>
+   445→
+   446→      {/* 2. Common Syllabus */}
+   447→      <Section
+   448→        icon={Layers}
+   449→        title="Common Syllabus & Exam-Specific Topics"
+   450→        subtitle="Topics shared by all exams, and what each adds on top."
+   451→      >
+   452→        <div className="space-y-6">
+   453→          <div>
+   454→            <h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+   455→              <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+   456→              Common Topics
+   457→            </h4>
+   458→            {report.commonSyllabus.commonTopics.length === 0 ? (
+   459→              <p className="text-sm text-muted-foreground">No shared topics identified.</p>
+   460→            ) : (
+   461→              <div className="flex flex-wrap gap-2">
+   462→                {report.commonSyllabus.commonTopics.map((t, i) => (
+   463→                  <Badge
+   464→                    key={i}
+   465→                    variant="outline"
+   466→                    className="border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300 font-normal"
+   467→                  >
+   468→                    {t}
+   469→                  </Badge>
+   470→                ))}
+   471→              </div>
+   472→            )}
+   473→          </div>
+   474→
+   475→          <div>
+   476→            <h4 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+   477→              <span className="h-1.5 w-1.5 rounded-full bg-fuchsia-500" />
+   478→              Exam-Specific Topics
+   479→            </h4>
+   480→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   481→              {report.commonSyllabus.examSpecific.length === 0 && (
+   482→                <p className="text-sm text-muted-foreground col-span-full">
+   483→                  No exam-specific topics identified.
+   484→                </p>
+   485→              )}
+   486→              {report.commonSyllabus.examSpecific.map((entry, i) => {
+   487→                const palette = EXAM_PALETTE[i % EXAM_PALETTE.length];
+   488→                return (
+   489→                  <div
+   490→                    key={i}
+   491→                    className={cn(
+   492→                      "rounded-xl border p-4 bg-gradient-to-br to-transparent",
+   493→                      palette.from,
+   494→                      palette.border
+   495→                    )}
+   496→                  >
+   497→                    <div className="flex items-center gap-2 mb-2">
+   498→                      <span className={cn("h-2 w-2 rounded-full", palette.dot)} />
+   499→                      <span className="font-semibold text-sm">{entry.exam}</span>
+   500→                    </div>
+   501→                    {entry.topics.length === 0 ? (
+   502→                      <p className="text-xs text-muted-foreground">
+   503→                        No unique topics — fully covered by common syllabus.
+   504→                      </p>
+   505→                    ) : (
+   506→                      <ul className="space-y-1.5">
+   507→                        {entry.topics.map((t, j) => (
+   508→                          <li key={j} className="text-sm flex items-start gap-1.5">
+   509→                            <span className="text-muted-foreground mt-1">▸</span>
+   510→                            <span>{t}</span>
+   511→                          </li>
+   512→                        ))}
+   513→                      </ul>
+   514→                    )}
+   515→                  </div>
+   516→                );
+   517→              })}
+   518→            </div>
+   519→          </div>
+   520→        </div>
+   521→      </Section>
+   522→
+   523→      {/* 3. Preparation Overlap */}
+   524→      <Section
+   525→        icon={Zap}
+   526→        title="Preparation Overlap"
+   527→        subtitle="How much of your prep transfers across exams — and what you still need to add."
+   528→      >
+   529→        <div className="space-y-6">
+   530→          {/* Overlap categories */}
+   531→          <div>
+   532→            <h4 className="text-sm font-semibold text-muted-foreground mb-3">
+   533→              Overlap Categories
+   534→            </h4>
+   535→            {report.overlap.overlapCategories.length === 0 ? (
+   536→              <p className="text-sm text-muted-foreground">No overlap categories produced.</p>
+   537→            ) : (
+   538→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   539→                {report.overlap.overlapCategories.map((c, i) => {
+   540→                  const style = OVERLAP_STYLES[c.category] ?? OVERLAP_STYLES.Limited;
+   541→                  return (
+   542→                    <div
+   543→                      key={i}
+   544→                      className={cn(
+   545→                        "rounded-xl border p-4 ring-1",
+   546→                        style.wrap,
+   547→                        style.ring
+   548→                      )}
+   549→                    >
+   550→                      <div className="flex items-center justify-between gap-2 mb-1.5">
+   551→                        <span className="text-sm font-semibold">{c.topic}</span>
+   552→                        <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+   553→                          <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+   554→                          {c.category}
+   555→                        </span>
+   556→                      </div>
+   557→                      <p className="text-xs text-muted-foreground leading-relaxed">
+   558→                        {c.reason}
+   559→                      </p>
+   560→                    </div>
+   561→                  );
+   562→                })}
+   563→              </div>
+   564→            )}
+   565→          </div>
+   566→
+   567→          {/* Existing preparation */}
+   568→          <div>
+   569→            <h4 className="text-sm font-semibold text-muted-foreground mb-3">
+   570→              Existing Preparation (transfers across exams)
+   571→            </h4>
+   572→            {report.overlap.existingPreparation.length === 0 ? (
+   573→              <p className="text-sm text-muted-foreground">None identified.</p>
+   574→            ) : (
+   575→              <div className="flex flex-wrap gap-2">
+   576→                {report.overlap.existingPreparation.map((t, i) => (
+   577→                  <Badge
+   578→                    key={i}
+   579→                    variant="outline"
+   580→                    className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-normal"
+   581→                  >
+   582→                    {t}
+   583→                  </Badge>
+   584→                ))}
+   585→              </div>
+   586→            )}
+   587→          </div>
+   588→
+   589→          {/* Additional preparation table */}
+   590→          <div>
+   591→            <h4 className="text-sm font-semibold text-muted-foreground mb-3">
+   592→              Additional Preparation Required
+   593→            </h4>
+   594→            {report.overlap.additionalPreparation.length === 0 ? (
+   595→              <p className="text-sm text-muted-foreground">
+   596→                Nothing extra — common syllabus covers all exams.
+   597→              </p>
+   598→            ) : (
+   599→              <div className="overflow-x-auto rounded-lg border border-border">
+   600→                <Table className="min-w-[480px]">
+   601→                  <TableHeader>
+   602→                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+   603→                      <TableHead className="w-1/3">Topic</TableHead>
+   604→                      <TableHead>Reason</TableHead>
+   605→                    </TableRow>
+   606→                  </TableHeader>
+   607→                  <TableBody>
+   608→                    {report.overlap.additionalPreparation.map((row, i) => (
+   609→                      <TableRow key={i}>
+   610→                        <TableCell className="font-medium align-top">
+   611→                          {row.topic}
+   612→                        </TableCell>
+   613→                        <TableCell className="text-muted-foreground whitespace-normal">
+   614→                          {row.reason}
+   615→                        </TableCell>
+   616→                      </TableRow>
+   617→                    ))}
+   618→                  </TableBody>
+   619→                </Table>
+   620→              </div>
+   621→            )}
+   622→          </div>
+   623→        </div>
+   624→      </Section>
+   625→
+   626→      {/* 4. Career Pathways */}
+   627→      <Section
+   628→        icon={Route}
+   629→        title="Career Pathways"
+   630→        subtitle="Where each exam leads in your career."
+   631→      >
+   632→        {report.careerPathways.length === 0 ? (
+   633→          <p className="text-sm text-muted-foreground">No career pathways produced.</p>
+   634→        ) : (
+   635→          <ul className="space-y-2">
+   636→            {report.careerPathways.map((p, i) => (
+   637→              <li
+   638→                key={i}
+   639→                className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm"
+   640→              >
+   641→                <Route className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+   642→                <span>{p}</span>
+   643→              </li>
+   644→            ))}
+   645→          </ul>
+   646→        )}
+   647→      </Section>
+   648→
+   649→      {/* 5. Prerequisite Differences */}
+   650→      <Section
+   651→        icon={ListChecks}
+   652→        title="Prerequisite Differences"
+   653→        subtitle="Eligibility or qualification differences between these exams."
+   654→      >
+   655→        {report.prerequisiteDifferences.length === 0 ? (
+   656→          <p className="text-sm text-muted-foreground">
+   657→            No prerequisite differences produced.
+   658→          </p>
+   659→        ) : (
+   660→          <ul className="space-y-2">
+   661→            {report.prerequisiteDifferences.map((p, i) => (
+   662→              <li
+   663→                key={i}
+   664→                className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm"
+   665→              >
+   666→                <span className="mt-0.5 text-fuchsia-500">•</span>
+   667→                <span>{p}</span>
+   668→              </li>
+   669→            ))}
+   670→          </ul>
+   671→        )}
+   672→      </Section>
+   673→
+   674→      {/* 6. Sources */}
+   675→      {report.sources && report.sources.length > 0 && (
+   676→        <Section
+   677→          icon={ShieldCheck}
+   678→          title="Sources & Provenance"
+   679→          subtitle="Each claim is tagged by origin — official vs AI analysis."
+   680→        >
+   681→          <SourceBadgeList sources={report.sources} />
+   682→        </Section>
+   683→      )}
+   684→    </motion.div>
+   685→  );
+   686→}
+   687→
+   688→// ============================================================
+   689→// Section wrapper — premium card with icon header
+   690→// ============================================================
+   691→function Section({
+   692→  icon: Icon,
+   693→  title,
+   694→  subtitle,
+   695→  children,
+   696→}: {
+   697→  icon: React.ComponentType<{ className?: string }>;
+   698→  title: string;
+   699→  subtitle?: string;
+   700→  children: React.ReactNode;
+   701→}) {
+   702→  return (
+   703→    <Card className="overflow-hidden border-border/80 shadow-sm">
+   704→      <CardHeader className="border-b border-border/60 bg-muted/20">
+   705→        <div className="flex items-start gap-3">
+   706→          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/15 to-fuchsia-500/15 border border-violet-500/20">
+   707→            <Icon className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+   708→          </div>
+   709→          <div>
+   710→            <CardTitle className="text-base">{title}</CardTitle>
+   711→            {subtitle && (
+   712→              <CardDescription className="mt-0.5">{subtitle}</CardDescription>
+   713→            )}
+   714→          </div>
+   715→        </div>
+   716→      </CardHeader>
+   717→      <CardContent className="pt-6">{children}</CardContent>
+   718→    </Card>
+   719→  );
+   720→}
+   721→
