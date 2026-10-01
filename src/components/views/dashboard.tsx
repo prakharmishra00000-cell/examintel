@@ -31,6 +31,7 @@ import { motion } from "framer-motion";
 import { EmptyState } from "@/components/shared/states";
 import { ExamCountdown } from "@/components/exam-countdown";
 import { ActivityHeatmap } from "@/components/activity-heatmap";
+import { AchievementsWidget } from "@/components/achievements-widget";
 
 const quickActions: { icon: typeof Search; label: string; view: ViewKey; emoji: string; desc: string }[] = [
   { icon: Search, label: "Research an Exam", view: "exam-researcher", emoji: "🔍", desc: "Exam intelligence report" },
@@ -151,6 +152,15 @@ export function Dashboard() {
         </motion.div>
       </div>
 
+      {/* Achievements widget — full width, prominent near top */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.07 }}
+      >
+        <AchievementsWidget />
+      </motion.div>
+
       {/* Quick actions */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -172,7 +182,7 @@ export function Dashboard() {
                 onClick={() => (a.view === "dashboard" ? setAssistantOpen(true) : setView(a.view))}
                 className="group text-left"
               >
-                <Card className="h-full hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-500/10 transition-all">
+                <Card className="h-full card-lift gradient-glow hover:border-violet-500/40 transition-all">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <span className="text-xl">{a.emoji}</span>

@@ -1,0 +1,834 @@
+     1→"use client";
+     2→
+     3→import { useState, useEffect, useMemo, useCallback } from "react";
+     4→import { motion, AnimatePresence } from "framer-motion";
+     5→import { toast } from "sonner";
+     6→import {
+     7→  Layers,
+     8→  Sparkles,
+     9→  Brain,
+    10→  Flame,
+    11→  TrendingUp,
+    12→  RotateCcw,
+    13→  Check,
+    14→  X,
+    15→  ChevronLeft,
+    16→  ChevronRight,
+    17→  Trash2,
+    18→  Play,
+    19→  Plus,
+    20→  RefreshCw,
+    21→  GraduationCap,
+    22→  Clock,
+    23→  Target,
+    24→  Zap,
+    25→  PartyPopper,
+    26→  Eye,
+    27→  ArrowRight,
+    28→} from "lucide-react";
+    29→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+    30→import { Button } from "@/components/ui/button";
+    31→import { Input } from "@/components/ui/input";
+    32→import { Textarea } from "@/components/ui/textarea";
+    33→import { Badge } from "@/components/ui/badge";
+    34→import { Label } from "@/components/ui/label";
+    35→import { Progress } from "@/components/ui/progress";
+    36→import {
+    37→  Select,
+    38→  SelectContent,
+    39→  SelectItem,
+    40→  SelectTrigger,
+    41→  SelectValue,
+    42→} from "@/components/ui/select";
+    43→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    44→import { LoadingState, EmptyState } from "@/components/shared/states";
+    45→import { SourceBadgeList } from "@/components/shared/source-badge";
+    46→import { useFlashcardStore } from "@/store/flashcard-store";
+    47→import { useApi } from "@/hooks/use-api";
+    48→import { cn } from "@/lib/utils";
+    49→import type { Flashcard, FlashcardSet } from "@/types/flashcard";
+    50→
+    51→// ----------------- helpers -----------------
+    52→const QUICK_CHIPS: { label: string; source: string; topic: string; content: string }[] = [
+    53→  { label: "SSC CGL — General Awareness", source: "Saved Exam: SSC CGL", topic: "SSC CGL — General Awareness", content: "" },
+    54→  { label: "Quantitative Aptitude — Formulas", source: "Custom topic", topic: "Quantitative Aptitude — Formulas", content: "" },
+    55→  { label: "English — Vocabulary", source: "Custom topic", topic: "English — Vocabulary", content: "" },
+    56→  { label: "Reasoning — Patterns", source: "Custom topic", topic: "Reasoning — Patterns", content: "" },
+    57→];
+    58→
+    59→const DIFFICULTY_BADGE: Record<string, string> = {
+    60→  Easy: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    61→  Medium: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    62→  Hard: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+    63→};
+    64→
+    65→const MASTERY_BADGE: Record<string, string> = {
+    66→  New: "bg-zinc-500/15 text-zinc-600 dark:text-zinc-300 border-zinc-500/30",
+    67→  Learning: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    68→  Reviewing: "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30",
+    69→  Mastered: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    70→};
+    71→
+    72→function isDue(card: Flashcard, now: number): boolean {
+    73→  const t = Date.parse(card.nextReview);
+    74→  if (Number.isNaN(t)) return true;
+    75→  return t <= now;
+    76→}
+    77→
+    78→function relativeDay(iso: string): string {
+    79→  const t = Date.parse(iso);
+    80→  if (Number.isNaN(t)) return "—";
+    81→  const dayMs = 24 * 60 * 60 * 1000;
+    82→  const diff = Math.round((t - Date.now()) / dayMs);
+    83→  if (diff <= 0) return "due now";
+    84→  if (diff === 1) return "in 1 day";
+    85→  return `in ${diff} days`;
+    86→}
+    87→
+    88→// ----------------- Flashcard face (with 3D flip) -----------------
+    89→function FlashcardFace({
+    90→  card,
+    91→  flipped,
+    92→  onFlip,
+    93→}: {
+    94→  card: Flashcard;
+    95→  flipped: boolean;
+    96→  onFlip: () => void;
+    97→}) {
+    98→  return (
+    99→    <div className="[perspective:1600px] w-full">
+   100→      <motion.div
+   101→        className="relative w-full min-h-[280px] sm:min-h-[320px]"
+   102→        style={{ transformStyle: "preserve-3d" }}
+   103→        animate={{ rotateY: flipped ? 180 : 0 }}
+   104→        transition={{ duration: 0.5, ease: "easeInOut" }}
+   105→        onClick={onFlip}
+   106→        role="button"
+   107→        tabIndex={0}
+   108→        aria-label={flipped ? "Show question" : "Show answer"}
+   109→      >
+   110→        {/* FRONT */}
+   111→        <div
+   112→          className="absolute inset-0 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 via-fuchsia-500/5 to-background p-6 sm:p-8 flex flex-col cursor-pointer"
+   113→          style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+   114→        >
+   115→          <div className="flex items-center justify-between mb-4">
+   116→            <div className="flex items-center gap-2">
+   117→              <Badge variant="outline" className="border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400 gap-1">
+   118→                <Sparkles className="h-3 w-3" />
+   119→                Question
+   120→              </Badge>
+   121→              <Badge variant="outline" className={cn("gap-1", DIFFICULTY_BADGE[card.difficulty])}>
+   122→                <Target className="h-3 w-3" />
+   123→                {card.difficulty}
+   124→              </Badge>
+   125→            </div>
+   126→            <Badge variant="outline" className="text-muted-foreground">
+   127→              {card.topic}
+   128→            </Badge>
+   129→          </div>
+   130→          <div className="flex-1 flex flex-col items-center justify-center text-center">
+   131→            <p className="text-lg sm:text-2xl font-semibold leading-snug max-w-prose">{card.front}</p>
+   132→          </div>
+   133→          <div className="mt-4 flex items-center justify-center text-xs text-muted-foreground gap-1.5">
+   134→            <Eye className="h-3.5 w-3.5" />
+   135→            Click to reveal answer
+   136→          </div>
+   137→        </div>
+   138→
+   139→        {/* BACK */}
+   140→        <div
+   141→          className="absolute inset-0 rounded-2xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-500/15 via-violet-500/5 to-background p-6 sm:p-8 flex flex-col cursor-pointer"
+   142→          style={{
+   143→            backfaceVisibility: "hidden",
+   144→            WebkitBackfaceVisibility: "hidden",
+   145→            transform: "rotateY(180deg)",
+   146→          }}
+   147→        >
+   148→          <div className="flex items-center justify-between mb-4">
+   149→            <Badge variant="outline" className="border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 gap-1">
+   150→              <Check className="h-3 w-3" />
+   151→              Answer
+   152→            </Badge>
+   153→            <Badge variant="outline" className="text-muted-foreground">
+   154→              {card.topic}
+   155→            </Badge>
+   156→          </div>
+   157→          <div className="flex-1 flex flex-col items-center justify-center text-center overflow-y-auto">
+   158→            <p className="text-base sm:text-xl font-medium leading-relaxed max-w-prose">{card.back}</p>
+   159→          </div>
+   160→          <div className="mt-4 text-center text-xs text-muted-foreground">
+   161→            Rate your recall below
+   162→          </div>
+   163→        </div>
+   164→      </motion.div>
+   165→    </div>
+   166→  );
+   167→}
+   168→
+   169→// ----------------- Stats card -----------------
+   170→function StatsCard({ cards }: { cards: Flashcard[] }) {
+   171→  const total = cards.length;
+   172→  const due = cards.filter((c) => isDue(c, Date.now())).length;
+   173→  const mastered = cards.filter((c) => c.mastery === "Mastered").length;
+   174→  const learning = cards.filter((c) => c.mastery === "Learning" || c.mastery === "Reviewing").length;
+   175→  const avgEase = total > 0 ? cards.reduce((sum, c) => sum + c.easeFactor, 0) / total : 0;
+   176→
+   177→  const stats = [
+   178→    { label: "Total cards", value: total, icon: Layers, color: "text-violet-500" },
+   179→    { label: "Due now", value: due, icon: Clock, color: "text-amber-500" },
+   180→    { label: "Mastered", value: mastered, icon: GraduationCap, color: "text-emerald-500" },
+   181→    { label: "Learning", value: learning, icon: TrendingUp, color: "text-sky-500" },
+   182→    { label: "Avg ease", value: avgEase.toFixed(2), icon: Zap, color: "text-fuchsia-500" },
+   183→  ];
+   184→
+   185→  return (
+   186→    <Card className="border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-fuchsia-500/5">
+   187→      <CardHeader className="pb-3">
+   188→        <CardTitle className="flex items-center gap-2 text-base">
+   189→          <Brain className="h-4 w-4 text-violet-500" />
+   190→          Spaced Repetition Stats
+   191→        </CardTitle>
+   192→        <CardDescription>Your mastery progress across all saved sets</CardDescription>
+   193→      </CardHeader>
+   194→      <CardContent>
+   195→        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+   196→          {stats.map((s) => {
+   197→            const Icon = s.icon;
+   198→            return (
+   199→              <div
+   200→                key={s.label}
+   201→                className="rounded-lg border border-border/60 bg-background/60 p-3 flex flex-col gap-1"
+   202→              >
+   203→                <Icon className={cn("h-4 w-4", s.color)} />
+   204→                <div className="text-2xl font-bold tracking-tight">{s.value}</div>
+   205→                <div className="text-[11px] text-muted-foreground">{s.label}</div>
+   206→              </div>
+   207→            );
+   208→          })}
+   209→        </div>
+   210→        {total > 0 && (
+   211→          <div className="mt-4">
+   212→            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+   213→              <span>Mastery progress</span>
+   214→              <span>{Math.round((mastered / total) * 100)}% mastered</span>
+   215→            </div>
+   216→            <Progress value={(mastered / total) * 100} className="h-2 bg-violet-500/15" />
+   217→          </div>
+   218→        )}
+   219→      </CardContent>
+   220→    </Card>
+   221→  );
+   222→}
+   223→
+   224→// ----------------- Generate Tab -----------------
+   225→function GenerateTab({
+   226→  onSwitchToReview,
+   227→}: {
+   228→  onSwitchToReview: () => void;
+   229→}) {
+   230→  const { sets, addSet, removeSet } = useFlashcardStore();
+   231→  const { call } = useApi();
+   232→  const [source, setSource] = useState("Custom topic");
+   233→  const [topic, setTopic] = useState("");
+   234→  const [content, setContent] = useState("");
+   235→  const [count, setCount] = useState("10");
+   236→  const [loading, setLoading] = useState(false);
+   237→
+   238→  const allCards = useMemo(() => sets.flatMap((s) => s.cards), [sets]);
+   239→
+   240→  const handleGenerate = useCallback(async () => {
+   241→    if (!topic.trim()) {
+   242→      toast.error("Please enter a topic", {
+   243→        description: "e.g. 'SSC CGL — General Awareness' or 'Calculus — Derivatives'",
+   244→      });
+   245→      return;
+   246→    }
+   247→    setLoading(true);
+   248→    try {
+   249→      const res = await call<{ set: FlashcardSet }>("/api/flashcards/generate", {
+   250→        source: source.trim() || "Custom topic",
+   251→        topic: topic.trim(),
+   252→        content: content.trim(),
+   253→        count: Number(count),
+   254→      });
+   255→      if (res?.set && res.set.cards.length > 0) {
+   256→        addSet(res.set);
+   257→        toast.success("Flashcards generated!", {
+   258→          description: `${res.set.cards.length} cards on "${res.set.topic}" — ready to review.`,
+   259→        });
+   260→        setTopic("");
+   261→        setContent("");
+   262→        onSwitchToReview();
+   263→      } else if (res) {
+   264→        toast.error("No flashcards were generated", {
+   265→          description: "Try a different topic or add grounding content.",
+   266→        });
+   267→      }
+   268→    } finally {
+   269→      setLoading(false);
+   270→    }
+   271→  }, [source, topic, content, count, call, addSet, onSwitchToReview]);
+   272→
+   273→  const applyChip = (chip: (typeof QUICK_CHIPS)[number]) => {
+   274→    setSource(chip.source);
+   275→    setTopic(chip.topic);
+   276→    setContent(chip.content);
+   277→    setCount("10");
+   278→  };
+   279→
+   280→  return (
+   281→    <div className="space-y-6">
+   282→      <Card className="border-violet-500/20">
+   283→        <CardHeader>
+   284→          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+   285→            <Plus className="h-4 w-4 text-violet-500" />
+   286→            Generate a Flashcard Set
+   287→          </CardTitle>
+   288→          <CardDescription>
+   289→            Generate AI flashcards from any exam, syllabus, or topic. Each card uses the SM-2 algorithm to schedule spaced reviews.
+   290→          </CardDescription>
+   291→        </CardHeader>
+   292→        <CardContent className="space-y-4">
+   293→          <div className="grid gap-4 sm:grid-cols-2">
+   294→            <div className="space-y-1.5">
+   295→              <Label htmlFor="fc-source" className="text-xs text-muted-foreground">Source label</Label>
+   296→              <Input
+   297→                id="fc-source"
+   298→                value={source}
+   299→                onChange={(e) => setSource(e.target.value)}
+   300→                placeholder="e.g. 'Saved Exam: SSC CGL' or 'Custom topic'"
+   301→              />
+   302→            </div>
+   303→            <div className="space-y-1.5">
+   304→              <Label htmlFor="fc-topic" className="text-xs text-muted-foreground">Topic *</Label>
+   305→              <Input
+   306→                id="fc-topic"
+   307→                value={topic}
+   308→                onChange={(e) => setTopic(e.target.value)}
+   309→                placeholder="e.g. 'Quantitative Aptitude — Formulas'"
+   310→              />
+   311→            </div>
+   312→          </div>
+   313→
+   314→          <div className="space-y-1.5">
+   315→            <Label htmlFor="fc-content" className="text-xs text-muted-foreground">
+   316→              Grounding content (optional — paste syllabus, notes, or study material)
+   317→            </Label>
+   318→            <Textarea
+   319→              id="fc-content"
+   320→              value={content}
+   321→              onChange={(e) => setContent(e.target.value)}
+   322→              placeholder="Paste any reference text here — every card claim will be grounded in this material."
+   323→              className="min-h-[100px] resize-y"
+   324→            />
+   325→          </div>
+   326→
+   327→          <div className="grid gap-4 sm:grid-cols-2 items-end">
+   328→            <div className="space-y-1.5">
+   329→              <Label className="text-xs text-muted-foreground">Number of cards</Label>
+   330→              <Select value={count} onValueChange={setCount}>
+   331→                <SelectTrigger className="w-full sm:w-[180px]">
+   332→                  <SelectValue placeholder="Count" />
+   333→                </SelectTrigger>
+   334→                <SelectContent>
+   335→                  <SelectItem value="5">5 cards</SelectItem>
+   336→                  <SelectItem value="10">10 cards</SelectItem>
+   337→                  <SelectItem value="15">15 cards</SelectItem>
+   338→                  <SelectItem value="20">20 cards</SelectItem>
+   339→                </SelectContent>
+   340→              </Select>
+   341→            </div>
+   342→            <Button
+   343→              onClick={handleGenerate}
+   344→              disabled={loading || !topic.trim()}
+   345→              className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white border-transparent sm:ml-auto w-full sm:w-auto"
+   346→            >
+   347→              {loading ? (
+   348→                <>
+   349→                  <RefreshCw className="h-4 w-4 animate-spin" />
+   350→                  Generating…
+   351→                </>
+   352→              ) : (
+   353→                <>
+   354→                  <Sparkles className="h-4 w-4" />
+   355→                  Generate Flashcards
+   356→                </>
+   357→              )}
+   358→            </Button>
+   359→          </div>
+   360→
+   361→          {loading && <LoadingState label="AI is composing your flashcards…" />}
+   362→
+   363→          <div className="space-y-2 pt-2 border-t border-border/60">
+   364→            <div className="text-xs text-muted-foreground">Quick chips</div>
+   365→            <div className="flex flex-wrap gap-2">
+   366→              {QUICK_CHIPS.map((chip) => (
+   367→                <button
+   368→                  key={chip.label}
+   369→                  onClick={() => applyChip(chip)}
+   370→                  className="text-xs rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300 hover:bg-violet-500/20 px-3 py-1.5 transition"
+   371→                >
+   372→                  {chip.label}
+   373→                </button>
+   374→              ))}
+   375→            </div>
+   376→          </div>
+   377→        </CardContent>
+   378→      </Card>
+   379→
+   380→      <div>
+   381→        <div className="flex items-center justify-between mb-3">
+   382→          <h3 className="text-sm font-semibold flex items-center gap-2">
+   383→            <Layers className="h-4 w-4 text-violet-500" />
+   384→            Saved sets ({sets.length})
+   385→          </h3>
+   386→          {allCards.length > 0 && (
+   387→            <Button variant="ghost" size="sm" onClick={onSwitchToReview} className="gap-1.5">
+   388→              <Play className="h-3.5 w-3.5" />
+   389→              Start review
+   390→            </Button>
+   391→          )}
+   392→        </div>
+   393→        {sets.length === 0 ? (
+   394→          <EmptyState
+   395→            title="No flashcard sets yet"
+   396→            description="Generate your first set above — pick a quick chip or enter your own topic."
+   397→            icon={Layers}
+   398→          />
+   399→        ) : (
+   400→          <div className="grid gap-3 sm:grid-cols-2">
+   401→            {sets.map((set) => {
+   402→              const total = set.cards.length;
+   403→              const mastered = set.cards.filter((c) => c.mastery === "Mastered").length;
+   404→              const due = set.cards.filter((c) => isDue(c, Date.now())).length;
+   405→              return (
+   406→                <Card key={set.id} className="border-border/60 hover:border-violet-500/40 transition group">
+   407→                  <CardHeader className="pb-3">
+   408→                    <div className="flex items-start justify-between gap-2">
+   409→                      <div className="min-w-0 flex-1">
+   410→                        <CardTitle className="text-sm truncate">{set.topic}</CardTitle>
+   411→                        <CardDescription className="text-xs truncate">{set.source}</CardDescription>
+   412→                      </div>
+   413→                      <Badge variant="outline" className={cn("shrink-0", MASTERY_BADGE[due > 0 ? "Learning" : "Mastered"])}>
+   414→                        {due > 0 ? `${due} due` : "all set"}
+   415→                      </Badge>
+   416→                    </div>
+   417→                  </CardHeader>
+   418→                  <CardContent className="space-y-3">
+   419→                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+   420→                      <span>{total} cards</span>
+   421→                      <span>{mastered}/{total} mastered</span>
+   422→                    </div>
+   423→                    <Progress
+   424→                      value={total > 0 ? (mastered / total) * 100 : 0}
+   425→                      className="h-1.5 bg-violet-500/10"
+   426→                    />
+   427→                    <SourceBadgeList sources={set.sources as any} className="pt-1" />
+   428→                    <div className="flex items-center gap-2 pt-1">
+   429→                      <Button
+   430→                        size="sm"
+   431→                        onClick={onSwitchToReview}
+   432→                        disabled={due === 0}
+   433→                        className="gap-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white border-transparent flex-1"
+   434→                      >
+   435→                        <Play className="h-3.5 w-3.5" />
+   436→                        {due > 0 ? `Review ${due} due` : "Review now"}
+   437→                      </Button>
+   438→                      <Button
+   439→                        size="sm"
+   440→                        variant="outline"
+   441→                        onClick={() => {
+   442→                          removeSet(set.id);
+   443→                          toast.success("Set deleted", { description: `"${set.topic}" removed.` });
+   444→                        }}
+   445→                        className="gap-1.5 hover:text-rose-600 hover:border-rose-500/40"
+   446→                      >
+   447→                        <Trash2 className="h-3.5 w-3.5" />
+   448→                        Delete
+   449→                      </Button>
+   450→                    </div>
+   451→                  </CardContent>
+   452→                </Card>
+   453→              );
+   454→            })}
+   455→          </div>
+   456→        )}
+   457→      </div>
+   458→    </div>
+   459→  );
+   460→}
+   461→
+   462→// ----------------- Review Tab -----------------
+   463→type Quality = 0 | 1 | 2 | 3 | 4 | 5;
+   464→
+   465→const RATINGS: { label: string; quality: Quality; color: string; ring: string; icon: typeof RotateCcw }[] = [
+   466→  { label: "Again", quality: 0, color: "bg-rose-500 hover:bg-rose-600 text-white border-transparent", ring: "ring-rose-500/30", icon: RotateCcw },
+   467→  { label: "Hard", quality: 2, color: "bg-amber-500 hover:bg-amber-600 text-white border-transparent", ring: "ring-amber-500/30", icon: Target },
+   468→  { label: "Good", quality: 4, color: "bg-sky-500 hover:bg-sky-600 text-white border-transparent", ring: "ring-sky-500/30", icon: Check },
+   469→  { label: "Easy", quality: 5, color: "bg-emerald-500 hover:bg-emerald-600 text-white border-transparent", ring: "ring-emerald-500/30", icon: Zap },
+   470→];
+   471→
+   472→interface ReviewSession {
+   473→  cards: { setId: string; card: Flashcard }[];
+   474→  index: number;
+   475→  flipped: boolean;
+   476→  reviewed: number;
+   477→  masteredGained: number;
+   478→  finished: boolean;
+   479→}
+   480→
+   481→function ReviewTab({ sets }: { sets: FlashcardSet[] }) {
+   482→  const { updateCard } = useFlashcardStore();
+   483→  const [session, setSession] = useState<ReviewSession | null>(null);
+   484→  const [seed, setSeed] = useState(0); // force refresh of due check
+   485→
+   486→  // Snapshot due cards across all sets
+   487→  const dueSnapshot = useMemo(() => {
+   488→    const now = Date.now();
+   489→    const out: { setId: string; card: Flashcard }[] = [];
+   490→    for (const s of sets) {
+   491→      for (const c of s.cards) {
+   492→        if (isDue(c, now)) out.push({ setId: s.id, card: c });
+   493→      }
+   494→    }
+   495→    return out;
+   496→  }, [sets, seed]);
+   497→
+   498→  const startSession = useCallback(() => {
+   499→    if (dueSnapshot.length === 0) return;
+   500→    setSession({
+   501→      cards: dueSnapshot,
+   502→      index: 0,
+   503→      flipped: false,
+   504→      reviewed: 0,
+   505→      masteredGained: 0,
+   506→      finished: false,
+   507→    });
+   508→  }, [dueSnapshot]);
+   509→
+   510→  // Auto-start when cards become available (only if no session in progress)
+   511→  useEffect(() => {
+   512→    if (!session && dueSnapshot.length > 0) {
+   513→      // don't auto-start; let the user click "Start review"
+   514→    }
+   515→  }, [session, dueSnapshot.length]);
+   516→
+   517→  const rate = useCallback(
+   518→    (quality: Quality) => {
+   519→      if (!session) return;
+   520→      const entry = session.cards[session.index];
+   521→      if (!entry) return;
+   522→
+   523→      const wasMastered = entry.card.mastery === "Mastered";
+   524→      // Apply SM-2 update in the store (this recalculates mastery)
+   525→      updateCard(entry.setId, entry.card.id, quality);
+   526→      // Optimistically check whether the new state would be mastered:
+   527→      // repetitions >= 3 && interval >= 7 — replicate the SM-2 logic loosely
+   528→      let willMaster = wasMastered;
+   529→      try {
+   530→        const reps = quality < 3 ? 0 : entry.card.repetitions + 1;
+   531→        const ef = Math.max(
+   532→          1.3,
+   533→          entry.card.easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+   534→        );
+   535→        let interval: number;
+   536→        if (quality < 3) interval = 1;
+   537→        else if (reps === 1) interval = 1;
+   538→        else if (reps === 2) interval = 6;
+   539→        else interval = Math.round(entry.card.interval * ef);
+   540→        willMaster = reps >= 3 && interval >= 7;
+   541→      } catch {
+   542→        // ignore
+   543→      }
+   544→
+   545→      const nextIndex = session.index + 1;
+   546→      const isLast = nextIndex >= session.cards.length;
+   547→      setSession({
+   548→        ...session,
+   549→        index: isLast ? session.index : nextIndex,
+   550→        flipped: false,
+   551→        reviewed: session.reviewed + 1,
+   552→        masteredGained: session.masteredGained + (willMaster && !wasMastered ? 1 : 0),
+   553→        finished: isLast,
+   554→      });
+   555→      setSeed((n) => n + 1);
+   556→    },
+   557→    [session, updateCard]
+   558→  );
+   559→
+   560→  const next = useCallback(() => {
+   561→    if (!session) return;
+   562→    const ni = session.index + 1;
+   563→    if (ni >= session.cards.length) {
+   564→      setSession({ ...session, finished: true });
+   565→    } else {
+   566→      setSession({ ...session, index: ni, flipped: false });
+   567→    }
+   568→  }, [session]);
+   569→
+   570→  const prev = useCallback(() => {
+   571→    if (!session) return;
+   572→    setSession({ ...session, index: Math.max(0, session.index - 1), flipped: false });
+   573→  }, [session]);
+   574→
+   575→  if (dueSnapshot.length === 0 && (!session || session.finished === false)) {
+   576→    return (
+   577→      <div className="space-y-6">
+   578→        <StatsCard cards={sets.flatMap((s) => s.cards)} />
+   579→        <EmptyState
+   580→          title="No cards due right now!"
+   581→          description="Spaced repetition has nothing scheduled for you. Come back later, or generate more flashcards to expand your deck."
+   582→          icon={Flame}
+   583→        />
+   584→      </div>
+   585→    );
+   586→  }
+   587→
+   588→  if (!session) {
+   589→    return (
+   590→      <div className="space-y-6">
+   591→        <StatsCard cards={sets.flatMap((s) => s.cards)} />
+   592→        <Card className="border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5">
+   593→          <CardContent className="py-8 flex flex-col items-center text-center gap-4">
+   594→            <div className="h-14 w-14 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-lg shadow-violet-500/30">
+   595→              <Brain className="h-7 w-7" />
+   596→            </div>
+   597→            <div>
+   598→              <h3 className="text-lg font-semibold">{dueSnapshot.length} cards ready for review</h3>
+   599→              <p className="text-sm text-muted-foreground max-w-md mt-1">
+   600→                Each rating updates the SM-2 schedule. Rate honestly — "Again" resets the card, "Easy" spaces it out further.
+   601→              </p>
+   602→            </div>
+   603→            <Button
+   604→              onClick={startSession}
+   605→              className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white border-transparent gap-2"
+   606→            >
+   607→              <Play className="h-4 w-4" />
+   608→              Start review session
+   609→            </Button>
+   610→          </CardContent>
+   611→        </Card>
+   612→      </div>
+   613→    );
+   614→  }
+   615→
+   616→  if (session.finished) {
+   617→    return (
+   618→      <div className="space-y-6">
+   619→        <StatsCard cards={sets.flatMap((s) => s.cards)} />
+   620→        <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-violet-500/5 to-background">
+   621→          <CardContent className="py-10 flex flex-col items-center text-center gap-3">
+   622→            <motion.div
+   623→              initial={{ scale: 0.5, opacity: 0 }}
+   624→              animate={{ scale: 1, opacity: 1 }}
+   625→              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+   626→              className="text-5xl"
+   627→            >
+   628→              <PartyPopper className="h-14 w-14 text-emerald-500 mx-auto" />
+   629→            </motion.div>
+   630→            <motion.div
+   631→              initial={{ opacity: 0 }}
+   632→              animate={{ opacity: 1 }}
+   633→              transition={{ delay: 0.2 }}
+   634→              className="text-3xl"
+   635→            >
+   636→              🎉 🌟 🎓 🎊 ✨
+   637→            </motion.div>
+   638→            <h3 className="text-xl font-bold mt-2">Session complete!</h3>
+   639→            <p className="text-sm text-muted-foreground">
+   640→              Reviewed <span className="font-semibold text-foreground">{session.reviewed}</span> cards
+   641→              {" · "}
+   642→              <span className="font-semibold text-emerald-500">{session.masteredGained}</span> newly mastered
+   643→            </p>
+   644→            <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+   645→              <Button
+   646→                onClick={() => setSession(null)}
+   647→                variant="outline"
+   648→                className="gap-1.5"
+   649→              >
+   650→                <RotateCcw className="h-4 w-4" />
+   651→                Back to review
+   652→              </Button>
+   653→              <Button
+   654→                onClick={startSession}
+   655→                className="gap-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white border-transparent"
+   656→              >
+   657→                <RefreshCw className="h-4 w-4" />
+   658→                Review again
+   659→              </Button>
+   660→            </div>
+   661→          </CardContent>
+   662→        </Card>
+   663→      </div>
+   664→    );
+   665→  }
+   666→
+   667→  const current = session.cards[session.index];
+   668→  if (!current) {
+   669→    // cards vanished (e.g. set deleted); end session
+   670→    return (
+   671→      <div className="space-y-6">
+   672→        <StatsCard cards={sets.flatMap((s) => s.cards)} />
+   673→        <EmptyState title="Session ended" description="No more cards available to review." icon={Check} />
+   674→      </div>
+   675→    );
+   676→  }
+   677→
+   678→  const total = session.cards.length;
+   679→  const progressPct = ((session.index + 1) / total) * 100;
+   680→
+   681→  return (
+   682→    <div className="space-y-6">
+   683→      <StatsCard cards={sets.flatMap((s) => s.cards)} />
+   684→
+   685→      <div className="space-y-3">
+   686→        <div className="flex items-center justify-between gap-2">
+   687→          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+   688→            <Flame className="h-4 w-4 text-amber-500" />
+   689→            <span>Card <span className="font-semibold text-foreground">{session.index + 1}</span> of {total} due</span>
+   690→          </div>
+   691→          <Button
+   692→            variant="ghost"
+   693→            size="sm"
+   694→            onClick={() => setSession(null)}
+   695→            className="gap-1.5 text-muted-foreground"
+   696→          >
+   697→            <X className="h-3.5 w-3.5" />
+   698→            End session
+   699→          </Button>
+   700→        </div>
+   701→        <Progress value={progressPct} className="h-1.5 bg-violet-500/15" />
+   702→      </div>
+   703→
+   704→      <AnimatePresence mode="wait">
+   705→        <motion.div
+   706→          key={current.card.id + (session.flipped ? "-back" : "-front")}
+   707→          initial={{ opacity: 0, x: 20 }}
+   708→          animate={{ opacity: 1, x: 0 }}
+   709→          exit={{ opacity: 0, x: -20 }}
+   710→          transition={{ duration: 0.25 }}
+   711→        >
+   712→          <FlashcardFace
+   713→            card={current.card}
+   714→            flipped={session.flipped}
+   715→            onFlip={() => setSession({ ...session, flipped: !session.flipped })}
+   716→          />
+   717→        </motion.div>
+   718→      </AnimatePresence>
+   719→
+   720→      <AnimatePresence>
+   721→        {session.flipped && (
+   722→          <motion.div
+   723→            initial={{ opacity: 0, y: 10 }}
+   724→            animate={{ opacity: 1, y: 0 }}
+   725→            exit={{ opacity: 0, y: 10 }}
+   726→            transition={{ duration: 0.2 }}
+   727→          >
+   728→            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+   729→              {RATINGS.map((r) => {
+   730→                const Icon = r.icon;
+   731→                return (
+   732→                  <button
+   733→                    key={r.label}
+   734→                    onClick={() => rate(r.quality)}
+   735→                    className={cn(
+   736→                      "flex flex-col items-center gap-1 rounded-xl border px-3 py-3 text-sm font-medium transition shadow-sm ring-1",
+   737→                      r.color,
+   738→                      r.ring
+   739→                    )}
+   740→                  >
+   741→                    <Icon className="h-4 w-4" />
+   742→                    {r.label}
+   743→                  </button>
+   744→                );
+   745→              })}
+   746→            </div>
+   747→            <p className="text-center text-xs text-muted-foreground mt-2">
+   748→              Rate your recall — the SM-2 algorithm reschedules the card automatically.
+   749→            </p>
+   750→          </motion.div>
+   751→        )}
+   752→      </AnimatePresence>
+   753→
+   754→      {!session.flipped && (
+   755→        <div className="flex items-center justify-between">
+   756→          <Button
+   757→            variant="ghost"
+   758→            size="sm"
+   759→            onClick={prev}
+   760→            disabled={session.index === 0}
+   761→            className="gap-1.5"
+   762→          >
+   763→            <ChevronLeft className="h-4 w-4" />
+   764→            Prev
+   765→          </Button>
+   766→          <Button
+   767→            variant="outline"
+   768→            size="sm"
+   769→            onClick={() => setSession({ ...session, flipped: true })}
+   770→            className="gap-1.5 border-violet-500/30 text-violet-600 dark:text-violet-300"
+   771→          >
+   772→            Reveal answer
+   773→            <ArrowRight className="h-4 w-4" />
+   774→          </Button>
+   775→          <Button
+   776→            variant="ghost"
+   777→            size="sm"
+   778→            onClick={next}
+   779→            disabled={session.index >= total - 1}
+   780→            className="gap-1.5"
+   781→          >
+   782→            Skip
+   783→            <ChevronRight className="h-4 w-4" />
+   784→          </Button>
+   785→        </div>
+   786→      )}
+   787→    </div>
+   788→  );
+   789→}
+   790→
+   791→// ----------------- main view -----------------
+   792→export function Flashcards() {
+   793→  const sets = useFlashcardStore((s) => s.sets);
+   794→  const [tab, setTab] = useState<"generate" | "review">("generate");
+   795→
+   796→  return (
+   797→    <div className="space-y-6">
+   798→      {/* Header */}
+   799→      <div className="space-y-2">
+   800→        <div className="flex items-center gap-2">
+   801→          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-lg shadow-violet-500/30">
+   802→            <Layers className="h-5 w-5" />
+   803→          </div>
+   804→          <div>
+   805→            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">AI Flashcards</h1>
+   806→            <p className="text-xs sm:text-sm text-muted-foreground">
+   807→              Spaced repetition mastery. Generate from any exam, syllabus, or topic. SM-2 algorithm schedules reviews.
+   808→            </p>
+   809→          </div>
+   810→        </div>
+   811→      </div>
+   812→
+   813→      <Tabs value={tab} onValueChange={(v) => setTab(v as "generate" | "review")}>
+   814→        <TabsList className="bg-muted/60">
+   815→          <TabsTrigger value="generate" className="gap-1.5">
+   816→            <Plus className="h-3.5 w-3.5" />
+   817→            Generate
+   818→          </TabsTrigger>
+   819→          <TabsTrigger value="review" className="gap-1.5">
+   820→            <RotateCcw className="h-3.5 w-3.5" />
+   821→            Review
+   822→          </TabsTrigger>
+   823→        </TabsList>
+   824→        <TabsContent value="generate" className="mt-4">
+   825→          <GenerateTab onSwitchToReview={() => setTab("review")} />
+   826→        </TabsContent>
+   827→        <TabsContent value="review" className="mt-4">
+   828→          <ReviewTab sets={sets} />
+   829→        </TabsContent>
+   830→      </Tabs>
+   831→    </div>
+   832→  );
+   833→}
+   834→

@@ -26,6 +26,9 @@ export type ViewKey =
   | "study-timer"
   | "flashcards"
   | "progress-journal"
+  | "exam-calendar"
+  | "formula-sheet"
+  | "achievements"
   | "api-keys";
 
 export interface AIStatus {

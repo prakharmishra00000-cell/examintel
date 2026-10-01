@@ -7,6 +7,7 @@
 // ============================================================
 import type { LLMProvider, ChatCompletionMessage } from "./provider";
 import { extractJson } from "./provider";
+import { SEED_FORMULAS } from "@/store/formula-seed";
 
 export class MockProvider implements LLMProvider {
   name = "mock (no API key configured)";
@@ -58,6 +59,9 @@ export class MockProvider implements LLMProvider {
     }
     if (schema.includes("flashcardset") || req.includes("flashcard generator")) {
       return mockFlashcards(user) as unknown as T;
+    }
+    if (schema.includes("formulasheet") || req.includes("formula lookup")) {
+      return mockFormulasLookup(user) as unknown as T;
     }
     // generic fallback
     return extractJson<T>(`{"note":"Mock provider active. Configure OPENAI_API_KEY on Vercel for real AI.","prompt":${JSON.stringify(user.slice(0,200))}}`);
@@ -676,5 +680,56 @@ function mockFlashcards(query: string): unknown {
     cards: out,
     sources: [{ type: "AI_GENERATED", label: "ExamIntel Flashcard Generator" }],
     generatedAt: today,
+  };
+}
+
+// ============================================================
+// Formula Sheet lookup — searches the built-in SEED_FORMULAS by
+// keyword (name / topic / subject match). Returns 3–5 matches, or
+// all formulas when no keyword in the query matches anything.
+// ============================================================
+function mockFormulasLookup(query: string): unknown {
+  const lower = query.toLowerCase();
+
+  // Tokenize the query into candidate keywords (drop short / stop words).
+  const stop = new Set([
+    "the", "a", "an", "of", "for", "and", "or", "to", "in", "is", "are",
+    "what", "whats", "formula", "formulas", "formulae", "lookup", "search",
+    "find", "me", "please", "give", "show", "list", "all", "with",
+  ]);
+  const tokens = lower
+    .split(/[^a-z0-9&+-]+/i)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 1 && !stop.has(t));
+
+  const matched = SEED_FORMULAS.filter((f) => {
+    const hay = `${f.subject} ${f.topic} ${f.name} ${f.description}`.toLowerCase();
+    return tokens.some((tok) => hay.includes(tok));
+  });
+
+  // De-dup by id (in case the same formula matches multiple tokens).
+  const seen = new Set<string>();
+  const unique = matched.filter((f) =>
+    seen.has(f.id) ? false : (seen.add(f.id), true)
+  );
+
+  // 3–5 matches when possible; if fewer keywords match, fall back to all.
+  let result = unique;
+  if (unique.length < 3) {
+    result = SEED_FORMULAS.slice();
+  }
+  const capped = result.slice(0, 5);
+
+  return {
+    formulas: capped.map((f) => ({
+      id: f.id,
+      subject: f.subject,
+      topic: f.topic,
+      name: f.name,
+      formula: f.formula,
+      description: f.description,
+      example: f.example,
+      difficulty: f.difficulty,
+    })),
   };
 }

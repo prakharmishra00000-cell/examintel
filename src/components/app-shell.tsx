@@ -16,7 +16,9 @@ import {
   FileStack,
   ListChecks,
   CalendarRange,
+  Calendar,
   Layers,
+  Sigma,
   Save,
   KeyRound,
   Sun,
@@ -28,6 +30,8 @@ import {
   Activity,
   Timer,
   BookOpen,
+  Trophy,
+  ChevronDown,
 } from "lucide-react";
 import { Landing } from "@/components/views/landing";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -47,6 +51,9 @@ import { MyResearch } from "@/components/views/my-research";
 import { StudyTimer } from "@/components/views/study-timer";
 import { ProgressJournal } from "@/components/views/progress-journal";
 import { Flashcards } from "@/components/views/flashcards";
+import { ExamCalendar } from "@/components/views/exam-calendar";
+import { Achievements } from "@/components/views/achievements";
+import { FormulaSheet } from "@/components/views/formula-sheet";
 import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
@@ -56,24 +63,75 @@ interface NavItem {
   desc?: string;
 }
 
-const NAV: NavItem[] = [
-  { key: "dashboard", label: "Dashboard", icon: Home, desc: "Your AI command center" },
-  { key: "exam-researcher", label: "Exam Researcher", icon: Search, desc: "Research any exam" },
-  { key: "exam-comparison", label: "Compare Exams", icon: Scale, desc: "Find common syllabus" },
-  { key: "dependency-mapper", label: "Dependency Map", icon: Network, desc: "Prerequisite graph" },
-  { key: "question-explainer", label: "Question AI", icon: HelpCircle, desc: "5-level explanation" },
-  { key: "question-evolution", label: "Question Lab", icon: Repeat2, desc: "Evolve a question" },
-  { key: "paper-generator", label: "Paper Generator", icon: FileStack, desc: "Personalized papers" },
-  { key: "pdf-lab", label: "PDF Lab", icon: FileText, desc: "Analyse official PDFs" },
-  { key: "mcq-generator", label: "MCQ Generator", icon: ListChecks, desc: "Grounded practice" },
-  { key: "preparation-simulator", label: "Preparation", icon: CalendarRange, desc: "Adaptive study plan" },
-  { key: "multi-exam-optimizer", label: "Multi-Exam", icon: Layers, desc: "Optimize across exams" },
-  { key: "my-research", label: "My Research", icon: Save, desc: "Saved intelligence" },
-  { key: "study-timer", label: "Study Timer", icon: Timer, desc: "Pomodoro + streaks" },
-  { key: "progress-journal", label: "Journal", icon: BookOpen, desc: "Daily study log" },
-  { key: "flashcards", label: "Flashcards", icon: Layers, desc: "Spaced repetition" },
-  { key: "api-keys", label: "API Keys", icon: KeyRound, desc: "Vercel setup guide" },
+interface NavGroup {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "home",
+    label: "Overview",
+    icon: Home,
+    items: [{ key: "dashboard", label: "Dashboard", icon: Home, desc: "Your AI command center" }],
+  },
+  {
+    id: "core-ai",
+    label: "Core AI Tools",
+    icon: Brain,
+    items: [
+      { key: "exam-researcher", label: "Exam Researcher", icon: Search, desc: "Research any exam" },
+      { key: "exam-comparison", label: "Compare Exams", icon: Scale, desc: "Find common syllabus" },
+      { key: "dependency-mapper", label: "Dependency Map", icon: Network, desc: "Prerequisite graph" },
+      { key: "question-explainer", label: "Question AI", icon: HelpCircle, desc: "5-level explanation" },
+      { key: "question-evolution", label: "Question Lab", icon: Repeat2, desc: "Evolve a question" },
+    ],
+  },
+  {
+    id: "practice",
+    label: "Practice & Generation",
+    icon: FileStack,
+    items: [
+      { key: "paper-generator", label: "Paper Generator", icon: FileStack, desc: "Personalized papers" },
+      { key: "pdf-lab", label: "PDF Lab", icon: FileText, desc: "Analyse official PDFs" },
+      { key: "mcq-generator", label: "MCQ Generator", icon: ListChecks, desc: "Grounded practice" },
+      { key: "flashcards", label: "Flashcards", icon: Layers, desc: "Spaced repetition" },
+      { key: "formula-sheet", label: "Formula Sheet", icon: Sigma, desc: "Reference library" },
+    ],
+  },
+  {
+    id: "planning",
+    label: "Planning & Strategy",
+    icon: CalendarRange,
+    items: [
+      { key: "preparation-simulator", label: "Preparation", icon: CalendarRange, desc: "Adaptive study plan" },
+      { key: "multi-exam-optimizer", label: "Multi-Exam", icon: Layers, desc: "Optimize across exams" },
+      { key: "exam-calendar", label: "Calendar", icon: Calendar, desc: "Dates & milestones" },
+    ],
+  },
+  {
+    id: "tracking",
+    label: "Tracking & Progress",
+    icon: Activity,
+    items: [
+      { key: "my-research", label: "My Research", icon: Save, desc: "Saved intelligence" },
+      { key: "study-timer", label: "Study Timer", icon: Timer, desc: "Pomodoro + streaks" },
+      { key: "progress-journal", label: "Journal", icon: BookOpen, desc: "Daily study log" },
+      { key: "achievements", label: "Achievements", icon: Trophy, desc: "Badges & XP" },
+    ],
+  },
+  {
+    id: "system",
+    label: "System",
+    icon: KeyRound,
+    items: [{ key: "api-keys", label: "API Keys", icon: KeyRound, desc: "Vercel setup guide" }],
+  },
 ];
+
+// Flat list for backward compat (mobile bottom nav, command palette)
+const NAV: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 function ThemeToggle() {
   const { theme, setTheme } = useAppStore();
@@ -138,32 +196,89 @@ function AiStatusPill() {
 }
 
 function SidebarContent({ currentView, setView, onNavigate }: { currentView: ViewKey; setView: (v: ViewKey) => void; onNavigate?: () => void }) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleGroup = (id: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   return (
-    <nav className="flex flex-col gap-0.5 p-3">
-      {NAV.map((item) => {
-        const active = currentView === item.key;
-        const Icon = item.icon;
+    <nav className="flex flex-col gap-1 p-3">
+      {NAV_GROUPS.map((group) => {
+        const isCollapsed = collapsed.has(group.id);
+        const GIcon = group.icon;
+        const hasActive = group.items.some((i) => i.key === currentView);
+        // Single-item groups render flat (no header)
+        if (group.items.length === 1) {
+          const item = group.items[0];
+          const active = currentView === item.key;
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.key}
+              onClick={() => {
+                setView(item.key);
+                onNavigate?.();
+              }}
+              className={cn(
+                "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all border",
+                active
+                  ? "bg-gradient-to-r from-violet-500/15 to-fuchsia-500/5 text-foreground border-violet-500/20"
+                  : "hover:bg-accent text-muted-foreground hover:text-foreground border-transparent"
+              )}
+            >
+              <Icon className={cn("h-4 w-4 shrink-0", active && "text-violet-500")} />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium leading-tight truncate">{item.label}</div>
+              </div>
+              {active && <div className="h-1.5 w-1.5 rounded-full bg-violet-500" />}
+            </button>
+          );
+        }
         return (
-          <button
-            key={item.key}
-            onClick={() => {
-              setView(item.key);
-              onNavigate?.();
-            }}
-            className={cn(
-              "group flex items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
-              active
-                ? "bg-gradient-to-r from-violet-500/15 to-fuchsia-500/5 text-foreground border border-violet-500/20"
-                : "hover:bg-accent text-muted-foreground hover:text-foreground border border-transparent"
+          <div key={group.id} className="mb-1">
+            <button
+              onClick={() => toggleGroup(group.id)}
+              className={cn(
+                "group flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors",
+                hasActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <GIcon className={cn("h-3.5 w-3.5 shrink-0", hasActive && "text-violet-500")} />
+              <span className="text-[10px] font-semibold uppercase tracking-wider flex-1">{group.label}</span>
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isCollapsed && "-rotate-90")} />
+            </button>
+            {!isCollapsed && (
+              <div className="ml-2 mt-0.5 space-y-0.5 border-l border-border/60 pl-2">
+                {group.items.map((item) => {
+                  const active = currentView === item.key;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => {
+                        setView(item.key);
+                        onNavigate?.();
+                      }}
+                      className={cn(
+                        "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-all w-full",
+                        active
+                          ? "bg-gradient-to-r from-violet-500/15 to-fuchsia-500/5 text-foreground"
+                          : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? "text-violet-500" : "text-muted-foreground/70")} />
+                      <span className="text-xs font-medium leading-tight truncate flex-1">{item.label}</span>
+                      {active && <div className="h-1 w-1 rounded-full bg-violet-500" />}
+                    </button>
+                  );
+                })}
+              </div>
             )}
-          >
-            <Icon className={cn("h-4 w-4 mt-0.5 shrink-0", active && "text-violet-500")} />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium leading-tight truncate">{item.label}</div>
-              {item.desc && <div className="text-[11px] text-muted-foreground truncate">{item.desc}</div>}
-            </div>
-            {active && <div className="h-1.5 w-1.5 rounded-full bg-violet-500 mt-1.5" />}
-          </button>
+          </div>
         );
       })}
     </nav>
@@ -210,6 +325,12 @@ export function AppShell() {
         return <ProgressJournal />;
       case "flashcards":
         return <Flashcards />;
+      case "exam-calendar":
+        return <ExamCalendar />;
+      case "achievements":
+        return <Achievements />;
+      case "formula-sheet":
+        return <FormulaSheet />;
       case "api-keys":
         return <ApiKeysView />;
       default:
@@ -294,7 +415,7 @@ export function AppShell() {
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (

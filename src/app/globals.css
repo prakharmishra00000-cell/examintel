@@ -204,6 +204,38 @@
   border: 1px solid hsl(var(--border) / 0.8);
 }
 
+/* Gradient border glow on hover (for feature cards) */
+.gradient-glow {
+  position: relative;
+}
+.gradient-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, hsl(280 80% 60% / 0), hsl(280 80% 60% / 0));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s, background 0.3s;
+  pointer-events: none;
+}
+.gradient-glow:hover::before {
+  opacity: 1;
+  background: linear-gradient(135deg, hsl(280 80% 60% / 0.6), hsl(320 80% 60% / 0.6));
+}
+
+/* Card lift on hover */
+.card-lift {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -8px hsl(280 80% 60% / 0.2);
+}
+
 /* Custom scrollbar (global, subtle) */
 ::-webkit-scrollbar {
   width: 10px;
