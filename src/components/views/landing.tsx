@@ -337,9 +337,6 @@ export function Landing() {
             <Button size="lg" onClick={() => setView("dashboard")} className="gap-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600">
               Launch Dashboard <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button size="lg" variant="outline" onClick={() => setView("api-keys")} className="gap-2">
-              How to enable AI on Vercel
-            </Button>
           </div>
         </div>
       </section>
@@ -352,7 +349,7 @@ export function Landing() {
             <span>·</span>
             <span>AI Exam Intelligence Platform</span>
             <span>·</span>
-            <button onClick={() => setView("api-keys")} className="underline hover:text-foreground">API Keys setup for Vercel</button>
+            <span>Research → Understand → Map → Compare → Practice → Prepare → Analyse → Adapt</span>
           </div>
         </div>
       </footer>

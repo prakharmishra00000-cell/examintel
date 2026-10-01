@@ -40,8 +40,7 @@ export type ViewKey =
   | "study-notes"
   | "daily-goals"
   | "quick-practice"
-  | "exam-strategy"
-  | "api-keys";
+  | "exam-strategy";
 
 export interface AIStatus {
   provider: string;

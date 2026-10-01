@@ -70,7 +70,6 @@ import { StudyNotes } from "@/components/views/study-notes";
 import { QuickPractice } from "@/components/views/quick-practice";
 import { DailyGoals } from "@/components/views/daily-goals";
 import { ExamStrategy } from "@/components/views/exam-strategy";
-import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
   key: ViewKey;
@@ -150,12 +149,6 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "achievements", label: "Achievements", icon: Trophy, desc: "Badges & XP" },
     ],
   },
-  {
-    id: "system",
-    label: "System",
-    icon: KeyRound,
-    items: [{ key: "api-keys", label: "API Keys", icon: KeyRound, desc: "Vercel setup guide" }],
-  },
 ];
 
 // Flat list for backward compat (mobile bottom nav, command palette)
@@ -204,22 +197,20 @@ function Logo() {
 
 function AiStatusPill() {
   const aiStatus = useAppStore((s) => s.aiStatus);
-  const setView = useAppStore((s) => s.setView);
   const ok = aiStatus?.available;
   return (
-    <button
-      onClick={() => setView("api-keys")}
+    <div
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
         ok
           ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
           : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
       )}
-      title={ok ? `AI: ${aiStatus?.provider}` : "No AI key — using mock mode"}
+      title={ok ? `AI: ${aiStatus?.provider}` : "Demo mode — set OPENAI_API_KEY on Vercel for live AI"}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", ok ? "bg-emerald-500" : "bg-amber-500")} />
-      {ok ? "AI Live" : "Mock Mode"}
-    </button>
+      {ok ? "AI Live" : "Demo Mode"}
+    </div>
   );
 }
 
@@ -383,8 +374,6 @@ export function AppShell() {
         return <QuickPractice />;
       case "exam-strategy":
         return <ExamStrategy />;
-      case "api-keys":
-        return <ApiKeysView />;
       default:
         return <Dashboard />;
     }
@@ -469,7 +458,7 @@ export function AppShell() {
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "study-stats", "revision-scheduler", "exam-pattern-analyzer", "pyq-browser", "concept-map", "study-notes", "daily-goals", "quick-practice", "exam-strategy"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "study-stats", "revision-scheduler", "exam-pattern-analyzer", "pyq-browser", "concept-map", "study-notes", "daily-goals", "quick-practice", "exam-strategy"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (
@@ -507,13 +496,6 @@ export function AppShell() {
             <Save className="h-4 w-4" />
             <span>Saved</span>
           </button>
-          <button
-            onClick={() => setView("api-keys")}
-            className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1 text-[10px] min-w-[60px] text-muted-foreground"
-          >
-            <KeyRound className="h-4 w-4" />
-            <span>Keys</span>
-          </button>
         </div>
       </nav>
 
@@ -525,12 +507,7 @@ export function AppShell() {
             <span>·</span>
             <span>AI Exam Intelligence Platform</span>
             <span>·</span>
-            <button onClick={() => setView("api-keys")} className="underline hover:text-foreground">
-              API Keys setup for Vercel
-            </button>
-          </div>
-          <div className="mt-1">
-            Research → Understand → Map → Compare → Diagnose → Practice → Generate → Prepare → Simulate → Analyse → Adapt
+            <span>Research → Understand → Map → Compare → Practice → Prepare → Analyse → Adapt</span>
           </div>
         </div>
       </footer>

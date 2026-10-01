@@ -63,7 +63,6 @@ const NAV_COMMANDS: NavCommand[] = [
   { key: "preparation-simulator", label: "Preparation", icon: CalendarRange, desc: "Adaptive study plan" },
   { key: "multi-exam-optimizer", label: "Multi-Exam", icon: Layers, desc: "Optimize across exams" },
   { key: "my-research", label: "My Research", icon: Save, desc: "Saved intelligence" },
-  { key: "api-keys", label: "API Keys", icon: KeyRound, desc: "Vercel setup guide" },
 ];
 
 interface QuickAction {

@@ -101,11 +101,16 @@ export function extractJson<T>(raw: string): T {
   }
 }
 
-// Provider that tries the real provider and falls back to Mock on failure
-// (e.g. when the sandbox z-ai SDK truncates large JSON, or when Vercel has no key).
-// This guarantees the UI is always explorable, while real AI is used when it works.
+// Provider that tries the real provider and falls back to Mock on failure.
+// IMPORTANT: When OPENAI_API_KEY is set (production/Vercel), the fallback is
+// DISABLED — errors propagate so the user sees real AI failures (not mock data).
+// The mock fallback only kicks in during local/sandbox development without a key.
 class FallbackProvider implements LLMProvider {
   constructor(private primary: LLMProvider, private fallback: LLMProvider) {}
+  private get useFallback() {
+    // Only use mock fallback when no real API key is configured
+    return !process.env.OPENAI_API_KEY;
+  }
   get name() {
     return this.primary.available ? this.primary.name : this.fallback.name;
   }
@@ -118,24 +123,30 @@ class FallbackProvider implements LLMProvider {
         return await this.primary.json<T>(system, user, schemaHint);
       }
     } catch (e) {
+      if (!this.useFallback) throw e;
       console.error("[AI] primary provider failed, falling back to mock:", (e as Error)?.message);
     }
+    if (!this.useFallback) throw new Error("AI provider unavailable and no fallback configured");
     return this.fallback.json<T>(system, user, schemaHint);
   }
   async text(system: string, user: string): Promise<string> {
     try {
       if (this.primary.available) return await this.primary.text(system, user);
     } catch (e) {
+      if (!this.useFallback) throw e;
       console.error("[AI] primary provider failed, falling back to mock:", (e as Error)?.message);
     }
+    if (!this.useFallback) throw new Error("AI provider unavailable and no fallback configured");
     return this.fallback.text(system, user);
   }
   async chat(messages: ChatCompletionMessage[]): Promise<string> {
     try {
       if (this.primary.available) return await this.primary.chat(messages);
     } catch (e) {
+      if (!this.useFallback) throw e;
       console.error("[AI] primary chat failed, falling back to mock:", (e as Error)?.message);
     }
+    if (!this.useFallback) throw new Error("AI provider unavailable and no fallback configured");
     return this.fallback.chat(messages);
   }
 }
