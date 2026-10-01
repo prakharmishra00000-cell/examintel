@@ -169,38 +169,143 @@ function mockExamResearch(query: string): unknown {
 }
 
 function mockExamComparison(query: string): unknown {
+  // Extract exam names from the query. The route sends them as a JSON array.
+  let examNames: string[] = ["SSC CGL", "SSC CHSL", "RRB NTPC"];
+  const arrMatch = query.match(/\[([^\]]+)\]/);
+  if (arrMatch) {
+    try {
+      const parsed = JSON.parse("[" + arrMatch[1] + "]");
+      if (Array.isArray(parsed) && parsed.length >= 2) examNames = parsed.map(String);
+    } catch {}
+  }
+  const q = query.toLowerCase();
+  const isGATE = examNames.some((e) => e.toLowerCase().includes("gate"));
+  const isSSC = examNames.some((e) => e.toLowerCase().includes("ssc") || e.toLowerCase().includes("cgl") || e.toLowerCase().includes("chsl"));
+  const isBanking = examNames.some((e) => e.toLowerCase().includes("bank") || e.toLowerCase().includes("ibps") || e.toLowerCase().includes("sbi") || e.toLowerCase().includes("po"));
+
+  if (isGATE) {
+    return {
+      examNames,
+      comparison: [
+        { attribute: "Qualification", values: examNames.map(() => "Bachelor's in Engineering/Technology") },
+        { attribute: "Age Limit", values: examNames.map(() => "No upper limit") },
+        { attribute: "Stages", values: examNames.map(() => "Single CBT") },
+        { attribute: "Questions", values: examNames.map(() => "65") },
+        { attribute: "Max Marks", values: examNames.map(() => "100") },
+        { attribute: "Duration", values: examNames.map(() => "180 min (3h)") },
+        { attribute: "Negative Marking", values: examNames.map(() => "1/3 for 1-mark, 2/3 for 2-mark") },
+        { attribute: "Difficulty", values: examNames.map(() => "High (technical + aptitude)") },
+      ],
+      commonSyllabus: {
+        commonTopics: ["Engineering Mathematics", "General Aptitude", "Verbal Ability", "Numerical Ability", "Logical Reasoning"],
+        examSpecific: examNames.map((e) => ({
+          exam: e,
+          topics: e.toLowerCase().includes("cs") ? ["Data Structures", "Algorithms", "Operating Systems", "DBMS", "Computer Networks", "TOC", "Digital Logic", "Compiler Design"]
+            : e.toLowerCase().includes("me") ? ["Thermodynamics", "Fluid Mechanics", "Heat Transfer", "Manufacturing", "Strength of Materials", "Machine Design", "Theory of Machines"]
+            : e.toLowerCase().includes("ce") ? ["Structural Analysis", "Geotechnical Eng", "Hydrology", "Environmental Eng", "Transportation"]
+            : e.toLowerCase().includes("ec") ? ["Signals & Systems", "Analog Circuits", "Digital Circuits", "Communications", "Electromagnetics"]
+            : ["Technical subjects per discipline"],
+        })),
+      },
+      overlap: {
+        overlapCategories: [
+          { category: "Very High", topic: "Engineering Mathematics", reason: "Common across all GATE papers — Linear Algebra, Calculus, Probability" },
+          { category: "Very High", topic: "General Aptitude", reason: "15 marks common section in every GATE paper" },
+          { category: "High", topic: "Numerical Ability", reason: "Overlaps with aptitude section across papers" },
+          { category: "Limited", topic: "Technical Subjects", reason: "Discipline-specific — minimal overlap between CS, ME, CE, EC" },
+        ],
+        existingPreparation: ["Engineering Math", "Aptitude", "Verbal Ability"],
+        additionalPreparation: examNames.map((e) => ({
+          topic: `${e} technical subjects`,
+          reason: "Discipline-specific — each GATE paper tests different technical domains",
+        })),
+      },
+      careerPathways: ["GATE → M.Tech at IITs/NITs", "GATE → PSU jobs (IOCL, NTPC, BHEL etc.)", "GATE → Research positions (DRDO, ISRO)"],
+      prerequisiteDifferences: ["Different technical syllabi per discipline", "Same aptitude + math foundation"],
+      sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  if (isBanking || (!isSSC && examNames.some((e) => e.toLowerCase().includes("banking")))) {
+    return {
+      examNames,
+      comparison: [
+        { attribute: "Qualification", values: examNames.map(() => "Graduation (any discipline)") },
+        { attribute: "Age Limit", values: examNames.map(() => "20-30 years") },
+        { attribute: "Stages", values: examNames.map(() => "Prelims + Mains + Interview") },
+        { attribute: "Negative Marking", values: examNames.map(() => "0.25") },
+        { attribute: "Difficulty", values: examNames.map(() => "Moderate-High (speed-focused)") },
+      ],
+      commonSyllabus: {
+        commonTopics: ["Quantitative Aptitude", "Reasoning Ability", "English Language", "Computer Awareness", "Banking Awareness", "General Awareness"],
+        examSpecific: [
+          { exam: "IBPS PO", topics: ["Descriptive English (essay)", "Interview"] },
+          { exam: "SBI PO", topics: ["Descriptive English", "Group Discussion", "Interview"] },
+          { exam: "Banking Clerk", topics: ["No interview", "Typing optional"] },
+        ].filter((e) => examNames.some((en) => en.toLowerCase().includes(e.exam.toLowerCase().split(" ")[0]))),
+      },
+      overlap: {
+        overlapCategories: [
+          { category: "Very High", topic: "Quantitative Aptitude", reason: "Same topics — simplification, DI, arithmetic" },
+          { category: "Very High", topic: "Reasoning", reason: "Same puzzles, coding, syllogism patterns" },
+          { category: "High", topic: "English", reason: "Reading comprehension, cloze test, error detection" },
+          { category: "High", topic: "Banking Awareness", reason: "Common banking/financial awareness section" },
+        ],
+        existingPreparation: ["Simplification", "DI", "Puzzles", "Reading Comprehension"],
+        additionalPreparation: [{ topic: "Descriptive English", reason: "PO exams include essay/letter writing — clerks don't" }],
+      },
+      careerPathways: ["PO → Probationary Officer → Branch Manager", "Clerk → Assistant → Officer (promotion)", "Specialist Officer → Domain expert roles"],
+      prerequisiteDifferences: ["PO includes descriptive paper + interview; Clerk doesn't"],
+      sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  // Default: SSC family comparison
   return {
-    examNames: ["SSC CGL", "SSC CHSL", "RRB NTPC"],
+    examNames,
     comparison: [
-      { attribute: "Qualification", values: ["Graduation", "12th Pass", "12th Pass"] },
-      { attribute: "Age Limit", values: ["18-32", "18-27", "18-36"] },
-      { attribute: "Stages", values: ["Tier 1, 2, DV", "Tier 1, 2, Typing", "CBT 1, 2, Typing"] },
-      { attribute: "Negative Marking", values: ["0.5", "0.5", "0.25"] },
-      { attribute: "Difficulty", values: ["Moderate-High", "Moderate", "Moderate"] },
+      { attribute: "Qualification", values: examNames.map((e) => e.includes("CGL") ? "Graduation" : "12th Pass") },
+      { attribute: "Age Limit", values: examNames.map((e) => e.includes("NTPC") ? "18-36" : e.includes("CGL") ? "18-32" : "18-27") },
+      { attribute: "Stages", values: examNames.map((e) => e.includes("NTPC") ? "CBT 1, 2, Typing" : "Tier 1, 2, DV") },
+      { attribute: "Questions (Tier 1)", values: examNames.map(() => "100") },
+      { attribute: "Max Marks", values: examNames.map(() => "200") },
+      { attribute: "Negative Marking", values: examNames.map((e) => e.includes("NTPC") ? "0.25" : "0.5") },
+      { attribute: "Difficulty", values: examNames.map((e) => e.includes("CGL") ? "Moderate-High" : "Moderate") },
     ],
     commonSyllabus: {
-      commonTopics: ["Quantitative Aptitude", "Reasoning", "English", "General Awareness"],
-      examSpecific: [
-        { exam: "SSC CGL", topics: ["Statistics (JSO)", "Finance & Economics (AAO)"] },
-        { exam: "SSC CHSL", topics: ["Typing Test"] },
-        { exam: "RRB NTPC", topics: ["Railway awareness", "Typing (Junior Clerk)"] },
-      ],
+      commonTopics: ["Quantitative Aptitude", "General Intelligence & Reasoning", "English Language", "General Awareness"],
+      examSpecific: examNames.map((e) => ({
+        exam: e,
+        topics: e.includes("CGL") ? ["Statistics (JSO)", "Finance & Economics (AAO)", "Advanced Maths"]
+          : e.includes("CHSL") ? ["Typing Test (10 min)"]
+          : e.includes("NTPC") ? ["Railway Awareness", "Typing (Junior Clerk)"]
+          : ["Exam-specific topics"],
+      })),
     },
     overlap: {
       overlapCategories: [
-        { category: "Very High", topic: "Quantitative Aptitude (Arithmetic)", reason: "Same topics across all three exams" },
-        { category: "High", topic: "Reasoning", reason: "Similar pattern, slight difficulty variation" },
-        { category: "Moderate", topic: "General Awareness", reason: "Current affairs overlap; CGL needs deeper static GK" },
-        { category: "Limited", topic: "English", reason: "NTPC has lighter English section" },
+        { category: "Very High", topic: "Quantitative Aptitude (Arithmetic)", reason: "Same core topics: Percentage, Ratio, Profit-Loss, Time-Speed-Distance" },
+        { category: "High", topic: "Reasoning", reason: "Similar pattern — series, coding, puzzles. CGL slightly harder." },
+        { category: "Moderate", topic: "General Awareness", reason: "Current affairs overlap; CGL needs deeper static GK, NTPC needs railway awareness" },
+        { category: "Moderate", topic: "English", reason: "Common grammar + vocab; NTPC has lighter English section" },
       ],
-      existingPreparation: ["Percentage", "Ratio", "Series", "Comprehension"],
-      additionalPreparation: [
-        { topic: "Statistics (for SSC CGL JSO)", reason: "CGL-only paper" },
-        { topic: "Typing Test", reason: "CHSL and NTPC specific skill" },
-      ],
+      existingPreparation: ["Percentage", "Ratio & Proportion", "Series", "Reading Comprehension"],
+      additionalPreparation: examNames.flatMap((e) =>
+        e.includes("CGL") ? [{ topic: "Statistics + Advanced Maths", reason: "CGL Tier 2 includes these — CHSL/NTPC don't" }]
+        : e.includes("CHSL") ? [{ topic: "Typing Test", reason: "CHSL requires typing skill — CGL doesn't" }]
+        : e.includes("NTPC") ? [{ topic: "Railway Awareness + Typing", reason: "NTPC-specific GK + typing test" }]
+        : []
+      ),
     },
-    careerPathways: ["CGL → Group B/C gazetted", "CHSL → Lower division clerk", "NTPC → Railway clerk/typist"],
-    prerequisiteDifferences: ["CGL requires graduation; CHSL/NTPC accept 12th"],
+    careerPathways: examNames.map((e) =>
+      e.includes("CGL") ? "CGL → Inspector/Assistant (Group B/C gazetted)"
+      : e.includes("CHSL") ? "CHSL → Lower Division Clerk / Data Entry Operator"
+      : e.includes("NTPC") ? "NTPC → Railway Clerk / Typist / Station Master"
+      : "Government service"
+    ),
+    prerequisiteDifferences: ["CGL requires graduation; CHSL and NTPC accept 12th pass", "NTPC has lower negative marking (0.25 vs 0.5)", "CHSL + NTPC require typing; CGL doesn't"],
     sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
     generatedAt: new Date().toISOString(),
   };

@@ -35,6 +35,7 @@ import {
   BarChart3,
   ChevronDown,
   RotateCcw,
+  Zap,
 } from "lucide-react";
 import { Landing } from "@/components/views/landing";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -65,6 +66,8 @@ import { Analytics } from "@/components/views/analytics";
 import { PYQBrowser } from "@/components/views/pyq-browser";
 import { ConceptMap } from "@/components/views/concept-map";
 import { StudyNotes } from "@/components/views/study-notes";
+import { QuickPractice } from "@/components/views/quick-practice";
+import { DailyGoals } from "@/components/views/daily-goals";
 import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
@@ -109,6 +112,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "paper-generator", label: "Paper Generator", icon: FileStack, desc: "Personalized papers" },
       { key: "pdf-lab", label: "PDF Lab", icon: FileText, desc: "Analyse official PDFs" },
       { key: "mcq-generator", label: "MCQ Generator", icon: ListChecks, desc: "Grounded practice" },
+      { key: "quick-practice", label: "Quick Practice", icon: Zap, desc: "Rapid-fire mode" },
       { key: "pyq-browser", label: "PYQ Browser", icon: FileText, desc: "Previous-year questions" },
       { key: "flashcards", label: "Flashcards", icon: Layers, desc: "Spaced repetition" },
       { key: "formula-sheet", label: "Formula Sheet", icon: Sigma, desc: "Reference library" },
@@ -138,6 +142,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "study-timer", label: "Study Timer", icon: Timer, desc: "Pomodoro + streaks" },
       { key: "progress-journal", label: "Journal", icon: BookOpen, desc: "Daily study log" },
       { key: "study-notes", label: "Notes", icon: BookOpen, desc: "Markdown study notes" },
+      { key: "daily-goals", label: "Daily Goals", icon: Target, desc: "Study targets + streaks" },
       { key: "achievements", label: "Achievements", icon: Trophy, desc: "Badges & XP" },
     ],
   },
@@ -366,6 +371,10 @@ export function AppShell() {
         return <ConceptMap />;
       case "study-notes":
         return <StudyNotes />;
+      case "daily-goals":
+        return <DailyGoals />;
+      case "quick-practice":
+        return <QuickPractice />;
       case "api-keys":
         return <ApiKeysView />;
       default:
@@ -452,7 +461,7 @@ export function AppShell() {
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "revision-scheduler", "exam-pattern-analyzer", "pyq-browser", "concept-map", "study-notes"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "revision-scheduler", "exam-pattern-analyzer", "pyq-browser", "concept-map", "study-notes", "daily-goals", "quick-practice"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (

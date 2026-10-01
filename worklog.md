@@ -1372,3 +1372,146 @@ Stage Summary:
 - 1 new store (notes-store) — total 11 stores.
 - Dashboard section headers enhanced with gradient underline bars + count badges.
 - Next cron run can focus on: AI assistant deep integration with new features, performance optimization, voice notes, study groups, or more mock data variety.
+
+---
+Task ID: cron8-feat-2
+Agent: full-stack-developer (Quick Practice)
+Task: Build rapid-fire random question mode with instant feedback + combo streak
+
+Work Log:
+- Read /home/z/my-project/worklog.md, app-store.ts (ViewKey + useAppStore with saved/saveItem/setView), app-shell.tsx (NAV_GROUPS + render switch + mobile nav filter), types/index.ts (SavedItem/GeneratedPaper/MCQSet/QuestionEvolutionReport), pyq-store.ts, premium-empty-state.tsx, and formula-quiz.tsx for setup/practice/results patterns.
+- Created /home/z/my-project/src/components/views/quick-practice.tsx — a 'use client' component with named export QuickPractice. Three-phase state machine (setup → practice → results).
+- Aggregation helper `aggregateQuestions(saved)` normalizes MCQ-style questions from saved "paper" (data.questions[]), "mcq" (data.mcqs[]), and "evolution" (data.variants[], topic/difficulty inherited from the report) items into a common { id, question, options, correctAnswer, topic, difficulty, source } shape; explanation items (no options) are skipped.
+- Setup screen: count chips (5/10/15/20, default 10), difficulty chips (All/Easy/Medium/Hard), topic chips (All + unique topics from pool), time-per-question chips (15s/30s/60s/No timer, default 30s), last-session stats card (best combo, correct, accuracy, total) persisted to localStorage under `examintel-quick-practice-stats`, live pool-size indicator, gradient Start Practice button (disabled when filtered pool is empty).
+- Empty state: PremiumEmptyState (Zap icon, violet accent) when no saved questions exist, with CTA to paper-generator plus secondary buttons to mcq-generator and question-evolution.
+- Practice screen: top bar with question N/total, gradient score, animated combo flame (grows h-4→h-5→h-5 amber→orange + ×N multiplier, pulse animation), SVG countdown circle (violet → amber <10s → rose <5s, color-shifts on stroke + text + bg). Question card with source/topic/difficulty badges, A/B/C/D option buttons, instant feedback (emerald + ✓ on correct, rose + ✗ + correct answer highlighted on wrong/timeout), 1.5s auto-advance via ref-guarded timer. Wrong answer or timeout resets combo to 0. Progress bar at bottom.
+- Combo system: comboRef tracks consecutive corrects; each correct adds the new combo value to the score (streak bonus). At combo === 5 triggers "On Fire!" 🔥 flash overlay; at combo === 10 "Unstoppable!" 💪 flash — both render via AnimatePresence spring and auto-dismiss after 1.3s.
+- Results screen: gradient hero card with accuracy % (count-up not used but spring-in), performance badge (Perfect 100% / Excellent ≥80% / Good ≥60% / Keep Practicing), 4-tile stat grid (correct, max combo, accuracy, time taken), action row (Practice Again = re-shuffle same filters, New Set = back to setup, Save to My Research = saveItem type "paper" with review payload), and collapsible per-question review (max-h-28rem scroll) showing your answer vs correct answer with topic/difficulty/source badges.
+- Styling: violet→fuchsia gradients only on actions/badges; NO indigo/blue. Combo = amber flame growing. Correct = emerald, wrong = rose. Timer urgency violet→amber→rose. Mobile-first responsive (grid lg:cols-3, sm: breakpoints, sticky start card, 44px+ touch targets, scrollable topic list max-h-40 + review max-h-28rem with native scroll).
+- Wired into navigation: added `| "quick-practice"` to ViewKey union in app-store.ts; in app-shell.tsx imported Zap, added `{ QuickPractice }` import, inserted `{ key: "quick-practice", label: "Quick Practice", icon: Zap, desc: "Rapid-fire mode" }` into the NAV_GROUPS "practice" group right after mcq-generator, added `case "quick-practice": return <QuickPractice />;` to the render switch, and appended "quick-practice" to the mobile bottom-nav exclusion filter array.
+- Ran `bun run lint` — 0 errors. Initial pass produced one warning (unused eslint-disable directive in the stats-persist effect); removed the directive. Remaining single warning is in an unrelated pre-existing file (goals-store.ts) outside this task's scope.
+
+Stage Summary:
+- QuickPractice view fully implemented (single file, ~960 lines) with setup/practice/results phases, instant feedback, animated combo streak with ×5 "On Fire!" and ×10 "Unstoppable!" flash rewards, persistent session stats, and Save-to-My-Research.
+- Question aggregation pulls from all saved paper / mcq / evolution items and normalizes to a common MCQ format with a `source` badge.
+- Navigation wired: ViewKey extended, sidebar "Practice & Generation" group entry, render-switch case, mobile-nav exclusion added.
+- Lint clean for all new/edited files; dev server compiles successfully.
+
+---
+Task ID: cron8-feat-1
+Agent: full-stack-developer (Daily Goals)
+Task: Build daily study goals tracker with completion + streak rewards
+
+Work Log:
+- Read /home/z/my-project/worklog.md (foundation + 28 existing views + cron-review-7 wrap-up). Confirmed shared infra: useAppStore (ViewKey, saveItem, setContext, saved), useStudyStore.sessions (date ISO + durationMinutes + subject/topic), useJournalStore.entries (date YYYY-MM-DD + durationMinutes + topic), useFlashcardStore.sets + getDueCards(), useAchievementsStore, AnimatedCounter + PremiumEmptyState in src/components/shared/premium-empty-state. date-fns 4.1 + framer-motion 12 + sonner 2 + zustand 5 all installed. Confirmed a parallel agent had already added "quick-practice" to the ViewKey union + app-shell (import, nav item in practice group, render case, mobile-nav exclusion). Target icon already imported in app-shell. Left that untouched (out of scope).
+- Created src/store/goals-store.ts — separate zustand store with persist middleware, localStorage key "examintel-goals". Exports DailyGoal interface (id, date YYYY-MM-DD, minutesGoal, questionsGoal, topicsGoal, minutesDone, questionsDone, topicsDone, completed). GoalsState exposes: goals[], defaultMinutes (120), defaultQuestions (20), defaultTopics (3), streak (computed), setDefaults(m,q,t), getTodayGoal(), ensureTodayGoal() (creates with defaults if missing), updateTodayTargets(patch) (extension for the edit UI), updateProgress(m,q,t) (incremental add), recomputeFromStores(stats) (absolute set from aggregated source-store stats), clearAll(). Streak computed via computeStreak(goals) — consecutive completed days ending today OR yesterday (one-day grace: if today isn't complete, walk back from yesterday; if yesterday also incomplete, streak=0). Exported computeLongestStreak(goals) + totalCompletedDays(goals) helpers for the streak card. partialize persists only goals + 3 defaults (streak excluded since it's derived). onRehydrateStorage mutates state.streak = computeStreak(state.goals) so initial render after hydration shows correct streak without needing a user interaction. Server-safe storage guard (typeof window !== 'undefined' ? localStorage : undefined-as-Storage).
+- Created src/components/views/daily-goals.tsx — 'use client' component with named export DailyGoals. ~1240 lines.
+  - useMounted pattern via useSyncExternalStore (noop subscribe + true client / false server snapshots) — same lint-compliant "is client" pattern used by exam-calendar.tsx + topic-mastery.tsx to avoid hydration mismatch from localStorage-persisted store.
+  - Header: gradient violet→fuchsia Target icon box (h-11 w-11 rounded-xl w/ blur halo), title "Daily Goals", subtitle "Set study targets. Track completion. Build streaks. Stay consistent." (verbatim per spec). Right-side date Badge (EEE MMM d, violet accent).
+  - Today's Goal Card (prominent, gradient bg, conditional emerald glow when complete):
+    - Top row: small gradient icon box (violet→fuchsia by default, emerald→teal when complete) + "Today's Goal" label + dynamic subtext ("Hit all 3 to extend your streak" / "All targets met — streak extended") + Edit toggle button (violet→fuchsia gradient when active, Pencil/Check icon).
+    - Hero section: big overall % (text-5xl/6xl, gradient clip text — violet→fuchsia→pink normally, emerald→teal when complete) + subtext ("X of 3 targets remaining" or "Goal complete! Great work today.") + animated emoji burst (🎉 + ⭐) via AnimatePresence when complete.
+    - 3-column grid of ProgressRing components: Minutes (violet gradient #8b5cf6→#a855f7), Questions (fuchsia gradient #d946ef→#ec4899), Topics (emerald gradient #10b981→#14b8a6). Each ring: SVG viewBox 80x80, r=32, circumference 2πr, strokeDasharray=c, strokeDashoffset=c*(1-pct/100), rotate(-90 40 40) for arc starting at top. Center text shows icon + current/goal + unit (min/qs/topics). Label below shows "%d% · X left". In edit mode, +/- buttons (h-6 w-6 icon) adjust the target by 5 via updateTodayTargets.
+    - Quick add buttons: "+30 min" (violet), "+10 questions" (fuchsia), "+1 topic" (emerald) — call updateProgress(m,q,t) + toast.success with the logged parts.
+    - Integration hint: amber Zap icon + "Auto-synced today from your study sessions, journal entries, and saved papers/MCQs..." text.
+  - Streak Card (amber accent, h-full):
+    - Header: amber gradient icon box (Flame) + "Current Streak" title + "On fire"/"Start today" badge.
+    - Big streak number: AnimatedCounter (text-5xl, amber→orange gradient clip text) + "day streak" label + dynamic hint ("Complete today to start" / "X days to Week Warrior" / "Consistency champion") + large Flame icon (drop-shadow amber glow, motion spring entrance) when streak > 0.
+    - 3-tile stats grid: Longest streak (amber, AnimatedCounter via computeLongestStreak), Completed days (emerald, totalCompletedDays), Days tracked (violet, goals.length).
+    - 14-day calendar (StreakCalendarDots sub-component): last 14 days as colored dots (emerald=completed, rose=missed, zinc=no-goal). Today's dot scaled up with violet ring-offset. Legend chips above. Each dot has title tooltip with date + status.
+  - 7-Day History Card (violet→fuchsia accent, h-full):
+    - Last 7 days (including today), sorted newest first, each rendered as HistoryRow: completion check icon (emerald CheckCircle2 or empty ring), date label (EEE MMM d) + "TODAY" pill if today, overall % badge, 3 mini progress bars (violet/fuchsia/emerald gradients) showing per-goal done/target with tabular-nums counts.
+    - Empty state when no history: muted Calendar icon + "No history yet" + helper text.
+    - Scrollable list (max-h-360px overflow-y-auto custom-scroll) for safety on small viewports.
+  - Default Targets Card (collapsible, defaultsOpen state):
+    - Collapsed: 3-tile summary showing current default min/Qs/topics per day (color-coded violet/fuchsia/emerald tiles with icon + bold number + label).
+    - Expanded: 3-column grid of Input + +/- button groups (violet Minus/Plus h-8 w-8). Inputs bound DIRECTLY to store values (defaultMinutes/Questions/Topics) — onChange / +/- call handleUpdateDefault(field, value) which calls setDefaults(...) immediately. No local state, no sync useEffect (avoids react-hooks/set-state-in-effect error). Footer: "Changes apply automatically" emerald badge + Clear history button (rose ghost, calls handleClearAll w/ window.confirm guard).
+  - Footer note: Award icon + "Streaks count consecutive completed days — grace for yesterday if today isn't done yet."
+  - Integration useEffect on mount + whenever sessions/entries/saved change: calls ensureTodayGoal() then computeIntegrationStats(sessions, entries, saved) then recomputeFromStores(stats). computeIntegrationStats pulls:
+    - totalMinutesToday: sum of study sessions where dateISO-normalized === today + journal entries where date(YYYY-MM-DD) === today, all durationMinutes.
+    - questionsAttemptedToday: count of questions across saved "paper" items (data.paper.questions or data.questions) + saved "mcq" items (data.set.mcqs or data.mcqs) where createdAt-normalized === today. Mirrors the defensive `(item.data ?? null) as Record<string, unknown> | null` cast pattern from topic-mastery/my-research.
+    - topicsStudiedToday: distinct topic count (lowercased) from today's study sessions + journal entries.
+  - SSR fallback: when !mounted, renders 3 pulse-animated skeleton placeholders (header + 2-column grid) to avoid hydration mismatch.
+  - setContext("Daily Goals", "general") on mount to feed the AI assistant.
+- Styling: NO indigo/blue primary. Ring gradients: violet→purple, fuchsia→pink, emerald→teal. Streak flame = amber→orange. Completion celebration = emerald glow (shadow-[0_0_40px_-8px_rgba(16,185,129,0.45)]) + emerald gradient on hero % + 🎉/⭐ emoji burst. Card borders use color/20 tints. Mobile-first: rings h-20 w-20 on mobile / h-24 w-24 on sm+. Grids collapse to single column on mobile (md:grid-cols-2 for streak/history + defaults rows). Touch targets ≥ 32px on +/- buttons.
+- Wired into shared infra:
+  - src/store/app-store.ts: added `| "daily-goals"` to ViewKey union (inserted between "study-notes" and "quick-practice" — the latter concurrently added by a parallel agent).
+  - src/components/app-shell.tsx: imported { DailyGoals } from "@/components/views/daily-goals"; added `{ key: "daily-goals", label: "Daily Goals", icon: Target, desc: "Study targets + streaks" }` to NAV_GROUPS "tracking" group (right after study-notes, before achievements); added `case "daily-goals": return <DailyGoals />;` to render switch (right after study-notes, before quick-practice); added "daily-goals" to mobile bottom-nav exclusion filter array.
+- Lint iteration:
+  - First run: 2 warnings (unused eslint-disable directives for react-hooks/exhaustive-deps + no-constant-condition, both rules are off in the project config) + 1 error (react-hooks/set-state-in-effect on the local-state-sync useEffect that mirrored store defaults into defMin/defQ/defT inputs).
+  - Fix 1: removed both eslint-disable directives (rules are off, no problems to suppress).
+  - Fix 2: refactored the defaults inputs to bind DIRECTLY to store values (defaultMinutes/Questions/Topics) and call setDefaults(...) immediately via handleUpdateDefault(field, value) on every onChange / +/- click. Removed local state (defMin/defQ/defT), the sync useEffect, the "Save defaults" button (no longer needed — changes auto-apply), the "Reset inputs" button (no local state to reset), the handleSaveDefaults function, and the unused RotateCcw import. Added an emerald "Changes apply automatically" badge in the footer to communicate the new behavior.
+  - Second run: 0 errors, 0 warnings. Clean.
+- TypeScript check: `bunx tsc --noEmit` — initial run flagged 3 errors:
+  1. line 185: 'qs' is possibly 'undefined' — Array.isArray narrowing didn't propagate through `paper!.questions` accessor. Fixed by typing the cast as `{ paper?: { questions?: unknown[] } }` and using `paper!.questions!` (non-null assertion after the Array.isArray check).
+  2. line 193: same issue for 'mcqs'. Same fix.
+  3. line 358: Property 'completed' does not exist on type 'DailyGoal | "no-goal"' — the StreakCalendarDots map was typed `Map<string, DailyGoal | "no-goal">` but I only ever stored DailyGoal values. Fixed by changing the type to `Map<string, DailyGoal>`.
+  - After fixes: 0 errors in any of my files (goals-store, daily-goals, app-shell, app-store).
+- Verified dev.log: Next.js 16.1.3 (Turbopack) started cleanly, no compile errors after file changes.
+
+Stage Summary:
+- ONE new store: src/store/goals-store.ts (zustand+persist, key "examintel-goals", DailyGoal interface + 8 actions + computed streak + onRehydrateStorage streak sync). 12 stores total.
+- ONE new feature view: src/components/views/daily-goals.tsx (~1240 lines, 'use client', named export DailyGoals). 29 views total.
+- 2 modified shared files: src/store/app-store.ts (ViewKey += "daily-goals"), src/components/app-shell.tsx (import + nav item in "tracking" group + render case + mobile-nav exclusion).
+- Today's Goal card: 3 SVG progress rings (violet/fuchsia/emerald gradients) + big overall % with gradient clip text + 🎉/⭐ emoji burst + emerald glow on completion + Edit mode with +/- target adjusters + 3 quick-add buttons (+30 min / +10 Qs / +1 topic).
+- Streak card: AnimatedCounter current streak (amber→orange gradient) + Flame icon w/ amber drop-shadow + 3-tile stats grid (longest/completed/tracked) + 14-day dot calendar (emerald/rose/zinc dots with today highlight + legend).
+- 7-day history: scrollable list of HistoryRow components, each with completion icon, date label, overall % badge, 3 mini gradient progress bars per goal target.
+- Default Targets card: collapsible — collapsed shows 3 color-coded summary tiles; expanded shows 3 Input + +/- button groups bound DIRECTLY to store values (no local state, no sync effect, auto-apply on every keystroke) + "Changes apply automatically" emerald badge + Clear history button.
+- Integration: useEffect on mount + whenever sessions/entries/saved change calls ensureTodayGoal() + computeIntegrationStats() (study+journal minutes, saved paper/mcq question counts, distinct topics) + recomputeFromStores() (absolute set + streak recompute). Manual quick-add via updateProgress() for offline study.
+- Streak computation: consecutive completed days ending today OR yesterday (one-day grace window). computeLongestStreak + totalCompletedDays exported as helpers for the streak card. Streak persisted indirectly (recomputed on every mutation + on rehydrate).
+- Shared infrastructure respected: only the explicitly-required ViewKey + nav + render switch + mobile-exclusion wiring changes. No modifications to study-store, journal-store, flashcard-store, achievements-store, types/index, or premium-empty-state. Lint clean (0 errors, 0 warnings) on all new/modified files. TypeScript clean for all my files.
+
+---
+Task ID: cron-review-8
+Agent: Main (orchestrator) — web dev review cron round 8
+Task: Exam Comparison mock enrichment, 2 new features (Daily Goals, Quick Practice)
+
+Work Log:
+- Reviewed worklog (rounds 1-7 added 17 features: Command Palette, Onboarding, Study Timer, Flashcards, Exam Countdown, Progress Journal, Formula Sheet, Exam Calendar, Achievements, Formula Quiz, Topic Mastery, Analytics, Revision Scheduler, Exam Pattern Analyzer, PYQ Browser, Study Notes, Concept Map)
+- QA via agent-browser: swept ALL 28 views for runtime errors — NONE found. App is fully stable.
+- QA confirmed: all 20 API routes functional, all 28 views render cleanly.
+
+- ENHANCEMENT: Enriched mock Exam Comparison (mockExamComparison) — now exam-aware with 3 comparison profiles:
+  - GATE family (CS/ME/CE/EC) → technical comparison: same qualification (B.Tech), 65 questions, 100 marks, 180 min, 1/3 + 2/3 negative marking. Common topics: Engineering Math + General Aptitude. Exam-specific technical subjects per discipline (DS/Algorithms/OS for CS, Thermo/Fluid for ME, etc.). Career pathways: M.Tech/PSU/Research.
+  - Banking family (IBPS/SBI PO/Clerk) → banking comparison: same qualification (graduation), 20-30 age, Prelims+Mains+Interview, 0.25 negative. Common topics: Quant + Reasoning + English + Computer/Banking Awareness. Exam-specific: Descriptive English for PO, no interview for Clerk.
+  - SSC family (CGL/CHSL/NTPC) default → detailed per-exam data: qualification (Graduation vs 12th), age (18-32 vs 18-27 vs 18-36), stages, questions, marks, negative marking (0.5 vs 0.25), difficulty. Exam-specific topics (Statistics for CGL, Typing for CHSL, Railway Awareness for NTPC). Career pathways per exam. Prerequisite differences.
+  Each profile extracts exam names from the query JSON array and generates comparison values dynamically.
+- Verified: GATE CS vs ME → 7 rows, commonTopics include Engineering Math ✓
+- Verified: SSC CGL vs CHSL vs NTPC → 3 career pathways ✓
+
+- NEW FEATURE 1: Daily Goals tracker
+  - Store: src/store/goals-store.ts (zustand+persist, DailyGoal with minutesGoal/questionsGoal/topicsGoal + done counters + completed flag, streak computation with yesterday-grace, defaults 120min/20Q/3topics, recomputeFromStores integration)
+  - View: src/components/views/daily-goals.tsx (~1240 lines)
+  - Today's Goal card: 3 SVG progress rings (violet/fuchsia/emerald), big overall %, completion celebration (emoji burst + emerald glow), editable targets with +/- adjusters, 3 quick-add buttons (+30 min/+10 Qs/+1 topic)
+  - Streak card: AnimatedCounter streak + flame icon + 3-tile stats (longest/completed/tracked) + 14-day dot calendar (emerald/rose/zinc)
+  - 7-day history with per-goal mini progress bars
+  - Default targets settings (binds directly to store)
+  - Integration: useEffect pulls from study+journal+saved stores, calls recomputeFromStores
+  - Wired into AppShell nav (tracking group)
+
+- NEW FEATURE 2: Quick Practice (rapid-fire mode)
+  - View: src/components/views/quick-practice.tsx (~960 lines)
+  - Aggregates MCQ-style questions from saved paper/mcq/evolution items (normalizes to common format)
+  - 3-phase flow: setup → practice → results
+  - Setup: count chips (5/10/15/20), difficulty filter (All/Easy/Medium/Hard), topic filter, time per question (15s/30s/60s/No timer), last-session stats, pool-size indicator
+  - Practice: top bar (N/total, score, combo flame with ×N multiplier, SVG countdown ring violet→amber→rose), question card with source/topic/difficulty badges, A/B/C/D options with instant feedback (emerald ✓/rose ✗), 1.5s auto-advance, progress bar
+  - Combo system: consecutive corrects build combo. ×5 = "On Fire!" 🔥, ×10 = "Unstoppable!" 💪 (AnimatePresence spring flash). Wrong/timeout resets.
+  - Results: accuracy %, performance badge (Perfect/Excellent/Good/Keep Practicing), stat grid, collapsible per-question review, Practice Again/New Set/Save to My Research
+  - PremiumEmptyState when no saved questions (CTAs to paper-generator/mcq-generator/question-evolution)
+  - Wired into AppShell nav (practice group)
+
+- Verified via agent-browser E2E:
+  - Daily Goals: "Set study targets. Track completion. Build streaks." heading ✓
+  - Quick Practice: "Rapid-fire random questions from your saved pool" heading ✓
+  - Screenshots: quick-practice (119KB)
+- Verified via curl:
+  - exam/compare GATE CS vs ME → 7 rows, Engineering Math in commonTopics ✓
+  - exam/compare SSC CGL vs CHSL vs NTPC → 3 career pathways ✓
+- Lint: clean (0 errors, 0 warnings)
+- Final inventory: 140 TS/TSX files, 30 views, 20 API routes, 12 stores
+
+Stage Summary:
+- 2 new features added (Daily Goals, Quick Practice) — now 30 views total (was 28).
+- Exam Comparison mock now exam-aware (3 profiles: GATE/Banking/SSC with detailed per-exam data).
+- 1 new store (goals-store) — total 12 stores.
+- Next cron run can focus on: AI assistant deep integration, performance optimization, voice notes, study groups, or more mock data variety (preparation simulator topic-aware, multi-exam optimizer exam-aware).
