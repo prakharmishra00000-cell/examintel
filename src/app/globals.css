@@ -236,6 +236,19 @@
   box-shadow: 0 8px 24px -8px hsl(280 80% 60% / 0.2);
 }
 
+/* Subtle background grid pattern for the app shell */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, hsl(var(--border) / 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.4) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: -1px -1px;
+}
+.bg-grid-fade {
+  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+
 /* Custom scrollbar (global, subtle) */
 ::-webkit-scrollbar {
   width: 10px;

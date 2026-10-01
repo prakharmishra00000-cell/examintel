@@ -377,57 +377,120 @@ function mockQuestionEvolution(query: string): unknown {
   };
 }
 
-function mockPaper(_query: string): unknown {
-  const q = (n: number, s: string, t: string, d: "Easy" | "Medium" | "Hard") => ({
-    id: `q${n}`,
-    section: s,
-    questionNumber: n,
-    questionType: "MCQ" as const,
-    question: `Sample question ${n} on ${t}. If a number is doubled and added to itself, the result is 3 times the number. Find the number if it equals ${n}.`,
-    options: [`${n}`, `${n + 1}`, `${n - 1}`, `${n * 2}`],
-    correctAnswer: `${n}`,
-    topic: t,
-    difficulty: d,
-    marks: 2,
-    negativeMarks: 0.5,
-    explanation: `The number that satisfies the condition is ${n}.`,
-    sourceType: "AI_GENERATED" as const,
+function mockPaper(query: string): unknown {
+  // Detect exam from the query to customize the paper
+  const q = query.toLowerCase();
+  let examName = "SSC CGL";
+  let sections: { name: string; questions: number; marksPerQuestion: number; negativeMarking: number }[] = [];
+  let questions: unknown[] = [];
+
+  const mk = (id: string, section: string, num: number, topic: string, difficulty: "Easy" | "Medium" | "Hard", question: string, options: string[], correctAnswer: string, explanation: string) => ({
+    id, section, questionNumber: num, questionType: "MCQ" as const, question, options, correctAnswer, topic, difficulty, marks: 2, negativeMarks: 0.5, explanation, sourceType: "AI_GENERATED" as const,
   });
+
+  if (q.includes("gate") || q.includes("cs") || q.includes("mechanical")) {
+    examName = q.includes("mechanical") ? "GATE Mechanical Engineering" : "GATE CS";
+    sections = [
+      { name: "General Aptitude", questions: 5, marksPerQuestion: 1, negativeMarking: 0.33 },
+      { name: "Technical", questions: 5, marksPerQuestion: 2, negativeMarking: 0.66 },
+    ];
+    questions = [
+      mk("q1","General Aptitude",1,"Verbal","Easy","Choose the word most OPPOSITE in meaning to 'BENEVOLENT':",["Malevolent","Kind","Generous","Charitable"],"Malevolent","Benevolent means well-meaning and kind. The antonym is malevolent (wishing harm)."),
+      mk("q2","General Aptitude",2,"Numerical","Medium","A train 150 m long passes a pole in 15 seconds. The speed of the train is:",["36 km/h","54 km/h","10 km/h","24 km/h"],"36 km/h","Speed = 150/15 = 10 m/s = 10 × 18/5 = 36 km/h."),
+      mk("q3","General Aptitude",3,"Reasoning","Medium","Find the next term: 2, 6, 12, 20, 30, ?",["40","42","44","46"],"42","Differences: 4,6,8,10,12 → next term = 30+12 = 42."),
+      mk("q4","Technical",4,"Data Structures","Medium","Which data structure uses LIFO (Last-In-First-Out) ordering?",["Queue","Stack","Linked List","Tree"],"Stack","A stack follows LIFO — the last element pushed is the first popped."),
+      mk("q5","Technical",5,"Algorithms","Hard","What is the time complexity of binary search on a sorted array of n elements?",["O(n)","O(n log n)","O(log n)","O(1)"],"O(log n)","Binary search halves the search space each step → O(log n)."),
+      mk("q6","Technical",6,"Operating Systems","Hard","Which page replacement algorithm suffers from Belady's anomaly?",["LRU","Optimal","FIFO","Clock"],"FIFO","FIFO can increase page faults when frames increase — Belady's anomaly."),
+      mk("q7","Technical",7,"DBMS","Medium","Which normal form eliminates partial dependencies?",["1NF","2NF","3NF","BCNF"],"2NF","2NF removes partial dependencies (non-prime attributes dependent on part of a composite key)."),
+      mk("q8","Technical",8,"Computer Networks","Medium","The default port for HTTPS is:",["80","443","21","22"],"443","HTTPS uses port 443 (HTTP uses 80, FTP 21, SSH 22)."),
+      mk("q9","Technical",9,"Discrete Math","Hard","In a graph with 6 vertices and 7 edges, the sum of all vertex degrees is:",["7","14","12","6"],"14","By Handshaking Lemma: sum of degrees = 2 × edges = 2 × 7 = 14."),
+      mk("q10","Technical",10,"TOC","Hard","Which language is accepted by a Pushdown Automaton (PDA)?",["Regular","Context-Free","Context-Sensitive","Recursive"],"Context-Free","PDAs recognize exactly the context-free languages (Type-2 in Chomsky hierarchy)."),
+    ];
+  } else {
+    // SSC CGL default
+    examName = "SSC CGL";
+    sections = [{ name: "Quantitative Aptitude", questions: 6, marksPerQuestion: 2, negativeMarking: 0.5 }];
+    questions = [
+      mk("q1","Quantitative Aptitude",1,"Percentage","Easy","If 30% of a number is 90, what is the number?",["200","250","300","270"],"300","Let number = x. 30% of x = 90 → 0.30x = 90 → x = 300."),
+      mk("q2","Quantitative Aptitude",2,"Profit & Loss","Medium","A man buys an article for ₹400 and sells it at a profit of 15%. The selling price is:",["₹440","₹460","₹450","₹480"],"₹460","SP = CP × (1 + profit%) = 400 × 1.15 = ₹460."),
+      mk("q3","Quantitative Aptitude",3,"Ratio","Easy","If A:B = 2:3 and B:C = 4:5, then A:C is:",["2:5","8:15","3:5","6:15"],"8:15","A:B = 2:3 = 8:12, B:C = 4:5 = 12:15 → A:C = 8:15."),
+      mk("q4","Quantitative Aptitude",4,"Time & Work","Hard","A can do a job in 12 days, B in 18 days. Together they finish in:",["7.2 days","6 days","5.4 days","9 days"],"7.2 days","Combined rate = 1/12 + 1/18 = 5/36 per day → time = 36/5 = 7.2 days."),
+      mk("q5","Quantitative Aptitude",5,"Average","Medium","The average of 5 numbers is 20. If one number is removed, the average becomes 18. The removed number is:",["24","22","26","28"],"28","Sum of 5 = 100. Sum of 4 = 72. Removed = 100 − 72 = 28."),
+      mk("q6","Quantitative Aptitude",6,"Simple Interest","Hard","₹8000 invested at 5% per annum simple interest for 3 years yields interest of:",["₹1200","₹1500","₹1000","₹800"],"₹1200","SI = P × R × T / 100 = 8000 × 5 × 3 / 100 = ₹1200."),
+    ];
+  }
+
   return {
-    examName: "SSC CGL",
+    examName,
     mode: "Balanced Practice",
-    totalQuestions: 6,
-    durationMinutes: 12,
-    sections: [{ name: "Quantitative Aptitude", questions: 6, marksPerQuestion: 2, negativeMarking: 0.5 }],
-    questions: [q(1, "Quantitative Aptitude", "Percentage", "Easy"), q(2, "Quantitative Aptitude", "Profit & Loss", "Medium"), q(3, "Quantitative Aptitude", "Ratio", "Easy"), q(4, "Quantitative Aptitude", "Time & Work", "Hard"), q(5, "Quantitative Aptitude", "Average", "Medium"), q(6, "Quantitative Aptitude", "Series", "Hard")],
-    markingScheme: "+2 / -0.5",
+    totalQuestions: questions.length,
+    durationMinutes: questions.length * 2,
+    sections,
+    questions,
+    markingScheme: sections[0] ? `+${sections[0].marksPerQuestion} / -${sections[0].negativeMarking}` : "+2 / -0.5",
     sources: [{ type: "AI_GENERATED", label: "AI-Generated" }],
     generatedAt: new Date().toISOString(),
     disclaimer: "AI-generated practice paper. Not an official paper or prediction.",
   };
 }
 
-function mockMCQ(_query: string): unknown {
-  const mk = (n: number, t: string, d: "Easy" | "Medium" | "Hard") => ({
-    id: `m${n}`,
-    question: `Sample MCQ ${n} on ${t}. Which value correctly represents ${t}?`,
-    options: ["Option A", "Option B", "Option C", "Option D"],
-    correctAnswer: "Option B",
-    explanation: `${t} is best represented by Option B based on the source material.`,
-    topic: t,
-    difficulty: d,
-    sourcePage: Math.ceil(n / 2),
-    sourceType: "AI_GENERATED" as const,
-    validationStatus: "verified" as const,
+function mockMCQ(query: string): unknown {
+  // Detect topic from the query to return topic-relevant MCQs
+  const q = query.toLowerCase();
+  let topic = "Quantitative Aptitude";
+  let mcqs: unknown[] = [];
+
+  const mk = (id: string, question: string, options: string[], correctAnswer: string, explanation: string, difficulty: "Easy" | "Medium" | "Hard", sourcePage?: number) => ({
+    id, question, options, correctAnswer, explanation, topic, difficulty, sourcePage, sourceType: "AI_GENERATED" as const, validationStatus: "verified" as const,
   });
+
+  if (q.includes("reasoning") || q.includes("series") || q.includes("pattern")) {
+    topic = "Reasoning";
+    mcqs = [
+      mk("m1","Find the next number: 1, 4, 9, 16, 25, ?",["30","36","49","35"],"36","These are perfect squares: 1², 2², 3², 4², 5² → next is 6² = 36.","Easy",1),
+      mk("m2","If FRIEND is coded as GSJFOE, how is HUMAN coded?",["IVNBO","IVMBO","IVNCO","IUNBO"],"IVNBO","Each letter shifts +1: H→I, U→V, M→N, A→B, N→O.","Medium",2),
+      mk("m3","Pointing to a photo, a man said 'She is the daughter of my grandfather's only son.' How is she related to him?",["Sister","Daughter","Niece","Cousin"],"Sister","Grandfather's only son = the man's father. Father's daughter = sister.","Hard",2),
+      mk("m4","Complete the series: AZ, BY, CX, DW, ?",["EV","EW","FV","DV"],"EV","First letter: A,B,C,D,E (+1). Second letter: Z,Y,X,W,V (−1).","Easy",3),
+      mk("m5","In a row of children, Ravi is 7th from the left and 12th from the right. How many children are there?",["17","18","19","16"],"18","Total = 7 + 12 − 1 = 18 (Ravi is counted once).","Medium",3),
+    ];
+  } else if (q.includes("english") || q.includes("vocab") || q.includes("grammar")) {
+    topic = "English";
+    mcqs = [
+      mk("m1","Choose the synonym of 'EPHEMERAL':",["Eternal","Short-lived","Permanent","Strong"],"Short-lived","Ephemeral means lasting for a very short time.","Easy",1),
+      mk("m2","Choose the antonym of 'VERBOSE':",["Talkative","Concise","Wordy","Lengthy"],"Concise","Verbose means using more words than needed. Antonym = concise.","Medium",2),
+      mk("m3","Fill in the blank: 'She is allergic ___ peanuts.'",["to","from","with","of"],"to","The correct preposition after 'allergic' is 'to'.","Easy",2),
+      mk("m4","Identify the correctly spelled word:",["Accomodate","Acommodate","Accommodate","Acomodate"],"Accommodate","Correct spelling: A-C-C-O-M-M-O-D-A-T-E (double c, double m).","Hard",3),
+      mk("m5","Choose the correct passive voice of 'She writes a letter':",["A letter is written by her","A letter was written by her","A letter is being written","A letter has been written"],"A letter is written by her","Present simple passive: is/am/are + past participle.","Medium",3),
+    ];
+  } else if (q.includes("general awareness") || q.includes("gk") || q.includes("current")) {
+    topic = "General Awareness";
+    mcqs = [
+      mk("m1","Who is known as the 'Father of the Indian Constitution'?",["Jawaharlal Nehru","B.R. Ambedkar","Rajendra Prasad","Sardar Patel"],"B.R. Ambedkar","Dr. B.R. Ambedkar chaired the Drafting Committee of the Constituent Assembly.","Easy",1),
+      mk("m2","The battle of Plassey was fought in which year?",["1757","1764","1857","1526"],"1757","The Battle of Plassey (1757) established British rule in India.","Medium",2),
+      mk("m3","Which article of the Indian Constitution deals with the Right to Equality?",["Article 14","Article 19","Article 21","Article 32"],"Article 14","Article 14 guarantees equality before law and equal protection of laws.","Hard",2),
+      mk("m4","The headquarters of the World Trade Organization (WTO) is located in:",["New York","Geneva","Vienna","Paris"],"Geneva","The WTO is headquartered in Geneva, Switzerland.","Medium",3),
+      mk("m5","Who was the first Indian woman to win a Nobel Prize?",["Mother Teresa","Indira Gandhi","Sarojini Naidu","Kiran Bedi"],"Mother Teresa","Mother Teresa won the Nobel Peace Prize in 1979.","Easy",3),
+    ];
+  } else {
+    // Quantitative Aptitude default
+    topic = "Quantitative Aptitude";
+    mcqs = [
+      mk("m1","What is 15% of 200?",["25","30","35","20"],"30","15% of 200 = 0.15 × 200 = 30.","Easy",1),
+      mk("m2","If the simple interest on ₹5000 for 2 years at 8% per annum, the interest is:",["₹800","₹1600","₹400","₹1200"],"₹800","SI = P×R×T/100 = 5000×8×2/100 = ₹800.","Medium",2),
+      mk("m3","The ratio 2:3 expressed as a percentage is:",["40%","66.67%","60%","33.33%"],"66.67%","2/3 × 100 = 66.67%.","Easy",2),
+      mk("m4","A and B can complete a task in 10 and 15 days respectively. Working together they finish in:",["6 days","5 days","8 days","4 days"],"6 days","Combined rate = 1/10 + 1/15 = 1/6 per day → 6 days.","Hard",3),
+      mk("m5","The average of the first 10 natural numbers is:",["5","5.5","6","4.5"],"5.5","First 10 natural numbers: 1+2+...+10 = 55. Average = 55/10 = 5.5.","Medium",3),
+    ];
+  }
+
   return {
     source: "Uploaded PDF",
-    topic: "Quantitative Aptitude",
-    difficulty: "Mixed",
-    questionCount: 5,
+    topic,
+    difficulty: "Mixed" as const,
+    questionCount: mcqs.length,
     questionType: "MCQ",
     mode: "Strict PDF Mode",
-    mcqs: [mk(1, "Percentage", "Easy"), mk(2, "Profit & Loss", "Medium"), mk(3, "Ratio", "Easy"), mk(4, "Time & Work", "Hard"), mk(5, "Average", "Medium")],
+    mcqs,
     sources: [{ type: "UPLOADED_DOCUMENT", label: "Uploaded Document" }],
     generatedAt: new Date().toISOString(),
   };

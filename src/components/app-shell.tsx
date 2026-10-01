@@ -31,6 +31,7 @@ import {
   Timer,
   BookOpen,
   Trophy,
+  Target,
   ChevronDown,
 } from "lucide-react";
 import { Landing } from "@/components/views/landing";
@@ -54,6 +55,8 @@ import { Flashcards } from "@/components/views/flashcards";
 import { ExamCalendar } from "@/components/views/exam-calendar";
 import { Achievements } from "@/components/views/achievements";
 import { FormulaSheet } from "@/components/views/formula-sheet";
+import { FormulaQuiz } from "@/components/views/formula-quiz";
+import { TopicMastery } from "@/components/views/topic-mastery";
 import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
@@ -99,6 +102,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "mcq-generator", label: "MCQ Generator", icon: ListChecks, desc: "Grounded practice" },
       { key: "flashcards", label: "Flashcards", icon: Layers, desc: "Spaced repetition" },
       { key: "formula-sheet", label: "Formula Sheet", icon: Sigma, desc: "Reference library" },
+      { key: "formula-quiz", label: "Formula Quiz", icon: Brain, desc: "Test formula recall" },
     ],
   },
   {
@@ -117,6 +121,7 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Activity,
     items: [
       { key: "my-research", label: "My Research", icon: Save, desc: "Saved intelligence" },
+      { key: "topic-mastery", label: "Topic Mastery", icon: Target, desc: "Strength heatmap" },
       { key: "study-timer", label: "Study Timer", icon: Timer, desc: "Pomodoro + streaks" },
       { key: "progress-journal", label: "Journal", icon: BookOpen, desc: "Daily study log" },
       { key: "achievements", label: "Achievements", icon: Trophy, desc: "Badges & XP" },
@@ -329,8 +334,12 @@ export function AppShell() {
         return <ExamCalendar />;
       case "achievements":
         return <Achievements />;
+      case "topic-mastery":
+        return <TopicMastery />;
       case "formula-sheet":
         return <FormulaSheet />;
+      case "formula-quiz":
+        return <FormulaQuiz />;
       case "api-keys":
         return <ApiKeysView />;
       default:
@@ -339,7 +348,9 @@ export function AppShell() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="relative flex min-h-screen flex-col bg-background">
+      {/* subtle grid pattern */}
+      <div className="pointer-events-none fixed inset-0 bg-grid bg-grid-fade opacity-[0.25] -z-10" />
       {/* Top header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="flex h-14 items-center gap-3 px-4">
@@ -415,7 +426,7 @@ export function AppShell() {
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (

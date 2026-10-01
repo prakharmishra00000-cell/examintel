@@ -28,7 +28,9 @@ export type ViewKey =
   | "progress-journal"
   | "exam-calendar"
   | "formula-sheet"
+  | "formula-quiz"
   | "achievements"
+  | "topic-mastery"
   | "api-keys";
 
 export interface AIStatus {

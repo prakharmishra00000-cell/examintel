@@ -20,6 +20,7 @@ import {
   TrendingUp,
   GitBranch,
   Zap,
+  Target,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { ViewKey } from "@/store/app-store";
@@ -243,13 +244,82 @@ export function Landing() {
           ].map((c) => {
             const Icon = c.icon;
             return (
-              <div key={c.title} className="rounded-xl border border-border p-5">
+              <div key={c.title} className="rounded-xl border border-border p-5 card-lift gradient-glow">
                 <Icon className="h-5 w-5 text-violet-500" />
                 <h3 className="mt-3 font-semibold">{c.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{c.desc}</p>
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* How it works — 3-step */}
+      <section className="mx-auto max-w-6xl w-full px-4 py-12">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">How it works</h2>
+          <p className="mt-2 text-muted-foreground">Three steps from input to actionable intelligence.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+          {/* connector line on desktop */}
+          <div className="hidden md:block absolute top-8 left-[16.66%] right-[16.66%] h-px bg-gradient-to-r from-violet-500/0 via-violet-500/40 to-fuchsia-500/0" />
+          {[
+            { n: "1", title: "Give us an input", desc: "An exam name, a syllabus, a PDF, or a question. Anything exam-related.", icon: Search },
+            { n: "2", title: "AI builds intelligence", desc: "Structured reports, dependency graphs, validated question variants, and grounded analysis — all typed JSON.", icon: Brain },
+            { n: "3", title: "Act on it", desc: "Attempt papers, track mastery, optimize across exams, and adapt your plan as you progress.", icon: Target },
+          ].map((s) => {
+            const Icon = s.icon;
+            return (
+              <motion.div
+                key={s.n}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4 }}
+                className="relative flex flex-col items-center text-center"
+              >
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 blur-md opacity-50" />
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-background border-2 border-violet-500 text-xs font-bold text-violet-500">
+                    {s.n}
+                  </div>
+                </div>
+                <h3 className="mt-4 font-semibold">{s.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground max-w-xs">{s.desc}</p>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Testimonials / feature quotes */}
+      <section className="mx-auto max-w-6xl w-full px-4 py-12">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">What aspirants get</h2>
+          <p className="mt-2 text-muted-foreground">Real value at every stage of preparation.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { quote: "I researched SSC CGL, got a full syllabus tree, and a 6-phase plan in under a minute. The dependency map caught that I needed Integration before Differential Equations.", author: "Aspirant, Tier 2", accent: "from-violet-500/10 to-transparent" },
+            { quote: "The Question Evolution Lab turned one PYQ into 5 variants. The exam-trap variant showed me a misconception I didn't know I had. Practice multiplier is real.", author: "GATE aspirant", accent: "from-fuchsia-500/10 to-transparent" },
+            { quote: "Uploaded the official notification PDF, asked 'what's the negative marking?' and got a grounded answer with the source page. No more scrolling 12-page PDFs.", author: "UPSC aspirant", accent: "from-emerald-500/10 to-transparent" },
+          ].map((t, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.35, delay: i * 0.08 }}
+              className={`rounded-xl border border-border p-5 bg-gradient-to-br ${t.accent} card-lift`}
+            >
+              <div className="text-3xl text-violet-500/40 leading-none mb-2">"</div>
+              <p className="text-sm leading-relaxed">{t.quote}</p>
+              <p className="mt-3 text-xs text-muted-foreground font-medium">— {t.author}</p>
+            </motion.div>
+          ))}
         </div>
       </section>
 

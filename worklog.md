@@ -789,3 +789,132 @@ Stage Summary:
 - New CSS utilities (gradient-glow, card-lift) for premium hover effects.
 - Gamification layer complete: badges + XP + levels + dashboard widget.
 - Next cron run can focus on: per-view content richness, more mock data variety, AI-assistant integration with new features, or additional features (e.g. study groups, formula quiz mode, exam pattern analyzer).
+
+---
+Task ID: cron4-feat-1
+Agent: full-stack-developer (Formula Quiz)
+Task: Build timed formula quiz mode testing recall of formulas from the Formula Sheet
+
+Work Log:
+- Read prior worklog (cron-review-3 → 20 views, 9 stores, Formula Sheet/Calendar/Achievements already shipped)
+- Added "formula-quiz" to ViewKey union in src/store/app-store.ts (now 21 view keys)
+- Created src/components/views/formula-quiz.tsx — single 'use client' component with named export FormulaQuiz
+  - 3 phases: setup / quiz / results (AnimatePresence transitions, framer-motion)
+  - Setup screen: 2 quiz-mode cards (Identify Formula / Identify Name), question-count chips (5/10/15/20, capped by pool size), time-per-question chips (15s/30s/60s/No timer), subject filter chips (All + unique subjects from formula store), gradient Start button, side panel with last-score/best-accuracy/total-quizzes stats (persisted to localStorage via examintel-formula-quiz-stats key) + quiz mechanics hints
+  - Quiz screen: top bar (Q N/M badge + score badge + circular SVG countdown ring — violet → amber <10s → rose <5s), question card showing prompt (name+desc in identify-formula mode, monospace formula box in identify-name mode), 4 premium option cards with A/B/C/D letter pills that turn into CheckCircle2 (emerald) / XCircle (rose) on reveal, hover lift, auto-advance after 1.5s or manual Next button, timeout counts as wrong, bottom Progress bar with % readout
+  - Results screen: hero card with performance badge (Perfect/Excellent/Good/Keep Practicing — amber/violet/emerald/rose gradient), score X/Y + accuracy %, time-taken summary, 3-stat row (correct/wrong/time), per-question review list (max-h-96 overflow-y-auto) with user-answer vs correct-answer comparison and rose strikethrough on wrong, action buttons (Retry/New Quiz/Open Formula Sheet/Save to My Research), Save uses saveItem({type:"paper", title:"Formula Quiz", summary:`${score}/${total} · ${accuracy}%`, data:{type:"formula-quiz", score, total, accuracy, mode, questions: review}})
+  - Empty state: PremiumEmptyState (violet accent, Sigma icon) shown when filtered pool is empty, with CTA to open Formula Sheet
+  - Helper: buildQuestion pulls correct from filtered pool, distractors from FULL formula list (so single-formula subjects like Algebra/Geometry/Trig still get 3 unique distractors), shuffles options, last-resort degenerate fallback if store has only 1 formula
+  - Timer via useEffect with setTimeout decrementing every 1s, pauses after reveal, fires lockAnswer(null) at 0
+  - Styling: violet/fuchsia gradients throughout, NO indigo/blue primary, emerald/rose answer states, amber/rose urgency, mobile-first responsive (grid sm:grid-cols-2, sm: breakpoints)
+- Wired into AppShell src/components/app-shell.tsx: added import for FormulaQuiz, added nav item {key:"formula-quiz", label:"Formula Quiz", icon:Brain, desc:"Test formula recall"} to "practice" group (after Formula Sheet), added render-switch case, added "formula-quiz" to mobile bottom-nav exclusion filter
+- Lint: clean (0 errors, 0 warnings) after removing one unused eslint-disable directive
+
+Stage Summary:
+- 1 new view added: FormulaQuiz (src/components/views/formula-quiz.tsx) — now 21 views total
+- Timed multiple-choice quiz with 2 modes (identify-formula / identify-name), 4-option questions, countdown ring (violet→amber→rose), auto-advance, full review + stats persistence (localStorage)
+- Save-to-My-Research integration via parent saveItem (type="paper")
+- Empty-state + cross-view navigation back to Formula Sheet
+- Wired into AppShell nav (practice group) + render switch + mobile nav exclusion
+- Total inventory now: ~125 TS/TSX files, 21 views, 17 API routes, 9 stores (formula quiz stats live in localStorage, not a separate store)
+
+---
+Task ID: cron4-feat-2
+Agent: full-stack-developer (Topic Mastery Tracker)
+Task: Build visual dashboard of per-topic mastery with strength/weakness heatmap
+
+Work Log:
+- Read `/home/z/my-project/worklog.md` (rounds 0 → cron-review-3) to absorb conventions: useSyncExternalStore mounted-guard pattern for SSR-safe persisted stores (mirrors exam-calendar.tsx), violet/fuchsia gradients with NO indigo/blue, mobile-first responsive grid layouts, motion-staggered tile entrances, PremiumEmptyState + AnimatedCounter from `@/components/shared/premium-empty-state`. Confirmed shared infra is OFF-LIMITS except explicit additions (ViewKey union + app-shell nav/render/exclusion).
+- Inspected shared infra: `app-store.ts` (ViewKey union, `saved: SavedItem[]` with `data: unknown` — must cast to access nested fields), `flashcard-store.ts` (FlashcardSet.cards[].mastery ∈ {"New","Learning","Reviewing","Mastered"}), `study-store.ts` (StudySession{subject,topic}), `journal-store.ts` (JournalEntry{subject,topic}), `my-research.tsx` (defensive `extractPaperPerf` / `extractMcqPerf` patterns for parsing unknown `data` shapes — paper: `{paper, analysis, answers}`, mcq: `{set:{mcqs}, answers}`), `types/index.ts` (PerformanceAnalysis.topicWise for per-topic accuracy), shadcn/ui (Tooltip wraps TooltipProvider internally, Dialog/Tabs/ScrollArea/Card/Badge/Button all available).
+- Created `/home/z/my-project/src/components/views/topic-mastery.tsx` — single `'use client'` file (~870 lines), named export `TopicMastery`. NO new store (read-only aggregation across existing 4 stores). Architecture:
+  - **Hydration guard**: `useMounted()` via `useSyncExternalStore` (noop subscribe, true(client)/false(server) snapshots) — prevents SSR/CSR mismatch from persisted localStorage stores. Renders skeleton (header + 4 stat cards + heatmap placeholder) while not mounted.
+  - **Topic aggregation** (`aggregateTopics`, `useMemo` over saved+sets+sessions+entries):
+    1. From `saved` items: explanation.data.topic/subject/difficulty, evolution.data.topic/subject/difficulty, paper.data.paper.questions[].topic (cross-referenced with paper.data.analysis.topicWise[] for per-topic accuracy correct/total), mcq.data.set.mcqs[].topic (cross-referenced with mcq.data.answers[id] vs mcq.correctAnswer for accuracy).
+    2. From flashcard sets: every card's topic (subject inferred from set.topic if blank).
+    3. From study sessions: subject+topic.
+    4. From journal entries: subject+topic.
+    Defensive casts `(item.data ?? null) as Record<string, unknown> | null` then narrow with typed accessor casts (mirrors my-research.tsx pattern, lint-safe — `no-explicit-any` is off but kept clean).
+  - **Mastery scoring** per topic (0-100):
+    - **Flashcard score**: MASTERY_SCORE map (Mastered=100, Strong=80, Improving=60, Reviewing=70, Practicing=40, Learning=20, Introduced=10, Weak=10, Not Started=0, New=5). Average across all cards with that topic. Null if no flashcards.
+    - **Question accuracy score**: from saved paper.analysis.topicWise + mcq answers — sum correct/total across all question entries with `hasAccuracy=true`, scaled to 0-100. If questions exist but no attempts → neutral 50. Null if no questions at all.
+    - **Activity boost**: +5 per study session (cap +20) + +3 per journal entry (cap +15) → max 35 raw boost (additive on top of blend).
+    - **Final score** = weighted blend (FC 0.6 + QA 0.4, renormalized if either missing) + activityBoost, clamped 0-100.
+    - **Classification**: Strong (≥70), Moderate (40-69), Weak (<40), Not Started (no activity + no flashcards).
+  - **Layout** (8 sections):
+    1. **Header**: gradient Target icon tile + "Topic Mastery Tracker" title + subtitle "Visualize your strengths and weaknesses across all topics. Powered by your saved research, flashcards, and activity."
+    2. **Summary stats row** (4 cards, AnimatedCounter): Total Topics (violet), Strong Topics (emerald), Weak Topics (rose), Avg Mastery % (amber). Each with sub-label ("X not started", "Mastery ≥ 70%", etc.).
+    3. **Mastery heatmap card**: status filter chips (All / Strong / Moderate / Weak / Not Started — only show chips with count>0). Responsive grid `grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2`. Each HeatmapTile: colored by status (emerald=Strong, amber=Moderate, rose=Weak, zinc=Not Started), shows topic name (line-clamp-2) + mini-badges for # cards / # sessions + big mastery % (or "—" if not started). Hover Tooltip shows subject + status + count summary (🎴/⏱/📔/❓). Click opens Dialog. Legend row below grid (4 colored squares + labels).
+    4. **Strengths & Weaknesses** (2-col grid on lg, stacked on mobile): Top Strengths card (emerald gradient, Award icon, top 5 sorted desc by score from non-Not-Started) + Needs Attention card (rose gradient, AlertCircle icon, bottom 5 active topics). Each row: rank number + topic name + mastery % + animated progress bar + ArrowRight hover indicator. Click → opens Topic Detail Dialog.
+    5. **Subject breakdown card**: div-based bar chart (no recharts — full styling control). Each subject row: colored dot (by avg-mastery status) + name + "X/Y active" badge + avg % + animated progress bar with gradient. Sorted by avg mastery desc. Subjects derived from explanation/evolution/session/journal `subject` fields; topics with no subject bucket as "General".
+    6. **Recommendations card** (violet/fuchsia gradient bg with blur orbs): for each of top-5 weak/not-started topics, renders a row with rank badge + topic name + status badge + recommended path text ("Review prerequisites → practise 5 Level-1 variants → attempt a mini-test") + 3 action buttons: "Map prerequisites" (violet, Network icon → setView("dependency-mapper")), "Practise variants" (fuchsia, Repeat2 icon → setView("question-evolution")), "Attempt mini-test" (amber, ListChecks icon → setView("mcq-generator")). Empty state shows emerald "No weak topics — you're on track" message.
+    7. **Topic Detail Dialog** (Radix Dialog, sm:max-w-2xl): Header (status dot + topic name + subject/status/mastery% in description). Score breakdown pills (Flashcards / Questions / Activity / Final — color-coded). Tabs (Overview / Flashcards / Sessions / Journal / Questions) with counts in labels. Each tab shows ScrollArea (max-h-72) with content cards or PremiumEmptyState-style mini empty with CTA to navigate to relevant view (flashcards/study-timer/progress-journal/mcq-generator). Overview tab includes explanation of how the score is computed.
+  - **Styling (NO indigo/blue)**: Mastery colors strict — emerald (Strong), amber (Moderate), rose (Weak), zinc (Not Started). Violet/fuchsia gradients on header icon, recommendations card bg+CTA buttons, dialog accents. Mobile-first: 2-col heatmap on mobile → 5-col on lg; stats 2-col → 4-col; strengths/weaknesses stacked → 2-col; bar chart full-width always. Touch targets ≥ 44px on action buttons (h-7 with text-[11px]). AnimatePresence removed (unused). AnimateMotion staggered entrances on tiles, bars, recommendation rows.
+  - **Empty state**: when topics.length===0, renders Header + PremiumEmptyState (Target icon, violet accent, CTA "Research an exam" → setView("exam-researcher")).
+- Wired into shared infra (per task spec):
+  - `src/store/app-store.ts`: added `| "topic-mastery"` to ViewKey union (between "achievements" and "api-keys"; note concurrent agent had already added "formula-quiz" — adapted to layer alongside).
+  - `src/components/app-shell.tsx`: added `Target` to lucide-react imports (between `Trophy` and `ChevronDown`); added `import { TopicMastery } from "@/components/views/topic-mastery"`; added nav item `{ key: "topic-mastery", label: "Topic Mastery", icon: Target, desc: "Strength heatmap" }` to the "tracking" NAV_GROUPS items list (between "my-research" and "study-timer"); added `case "topic-mastery": return <TopicMastery />;` to render switch (between "achievements" and "formula-sheet"); added `"topic-mastery"` to the mobile bottom-nav filter exclusion list.
+- Lint: `cd /home/z/my-project && bun run lint 2>&1 | tail -20` → **clean (0 errors, 0 warnings)**. Also verified via `bunx tsc --noEmit` filtered to my files → no TS errors.
+- Did NOT touch shared infra beyond the explicit task-required edits (ViewKey union + app-shell wiring). useAppStore shape, AI provider, types/index.ts, shadcn/ui components, all other stores, all other views unchanged.
+- Wrote work record to `/home/z/my-project/agent-ctx/cron4-feat-2-full-stack-developer.md`.
+
+Stage Summary:
+- `src/components/views/topic-mastery.tsx` (NEW, ~870 lines): premium `'use client'` `TopicMastery` view aggregating topics from saved items (explanation/evolution/paper/mcq with per-topic accuracy from `paper.analysis.topicWise` + `mcq.answers`), flashcard sets (with SM-2 mastery mapping), study sessions (+5 each cap 20), journal entries (+3 each cap 15). Mastery score 0-100 = weighted blend (FC 0.6 + QA 0.4, renormalized if missing) + activityBoost (max 35), clamped. Classification Strong (≥70) / Moderate (40-69) / Weak (<40) / Not Started. UI: header + 4 AnimatedCounter stat cards + status-filterable heatmap grid (emerald/amber/rose/zinc tiles with Tooltip + click-to-open Dialog with Tabs for flashcards/sessions/journal/questions breakdown + score breakdown pills + computation explanation) + 2-col strengths/weaknesses lists with animated mastery bars + subject breakdown div-bar-chart + recommendations card with 3 actionable CTAs per weak topic (dependency-mapper / question-evolution / mcq-generator) + PremiumEmptyState when no topics. NO indigo/blue; violet/fuchsia gradients on actions; mobile-first responsive throughout. Hydration-safe via useSyncExternalStore mounted guard. Read-only — NO new store, no API route.
+- `src/store/app-store.ts`: ViewKey union extended with `| "topic-mastery"`. No other changes.
+- `src/components/app-shell.tsx`: wired TopicMastery — `Target` lucide icon imported, `TopicMastery` view imported, nav item added to "tracking" group (label "Topic Mastery", desc "Strength heatmap"), render-switch case added, "topic-mastery" added to mobile bottom-nav filter exclusion list.
+- All shared infrastructure untouched beyond the explicit task-required wiring. The Topic Mastery Tracker is fully self-contained, reads live from all 4 existing stores, and renders immediately on the "Topic Mastery" nav tab under Tracking & Progress. Lint-clean, TS-clean.
+
+---
+Task ID: cron-review-4
+Agent: Main (orchestrator) — web dev review cron round 4
+Task: Mock data enrichment, 2 new features (Formula Quiz, Topic Mastery), landing polish
+
+Work Log:
+- Reviewed worklog (rounds 1-3 added 9 features: Command Palette, Onboarding, Study Timer, Flashcards, Exam Countdown, Progress Journal, Formula Sheet, Exam Calendar, Achievements)
+- QA via agent-browser: dashboard, formula sheet, calendar, achievements all render. APIs work (exam/research, formulas/search). No critical bugs.
+- QA confirmed: app stable in mock mode, all 17 API routes functional, all 20 views render.
+
+- ENHANCEMENT: Enriched mock Paper Generator (mockPaper) — now detects exam from query:
+  - GATE CS/Mechanical → 2 sections (General Aptitude + Technical) with 10 real questions: verbal antonyms, train speed, series, LIFO stack, binary search complexity, Belady's anomaly, 2NF, HTTPS port, Handshaking Lemma, PDA languages
+  - SSC CGL default → 6 real Quant questions: percentage, profit & loss, ratio, time & work, average, simple interest — all with proper options + step-by-step explanations
+- ENHANCEMENT: Enriched mock MCQ Generator (mockMCQ) — now detects topic from query:
+  - Reasoning → series completion, coding-decoding, blood relations, row positioning
+  - English → synonyms (EPHEMERAL), antonyms (VERBOSE), prepositions, spelling, passive voice
+  - General Awareness → Constitution, Plassey, Article 14, WTO HQ, Nobel Prize
+  - Quant default → percentage, simple interest, ratio-to-percentage, time & work, average
+  All with 4 options + correct answer + explanation + source page.
+
+- NEW FEATURE 1: Formula Quiz (timed recall)
+  - View: src/components/views/formula-quiz.tsx — 3 phases (setup → quiz → results) with AnimatePresence
+  - Setup: 2 modes (Identify Formula / Identify Name), count chips (5/10/15/20), time chips (15s/30s/60s/No timer), subject filters, stats panel (last score/best accuracy/total quizzes persisted to localStorage)
+  - Quiz: SVG circular countdown ring (violet → amber <10s → rose <5s), 4 option cards (A/B/C/D pills), auto-advance, timeout = wrong, progress bar
+  - Results: performance badge (Perfect 100% / Excellent ≥80% / Good ≥60% / Keep Practicing), per-question review, Retry/New/Open Formula Sheet/Save to My Research
+  - Wired into AppShell nav (practice group)
+
+- NEW FEATURE 2: Topic Mastery Tracker
+  - View: src/components/views/topic-mastery.tsx — aggregates ALL 4 stores (saved items, flashcards, study sessions, journal)
+  - Computes per-topic mastery score (0-100): flashcard mastery (60% weight) + question accuracy (40% weight) + activity boost (+5/session cap +20, +3/entry cap +15)
+  - Classification: Strong (≥70), Moderate (40-69), Weak (<40), Not Started
+  - Layout: 4 AnimatedCounter stats → mastery heatmap grid (emerald/amber/rose/zinc tiles w/ Tooltip + click Dialog) → 2-col strengths/weaknesses lists → subject breakdown bar chart → recommendations card with CTAs → PremiumEmptyState
+  - Wired into AppShell nav (tracking group)
+
+- STYLING: Landing page — added "How it works" 3-step section (Give input → AI builds intelligence → Act on it) with gradient circle icons + connector line + numbered badges. Added "What aspirants get" testimonials section (3 feature-quote cards with gradient accents). Applied gradient-glow + card-lift to trust cards.
+- STYLING: New CSS utilities — bg-grid (32px grid pattern) + bg-grid-fade (radial mask fade). Applied as a subtle fixed background pattern on the app shell (opacity 0.25, -z-10).
+
+- Verified via agent-browser E2E:
+  - Dashboard: Achievements + countdown + welcome ✓
+  - Formula Quiz: "Test your formula recall. Timed. Scored." ✓
+  - Topic Mastery: "Visualize your strengths and weaknesses" ✓
+  - Landing: "How it works" + "What aspirants get" + "Give me an exam..." CTA ✓
+  - Screenshots: landing-how (325KB), dashboard, formula-quiz, topic-mastery
+- Verified via curl:
+  - paper/generate GATE CS → 2 sections, real CS questions ✓
+  - mcq/generate English → "synonym of EPHEMERAL" ✓
+- Lint: clean (0 errors, 0 warnings)
+- Final inventory: 125 TS/TSX files, 22 views, 17 API routes, 9 stores
+
+Stage Summary:
+- 2 new features added (Formula Quiz, Topic Mastery) — now 22 views total (was 20).
+- Mock data dramatically enriched: Paper Generator now returns exam-specific real questions (GATE CS technical vs SSC CGL quant), MCQ Generator returns topic-specific real questions (Reasoning/English/GA/Quant).
+- Landing page enhanced with "How it works" 3-step section + testimonials section.
+- Subtle grid background pattern added to app shell for premium feel.
+- Next cron run can focus on: AI assistant integration with new features, more mock data (PDF Lab richer extraction, Dependency Mapper topic-aware), performance optimization, or additional features (e.g. study groups, formula quiz leaderboards, exam pattern analyzer).
