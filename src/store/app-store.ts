@@ -23,6 +23,7 @@ export type ViewKey =
   | "preparation-simulator"
   | "multi-exam-optimizer"
   | "my-research"
+  | "study-timer"
   | "api-keys";
 
 export interface AIStatus {

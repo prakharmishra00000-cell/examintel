@@ -17,39 +17,43 @@ export class MockProvider implements LLMProvider {
   }
 
   async json<T>(system: string, user: string, schemaHint?: string): Promise<T> {
-    // Try to return canned structured data based on the request keywords
+    // Route primarily on the SCHEMA HINT (most reliable signal of expected shape),
+    // falling back to combined keyword search. This avoids mis-routing when a system
+    // prompt for one feature mentions words like "prerequisite" or "dependency".
+    const schema = (schemaHint ?? "").toLowerCase();
     const req = (system + " " + user).toLowerCase();
-    if (req.includes("exam research") || req.includes("exam intelligence report") || req.includes("researchexam")) {
+
+    if (schema.includes("examresearchreport") || req.includes("exam intelligence researcher") || req.includes("examresearch")) {
       return mockExamResearch(user) as unknown as T;
     }
-    if (req.includes("comparison") || req.includes("compare")) {
+    if (schema.includes("examcomparisonreport") || req.includes("exam comparison engine") || req.includes("examcomparison")) {
       return mockExamComparison(user) as unknown as T;
     }
-    if (req.includes("dependency") || req.includes("prerequisite")) {
+    if (schema.includes("dependencymapreport") || req.includes("dependency mapper") || req.includes("prerequisite-dependency mapper")) {
       return mockDependencyMap(user) as unknown as T;
     }
-    if (req.includes("question explainer") || req.includes("explain the question") || req.includes("questionexplanation")) {
+    if (schema.includes("questionexplanation") || req.includes("progressive question explainer") || req.includes("questionexplanation")) {
       return mockQuestionExplanation(user) as unknown as T;
     }
-    if (req.includes("evolution") || req.includes("evolve")) {
+    if (schema.includes("questionevolutionreport") || req.includes("question evolution engine") || req.includes("questionevolution")) {
       return mockQuestionEvolution(user) as unknown as T;
     }
-    if (req.includes("paper") || req.includes("question paper")) {
+    if (schema.includes("generatedpaper") || req.includes("personalized question paper generator")) {
       return mockPaper(user) as unknown as T;
     }
-    if (req.includes("pdf") && req.includes("mcq")) {
+    if (schema.includes("mcqset") || req.includes("grounded mcq generator")) {
       return mockMCQ(user) as unknown as T;
     }
-    if (req.includes("pdf") || req.includes("document")) {
+    if (schema.includes("pdfanalysisreport") || req.includes("pdf exam analyzer")) {
       return mockPdfAnalysis(user) as unknown as T;
     }
-    if (req.includes("preparation") || req.includes("simulator")) {
+    if (schema.includes("preparationplan") || req.includes("adaptive preparation simulator")) {
       return mockPreparation(user) as unknown as T;
     }
-    if (req.includes("multi-exam") || req.includes("optimizer")) {
+    if (schema.includes("multiexamplan") || req.includes("multi-exam preparation optimizer")) {
       return mockMultiExam(user) as unknown as T;
     }
-    if (req.includes("performance") || req.includes("analyse")) {
+    if (schema.includes("performanceanalysis") || req.includes("performance analysis")) {
       return mockPerformance(user) as unknown as T;
     }
     // generic fallback
@@ -64,7 +68,19 @@ export class MockProvider implements LLMProvider {
 
 // ----- canned structured responses (so the UI is fully explorable) -----
 function mockExamResearch(query: string): unknown {
-  const examName = query.replace(/research|exam|the|for|about|me|please|study/gi, " ").trim() || "SSC CGL";
+  // Extract exam name from the user prompt. The prompt is multi-line like:
+  //   Research the competitive exam: "SSC CGL"\n\nProduce a complete...
+  // Try to grab the quoted name first, then fall back to cleaning.
+  let examName = "SSC CGL";
+  const quoted = query.match(/"([^"]+)"/);
+  if (quoted && quoted[1]) {
+    examName = quoted[1].trim();
+  } else {
+    // Try first line after "exam:" or similar
+    const m = query.match(/exam[:\s]+([^\n]+)/i);
+    if (m && m[1]) examName = m[1].replace(/[^\w\s&.-]/g, "").trim().slice(0, 50);
+    if (!examName) examName = "SSC CGL";
+  }
   return {
     basicInfo: {
       name: examName,

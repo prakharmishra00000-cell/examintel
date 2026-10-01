@@ -26,8 +26,10 @@ import {
   Menu,
   Brain,
   Activity,
+  Timer,
 } from "lucide-react";
 import { Landing } from "@/components/views/landing";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { Dashboard } from "@/components/views/dashboard";
 import { ExamResearcher } from "@/components/views/exam-researcher";
 import { ExamComparison } from "@/components/views/exam-comparison";
@@ -40,6 +42,7 @@ import { McqGenerator } from "@/components/views/mcq-generator";
 import { PreparationSimulator } from "@/components/views/preparation-simulator";
 import { MultiExamOptimizer } from "@/components/views/multi-exam-optimizer";
 import { MyResearch } from "@/components/views/my-research";
+import { StudyTimer } from "@/components/views/study-timer";
 import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
@@ -62,6 +65,7 @@ const NAV: NavItem[] = [
   { key: "preparation-simulator", label: "Preparation", icon: CalendarRange, desc: "Adaptive study plan" },
   { key: "multi-exam-optimizer", label: "Multi-Exam", icon: Layers, desc: "Optimize across exams" },
   { key: "my-research", label: "My Research", icon: Save, desc: "Saved intelligence" },
+  { key: "study-timer", label: "Study Timer", icon: Timer, desc: "Pomodoro + streaks" },
   { key: "api-keys", label: "API Keys", icon: KeyRound, desc: "Vercel setup guide" },
 ];
 
@@ -194,6 +198,8 @@ export function AppShell() {
         return <MultiExamOptimizer />;
       case "my-research":
         return <MyResearch />;
+      case "study-timer":
+        return <StudyTimer />;
       case "api-keys":
         return <ApiKeysView />;
       default:
@@ -233,6 +239,20 @@ export function AppShell() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => {
+                // Trigger the command palette via a custom event the palette listens for
+                window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: navigator.platform.includes("Mac") ? false : true }));
+              }}
+              className="gap-1.5 hidden sm:flex border-border/60 text-muted-foreground hover:text-foreground"
+              title="Open command palette (Cmd+K)"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="text-xs">Search</span>
+              <kbd className="ml-1 rounded border border-border bg-muted px-1 py-0.5 text-[9px] font-mono">⌘K</kbd>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setAssistantOpen(true)}
               className="gap-1.5 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 border-violet-500/20 hover:from-violet-500/20 hover:to-fuchsia-500/20"
             >
@@ -253,14 +273,16 @@ export function AppShell() {
         </aside>
 
         <main className="flex-1 min-w-0 overflow-x-hidden">
-          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6">{render()}</div>
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6">
+            <ErrorBoundary key={currentView}>{render()}</ErrorBoundary>
+          </div>
         </main>
       </div>
 
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "api-keys", "study-timer"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (
@@ -277,6 +299,13 @@ export function AppShell() {
               </button>
             );
           })}
+          <button
+            onClick={() => setView("study-timer")}
+            className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1 text-[10px] min-w-[60px] text-muted-foreground"
+          >
+            <Timer className="h-4 w-4" />
+            <span>Timer</span>
+          </button>
           <button
             onClick={() => setView("my-research")}
             className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1 text-[10px] min-w-[60px] text-muted-foreground"

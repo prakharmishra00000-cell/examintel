@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useAppStore } from "@/store/app-store";
 import { AppShell } from "@/components/app-shell";
 import { AIAssistant } from "@/components/ai-assistant";
+import { CommandPalette } from "@/components/command-palette";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { Landing } from "@/components/views/landing";
 
 export default function Home() {
@@ -30,6 +32,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <AppShell />
       <AIAssistant />
+      <CommandPalette />
+      <OnboardingWizard />
     </div>
   );
 }

@@ -147,18 +147,21 @@ export async function getLLM(): Promise<LLMProvider> {
   const { MockProvider } = await import("./mock-provider");
   const mock = new MockProvider();
   const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  // SKIP_ZAI=1 forces mock mode (useful for QA / cron runs where the sandbox
+  // z-ai SDK's large JSON responses cause OOM crashes).
+  const skipZai = process.env.SKIP_ZAI === "1" || process.env.USE_MOCK_AI === "1";
   let primary: LLMProvider;
   if (hasOpenAI) {
     const mod = await import("./openai-provider");
     primary = new mod.OpenAIProvider();
+  } else if (skipZai) {
+    // Explicitly requested mock mode — stable for automated QA.
+    primary = mock;
   } else {
     // sandbox / no-key fallback: z-ai-web-dev-sdk if available, else mock
     try {
       const mod = await import("./zai-provider");
-      const z = new mod.ZAIProvider();
-      // quick health check — if ZAI.create() would fail, treat as unavailable
-      // (we don't actually call it here to avoid latency; the FallbackProvider handles runtime failures)
-      primary = z;
+      primary = new mod.ZAIProvider();
     } catch {
       primary = mock;
     }

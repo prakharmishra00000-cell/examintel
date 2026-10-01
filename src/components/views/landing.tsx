@@ -75,15 +75,17 @@ export function Landing() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-violet-500/10 via-transparent to-transparent" />
-        <div className="absolute -top-24 -right-24 -z-10 h-96 w-96 rounded-full bg-fuchsia-500/20 blur-3xl" />
-        <div className="absolute -top-32 -left-24 -z-10 h-96 w-96 rounded-full bg-violet-500/20 blur-3xl" />
+        <div className="absolute inset-0 -z-10 mesh-gradient opacity-70" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-transparent to-background" />
+        <div className="absolute -top-24 -right-24 -z-10 h-96 w-96 rounded-full bg-fuchsia-500/20 blur-3xl float-slow" />
+        <div className="absolute -top-32 -left-24 -z-10 h-96 w-96 rounded-full bg-violet-500/20 blur-3xl float-slow" style={{ animationDelay: "-4s" }} />
+        <div className="absolute top-1/3 right-1/4 -z-10 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl float-slow" style={{ animationDelay: "-8s" }} />
         <div className="mx-auto max-w-6xl px-4 py-16 sm:py-24 text-center">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-600 dark:text-violet-400"
+            className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-600 dark:text-violet-400 backdrop-blur-sm"
           >
             <Sparkles className="h-3 w-3" />
             AI Exam Intelligence System
@@ -92,9 +94,9 @@ export function Landing() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.05 }}
-            className="mt-5 text-4xl sm:text-6xl font-extrabold tracking-tight bg-gradient-to-br from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent"
+            className="mt-5 text-4xl sm:text-6xl font-extrabold tracking-tight"
           >
-            Your AI Command Center
+            Your <span className="text-gradient-violet">AI Command Center</span>
             <br />
             for Competitive Exams
           </motion.h1>
@@ -130,10 +132,65 @@ export function Landing() {
           >
             {pipeline.map((p, i) => (
               <span key={p} className="inline-flex items-center gap-1.5">
-                <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-medium">{p}</span>
+                <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-medium backdrop-blur-sm">{p}</span>
                 {i < pipeline.length - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground/50" />}
               </span>
             ))}
+          </motion.div>
+
+          {/* Stats bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.35 }}
+            className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto"
+          >
+            {[
+              { value: "13", label: "AI Features" },
+              { value: "5", label: "Evolution Levels" },
+              { value: "6", label: "Prep Phases" },
+              { value: "∞", label: "Practice Variants" },
+            ].map((s, i) => (
+              <div key={s.label} className="glass-card rounded-xl p-4 text-center">
+                <div className="text-2xl sm:text-3xl font-extrabold text-gradient-violet">{s.value}</div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">{s.label}</div>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Floating preview cards */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.45 }}
+            className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto"
+          >
+            {[
+              { title: "Exam Researcher", body: "SSC CGL → structured report: eligibility, 4 stages, syllabus tree, pattern table, career info, preparation sequence.", accent: "from-violet-500/15 to-violet-500/5", icon: Search },
+              { title: "Dependency Map", body: "Calculus → Differentiation → Integration → Differential Equations. Gap detected: Integration.", accent: "from-emerald-500/15 to-emerald-500/5", icon: Network },
+              { title: "Question Evolution", body: "1 PYQ → 5 variants: easier, reframed, multi-concept, difficult, exam-trap. All validated.", accent: "from-fuchsia-500/15 to-fuchsia-500/5", icon: Repeat2 },
+            ].map((c, i) => {
+              const Icon = c.icon;
+              return (
+                <motion.div
+                  key={c.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.5 + i * 0.1 }}
+                  whileHover={{ y: -4 }}
+                  className={`glass-card rounded-xl bg-gradient-to-br ${c.accent} p-4 text-left cursor-pointer`}
+                  onClick={() => setView(i === 0 ? "exam-researcher" : i === 1 ? "dependency-mapper" : "question-evolution")}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-background/60">
+                      <Icon className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-xs font-semibold">{c.title}</span>
+                  </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">{c.body}</p>
+                </motion.div>
+              );
+            })}
           </motion.div>
         </div>
       </section>
