@@ -66,6 +66,9 @@ export class MockProvider implements LLMProvider {
     if (schema.includes("pyqset") || schema.includes("pyqlist") || req.includes("pyq browser") || req.includes("similar-question finder")) {
       return mockPYQs(user) as unknown as T;
     }
+    if (schema.includes("examstrategy") || req.includes("exam-day strategist") || req.includes("exam strategy guide")) {
+      return mockExamStrategy(user) as unknown as T;
+    }
     // generic fallback
     return extractJson<T>(`{"note":"Mock provider active. Configure OPENAI_API_KEY on Vercel for real AI.","prompt":${JSON.stringify(user.slice(0,200))}}`);
   }
@@ -835,77 +838,344 @@ function mockPdfAnalysis(query: string): unknown {
   };
 }
 
-function mockPreparation(_query: string): unknown {
+function mockPreparation(query: string): unknown {
+  // Detect exam + parameters from the query
+  const q = query.toLowerCase();
+  let targetExam = "SSC CGL";
+  // Match "Target exam:" or "targetExam:" (route uses "Target exam:")
+  const examMatch = query.match(/target\s*exam[:\s]+["']?([^"',\n]+)/i) || query.match(/targetExam[:\s]+["']?([^"',\n]+)/i);
+  if (examMatch) targetExam = examMatch[1].trim();
+
+  let hoursPerDay = 4;
+  const hoursMatch = query.match(/available\s*(?:study\s*)?time[:\s]+(\d+)\s*hours?/i) || query.match(/availableHoursPerDay[:\s]+(\d+)/);
+  if (hoursMatch) hoursPerDay = parseInt(hoursMatch[1]);
+
+  let daysPerWeek = 6;
+  const daysMatch = query.match(/(\d+)\s*days?\s*per\s*week/i) || query.match(/daysPerWeek[:\s]+(\d+)/);
+  if (daysMatch) daysPerWeek = parseInt(daysMatch[1]);
+
+  let examDate = "2025-06-15";
+  const dateMatch = query.match(/examDate[:\s]+["']([^"']+)["']/);
+  if (dateMatch) examDate = dateMatch[1];
+
+  let currentLevel = "Intermediate";
+  const levelMatch = query.match(/currentLevel[:\s]+["']?([^"',\n]+)/i);
+  if (levelMatch) currentLevel = levelMatch[1].trim();
+
+  const totalDays = Math.round((new Date(examDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) || 120;
+  const isGATE = targetExam.toLowerCase().includes("gate");
+  const isUPSC = targetExam.toLowerCase().includes("upsc") || targetExam.toLowerCase().includes("cse");
+  const isBanking = targetExam.toLowerCase().includes("bank") || targetExam.toLowerCase().includes("po");
+
+  let phases, dailyPlans, weakSubjects, strongSubjects, revisionSchedule, mockTestSchedule, adaptiveNotes, targetScore;
+
+  if (isGATE) {
+    targetScore = targetExam.toLowerCase().includes("me") ? "60/100 (GATE ME)" : targetExam.toLowerCase().includes("cs") ? "65/100 (GATE CS)" : "55/100 (GATE)";
+    phases = [
+      { phase: 1, name: "Foundation", goal: "Engineering Mathematics + core technical basics", duration: "Weeks 1-4", tasks: ["Linear Algebra + Calculus", "Probability & Statistics", "Core technical fundamentals (DS/Thermo basics)", "General Aptitude daily"] },
+      { phase: 2, name: "Topic Completion", goal: "Complete full technical syllabus", duration: "Weeks 5-10", tasks: ["All technical subjects per GATE syllabus", "Numerical problems practice", "Aptitude + verbal ability", "Subject-wise short notes"] },
+      { phase: 3, name: "Practice", goal: "PYQs + subject tests", duration: "Weeks 11-14", tasks: ["Last 10 years GATE PYQs", "Subject-wise mock tests", "Formula sheet compilation", "Weak topic drill"] },
+      { phase: 4, name: "Revision", goal: "Spaced revision + formula mastery", duration: "Weeks 15-16", tasks: ["Full formula revision", "Short notes daily review", "Aptitude speed practice", "Common mistakes list"] },
+      { phase: 5, name: "Mock Tests", goal: "Full-length GATE simulations", duration: "Weeks 17-18", tasks: ["Daily full mock (3h)", "Detailed analysis (1.5h)", "Targeted repractice", "Time management drill"] },
+      { phase: 6, name: "Final Revision", goal: "High-yield topics + exam strategy", duration: "Week 19", tasks: ["Top 30 formulas", "Last 5 years PYQs", "Virtual calculator practice", "Exam day strategy"] },
+    ];
+    dailyPlans = [
+      { day: 1, date: "Day 1", sessions: [
+        { subject: "Engineering Math", topic: "Linear Algebra", durationHours: Math.round(hoursPerDay*0.4*10)/10, activity: "Concept + problems" },
+        { subject: "Technical", topic: targetExam.toLowerCase().includes("cs") ? "Data Structures" : "Thermodynamics", durationHours: Math.round(hoursPerDay*0.4*10)/10, activity: "Theory + numericals" },
+        { subject: "Aptitude", topic: "Numerical Ability", durationHours: Math.round(hoursPerDay*0.2*10)/10, activity: "Practice set" },
+      ], totalHours: hoursPerDay },
+      { day: 2, date: "Day 2", sessions: [
+        { subject: "Engineering Math", topic: "Calculus", durationHours: Math.round(hoursPerDay*0.35*10)/10, activity: "Practice problems" },
+        { subject: "Technical", topic: targetExam.toLowerCase().includes("cs") ? "Algorithms" : "Fluid Mechanics", durationHours: Math.round(hoursPerDay*0.45*10)/10, activity: "Theory + PYQs" },
+        { subject: "Aptitude", topic: "Verbal Ability", durationHours: Math.round(hoursPerDay*0.2*10)/10, activity: "Reading + vocab" },
+      ], totalHours: hoursPerDay },
+      { day: 3, date: "Day 3", sessions: [
+        { subject: "Engineering Math", topic: "Probability", durationHours: Math.round(hoursPerDay*0.35*10)/10, activity: "Concept + problems" },
+        { subject: "Technical", topic: targetExam.toLowerCase().includes("cs") ? "Operating Systems" : "Heat Transfer", durationHours: Math.round(hoursPerDay*0.45*10)/10, activity: "Theory + numericals" },
+        { subject: "Aptitude", topic: "Logical Reasoning", durationHours: Math.round(hoursPerDay*0.2*10)/10, activity: "Practice set" },
+      ], totalHours: hoursPerDay },
+    ];
+    weakSubjects = targetExam.toLowerCase().includes("cs") ? ["Computer Networks", "TOC", "Compiler Design"] : ["Heat Transfer", "Machine Design"];
+    strongSubjects = ["Engineering Mathematics", "General Aptitude"];
+    revisionSchedule = ["Saturday: weekly formula revision", "Sunday: subject-wise mock test"];
+    mockTestSchedule = ["From week 17: daily full mock (3h)", "Last week: 2 mocks + analysis"];
+    adaptiveNotes = ["Allocate extra time to weak technical subjects", "Practice virtual calculator daily", "GATE rewards accuracy — avoid negative marking", "Engineering Math is high-weightage (15 marks) — master it"];
+  } else if (isUPSC) {
+    targetScore = "Cut-off clearing (Prelims) + 700+ (Mains)";
+    phases = [
+      { phase: 1, name: "Foundation", goal: "NCERT basics + newspaper habit", duration: "Months 1-3", tasks: ["NCERT 6-12 (History, Geo, Polity, Economy)", "Daily newspaper (The Hindu/Indian Express)", "Optional subject selection", "Current affairs notebook"] },
+      { phase: 2, name: "Topic Completion", goal: "Standard books + optional", duration: "Months 4-7", tasks: ["Laxmikanth (Polity)", "Spectrum (Modern History)", "Economic Survey + Budget", "Optional Paper 1 & 2"] },
+      { phase: 3, name: "Practice", goal: "Answer writing + PYQs", duration: "Months 8-10", tasks: ["Daily answer writing (2-3 answers)", "Sectional tests", "PYQ analysis (Prelims + Mains)", "Ethics case studies"] },
+      { phase: 4, name: "Revision", goal: "Spaced revision + current affairs", duration: "Months 11-12", tasks: ["Monthly current affairs compilation", "Revision notes daily", "Prelims-specific revision", "Map work + diagrams"] },
+      { phase: 5, name: "Mock Tests", goal: "Full-length Prelims + Mains simulations", duration: "Month 13", tasks: ["Daily Prelims mock (GS + CSAT)", "Weekly Mains test", "Test analysis + feedback", "Ethics paper practice"] },
+      { phase: 6, name: "Final Revision", goal: "High-yield + prelims strategy", duration: "Month 14 (last 30 days)", tasks: ["Top 100 topics", "Last 5 years PYQs", "Prelims strategy (attempt threshold)", "Stress management + sleep"] },
+    ];
+    dailyPlans = [
+      { day: 1, date: "Day 1", sessions: [
+        { subject: "GS", topic: "Polity (Laxmikanth)", durationHours: Math.round(hoursPerDay*0.35*10)/10, activity: "Reading + notes" },
+        { subject: "Current Affairs", topic: "Newspaper", durationHours: Math.round(hoursPerDay*0.2*10)/10, activity: "The Hindu + notes" },
+        { subject: "Optional", topic: "Optional Paper 1", durationHours: Math.round(hoursPerDay*0.35*10)/10, activity: "Reading" },
+        { subject: "Answer Writing", topic: "Practice", durationHours: Math.round(hoursPerDay*0.1*10)/10, activity: "2 answers" },
+      ], totalHours: hoursPerDay },
+      { day: 2, date: "Day 2", sessions: [
+        { subject: "GS", topic: "Modern History (Spectrum)", durationHours: Math.round(hoursPerDay*0.35*10)/10, activity: "Reading + notes" },
+        { subject: "Current Affairs", topic: "Current Affairs", durationHours: Math.round(hoursPerDay*0.2*10)/10, activity: "Compilation" },
+        { subject: "Optional", topic: "Optional Paper 2", durationHours: Math.round(hoursPerDay*0.35*10)/10, activity: "Reading" },
+        { subject: "Ethics", topic: "Case Study", durationHours: Math.round(hoursPerDay*0.1*10)/10, activity: "1 case study" },
+      ], totalHours: hoursPerDay },
+    ];
+    weakSubjects = ["Economy", "Environment & Ecology", "Internal Security"];
+    strongSubjects = ["Polity", "Modern History"];
+    revisionSchedule = ["Saturday: weekly revision + test", "Sunday: essay practice + optional"];
+    mockTestSchedule = ["Month 13: daily Prelims mock", "Last month: 2 mocks/day + analysis"];
+    adaptiveNotes = ["Answer writing is key — write daily even if brief", "Current affairs: focus on analysis not just facts", "Optional carries 500 marks — invest heavily", "Prelims is qualifying — don't over-invest"];
+  } else if (isBanking) {
+    targetScore = "Cut-off clearing (Prelims) + Interview ready";
+    phases = [
+      { phase: 1, name: "Foundation", goal: "Speed math + English basics", duration: "Weeks 1-3", tasks: ["Simplification + approximation (20/day)", "Number series basics", "Reading comprehension daily", "Grammar rules"] },
+      { phase: 2, name: "Topic Completion", goal: "Full syllabus + banking awareness", duration: "Weeks 4-7", tasks: ["All arithmetic topics", "Puzzles + seating arrangement", "Banking awareness (6 months)", "Computer awareness"] },
+      { phase: 3, name: "Practice", goal: "Sectional + speed building", duration: "Weeks 8-10", tasks: ["Sectional tests (Quant/Reasoning/English)", "Speed math drill (simplification in 5 min)", "Banking awareness revision", "DI practice"] },
+      { phase: 4, name: "Revision", goal: "Spaced revision + formula", duration: "Weeks 11-12", tasks: ["All formulas revision", "Banking GK revision", "Common mistakes list", "Speed benchmark"] },
+      { phase: 5, name: "Mock Tests", goal: "Full-length + analysis", duration: "Weeks 13-14", tasks: ["Daily full mock (Prelims)", "Mock analysis (1h)", "Weak section drill", "Interview prep (for PO)"] },
+      { phase: 6, name: "Final Revision", goal: "Speed + accuracy + strategy", duration: "Week 15", tasks: ["Simplification speed test", "Puzzle set daily", "Last 5 years PYQs", "Exam strategy (attempt order)"] },
+    ];
+    dailyPlans = [
+      { day: 1, date: "Day 1", sessions: [
+        { subject: "Quant", topic: "Simplification", durationHours: Math.round(hoursPerDay*0.35*10)/10, activity: "20 questions speed drill" },
+        { subject: "Reasoning", topic: "Puzzles", durationHours: Math.round(hoursPerDay*0.3*10)/10, activity: "2 puzzles" },
+        { subject: "English", topic: "Reading Comprehension", durationHours: Math.round(hoursPerDay*0.2*10)/10, activity: "2 passages" },
+        { subject: "Banking Awareness", topic: "Current Affairs", durationHours: Math.round(hoursPerDay*0.15*10)/10, activity: "6 months revision" },
+      ], totalHours: hoursPerDay },
+      { day: 2, date: "Day 2", sessions: [
+        { subject: "Quant", topic: "Data Interpretation", durationHours: Math.round(hoursPerDay*0.35*10)/10, activity: "5 DI sets" },
+        { subject: "Reasoning", topic: "Syllogism + Coding", durationHours: Math.round(hoursPerDay*0.3*10)/10, activity: "Practice set" },
+        { subject: "English", topic: "Cloze Test", durationHours: Math.round(hoursPerDay*0.2*10)/10, activity: "Practice" },
+        { subject: "Computer", topic: "Computer Awareness", durationHours: Math.round(hoursPerDay*0.15*10)/10, activity: "Notes + MCQs" },
+      ], totalHours: hoursPerDay },
+    ];
+    weakSubjects = ["Banking Awareness", "Descriptive English (PO)", "Computer Awareness"];
+    strongSubjects = ["Simplification", "Number Series"];
+    revisionSchedule = ["Saturday: weekly revision + sectional test", "Sunday: full mock + analysis"];
+    mockTestSchedule = ["From week 13: daily Prelims mock", "Last week: 2 mocks/day"];
+    adaptiveNotes = ["Speed is everything — practice simplification daily", "Banking awareness = 6 months current affairs + static banking", "Puzzles carry high weightage — master them", "PO includes descriptive — practice essay + letter weekly"];
+  } else {
+    // SSC CGL default
+    targetScore = "180/200 (Tier 1)";
+    phases = [
+      { phase: 1, name: "Foundation", goal: "Concept building", duration: "Weeks 1-4", tasks: ["Arithmetic basics", "Reasoning patterns", "English grammar", "Daily vocab (30 words)"] },
+      { phase: 2, name: "Topic Completion", goal: "Complete syllabus", duration: "Weeks 5-8", tasks: ["Advanced arithmetic + Geometry", "All reasoning types", "Reading comprehension + cloze test", "Static GK + current affairs"] },
+      { phase: 3, name: "Practice", goal: "Topic-wise + PYQs", duration: "Weeks 9-12", tasks: ["Sectional tests", "Last 5 years PYQs", "Speed practice (100Q/60min)", "Error log maintenance"] },
+      { phase: 4, name: "Revision", goal: "Spaced revision", duration: "Weeks 13-14", tasks: ["Weak topics revision", "Formula sheet revision", "Current affairs (last 6 months)", "Common mistakes review"] },
+      { phase: 5, name: "Mock Tests", goal: "Full-length simulations", duration: "Weeks 15-16", tasks: ["Daily full mock (Tier 1)", "Mock analysis (1.5h)", "Targeted repractice", "Time management drill"] },
+      { phase: 6, name: "Final Revision", goal: "High-priority + weak areas", duration: "Week 17", tasks: ["Top 20 topics", "Last 3 years PYQs", "Exam strategy (attempt order)", "Stress management"] },
+    ];
+    dailyPlans = [
+      { day: 1, date: "Day 1", sessions: [
+        { subject: "Quant", topic: "Percentage", durationHours: Math.round(hoursPerDay*0.5*10)/10, activity: "Concept + practice" },
+        { subject: "Reasoning", topic: "Series", durationHours: Math.round(hoursPerDay*0.25*10)/10, activity: "Practice set" },
+        { subject: "English", topic: "Vocab", durationHours: Math.round(hoursPerDay*0.25*10)/10, activity: "Daily 30 words" },
+      ], totalHours: hoursPerDay },
+      { day: 2, date: "Day 2", sessions: [
+        { subject: "Quant", topic: "Profit & Loss", durationHours: Math.round(hoursPerDay*0.5*10)/10, activity: "Concept + practice" },
+        { subject: "Reasoning", topic: "Coding-Decoding", durationHours: Math.round(hoursPerDay*0.25*10)/10, activity: "Practice set" },
+        { subject: "GA", topic: "Current Affairs", durationHours: Math.round(hoursPerDay*0.25*10)/10, activity: "Last 6 months" },
+      ], totalHours: hoursPerDay },
+      { day: 3, date: "Day 3", sessions: [
+        { subject: "Quant", topic: "Ratio", durationHours: Math.round(hoursPerDay*0.5*10)/10, activity: "Practice" },
+        { subject: "English", topic: "RC", durationHours: Math.round(hoursPerDay*0.25*10)/10, activity: "2 passages" },
+        { subject: "Reasoning", topic: "Puzzles", durationHours: Math.round(hoursPerDay*0.25*10)/10, activity: "Practice" },
+      ], totalHours: hoursPerDay },
+    ];
+    weakSubjects = ["General Awareness", "Advanced Maths"];
+    strongSubjects = ["Arithmetic", "Reasoning"];
+    revisionSchedule = ["Saturday: weekly revision", "Sunday: full mock"];
+    mockTestSchedule = ["From week 13: daily full mock", "Last week: 2 mocks/day"];
+    adaptiveNotes = ["If a topic is consistently weak, allocate 1 extra hour for 3 days", "After each mock, spend 1.5 hours on analysis", "SSC CGL rewards speed — practice 100Q in 60min", "Current affairs: focus on last 6 months before exam"];
+  }
+
   return {
-    targetExam: "SSC CGL",
-    examDate: "2025-06-15",
-    currentLevel: "Intermediate",
-    availableHoursPerDay: 4,
-    daysPerWeek: 6,
-    targetScore: "180/200 (Tier 1)",
-    totalDays: 120,
-    phases: [
-      { phase: 1, name: "Foundation", goal: "Concept building", duration: "Weeks 1-4", tasks: ["Arithmetic basics", "Reasoning patterns", "English grammar"] },
-      { phase: 2, name: "Topic Completion", goal: "Complete syllabus", duration: "Weeks 5-8", tasks: ["Advanced arithmetic", "All reasoning types", "Reading comprehension"] },
-      { phase: 3, name: "Practice", goal: "Topic-wise + PYQs", duration: "Weeks 9-12", tasks: ["Sectional tests", "PYQ sets", "Speed practice"] },
-      { phase: 4, name: "Revision", goal: "Spaced revision", duration: "Weeks 13-14", tasks: ["Weak topics", "Formula revision", "Current affairs"] },
-      { phase: 5, name: "Mock Tests", goal: "Full-length simulations", duration: "Weeks 15-16", tasks: ["Daily full mocks", "Analysis", "Targeted repractice"] },
-      { phase: 6, name: "Final Revision", goal: "High-priority + weak areas", duration: "Week 17", tasks: ["Top 20 topics", "Last 3 years PYQs", "Exam strategy"] },
-    ],
-    dailyPlans: [
-      { day: 1, date: "Day 1", sessions: [{ subject: "Quant", topic: "Percentage", durationHours: 2, activity: "Concept + practice" }, { subject: "Reasoning", topic: "Series", durationHours: 1, activity: "Practice set" }, { subject: "English", topic: "Vocab", durationHours: 1, activity: "Daily 30 words" }], totalHours: 4 },
-      { day: 2, date: "Day 2", sessions: [{ subject: "Quant", topic: "Profit & Loss", durationHours: 2, activity: "Concept + practice" }, { subject: "Reasoning", topic: "Coding-Decoding", durationHours: 1, activity: "Practice set" }, { subject: "GA", topic: "Current Affairs", durationHours: 1, activity: "Last 6 months" }], totalHours: 4 },
-      { day: 3, date: "Day 3", sessions: [{ subject: "Quant", topic: "Ratio", durationHours: 2, activity: "Practice" }, { subject: "English", topic: "RC", durationHours: 1, activity: "2 passages" }, { subject: "Reasoning", topic: "Puzzles", durationHours: 1, activity: "Practice" }], totalHours: 4 },
-    ],
-    weakSubjects: ["General Awareness", "Advanced Maths"],
-    strongSubjects: ["Arithmetic", "Reasoning"],
-    revisionSchedule: ["Saturday: weekly revision", "Sunday: full mock"],
-    mockTestSchedule: ["From week 13: daily full mock", "Last week: 2 mocks/day"],
-    adaptiveNotes: ["If a topic is consistently weak, allocate 1 extra hour for 3 days", "After each mock, spend 1.5 hours on analysis"],
+    targetExam,
+    examDate,
+    currentLevel,
+    availableHoursPerDay: hoursPerDay,
+    daysPerWeek,
+    targetScore,
+    totalDays,
+    phases,
+    dailyPlans,
+    weakSubjects,
+    strongSubjects,
+    revisionSchedule,
+    mockTestSchedule,
+    adaptiveNotes,
     sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
     generatedAt: new Date().toISOString(),
   };
 }
 
-function mockMultiExam(_query: string): unknown {
-  return {
-    exams: [
+function mockMultiExam(query: string): unknown {
+  // Extract exam names + priorities from the query
+  let exams: { name: string; priority: "Primary" | "Secondary" | "Backup"; date?: string; targetScore?: string }[] = [];
+  const examsMatch = query.match(/\[([\s\S]*?)\]/);
+  if (examsMatch) {
+    try {
+      const parsed = JSON.parse("[" + examsMatch[1] + "]");
+      if (Array.isArray(parsed)) {
+        exams = parsed.map((e: any, i: number) => ({
+          name: String(e?.name ?? e ?? `Exam ${i+1}`),
+          priority: (["Primary", "Secondary", "Backup"] as const)[Math.min(i, 2)] ?? "Backup",
+          date: e?.date,
+          targetScore: e?.targetScore,
+        }));
+      }
+    } catch {}
+  }
+  if (exams.length < 2) {
+    exams = [
       { name: "SSC CGL", priority: "Primary", date: "2025-06-15", targetScore: "180/200" },
       { name: "Banking PO", priority: "Secondary", date: "2025-07-20", targetScore: "Cut-off clearing" },
       { name: "Railway NTPC", priority: "Backup", date: "2025-09-01", targetScore: "Qualifying" },
-    ],
-    availableHours: 5,
+    ];
+  }
+
+  let availableHours = 5;
+  const hoursMatch = query.match(/availableHours[:\s]+(\d+)/);
+  if (hoursMatch) availableHours = parseInt(hoursMatch[1]);
+
+  const examNames = exams.map((e) => e.name.toLowerCase());
+  const isGATE = examNames.some((n) => n.includes("gate"));
+  const isUPSC = examNames.some((n) => n.includes("upsc") || n.includes("cse"));
+  const isSSC = examNames.some((n) => n.includes("ssc") || n.includes("cgl") || n.includes("chsl") || n.includes("ntpc"));
+  const isBanking = examNames.some((n) => n.includes("bank") || n.includes("po") || n.includes("ibps"));
+
+  let common, examSpecific, combinedStrategy, conflicts, weeklySchedule;
+
+  if (isGATE && isUPSC) {
+    // GATE + UPSC combo
+    common = ["General Aptitude", "Verbal Ability", "Logical Reasoning", "Numerical Ability"];
+    examSpecific = exams.map((e) => ({
+      exam: e.name,
+      priority: e.priority,
+      topics: e.name.toLowerCase().includes("gate")
+        ? ["Engineering Mathematics", "Technical subjects (DS/Algorithms/OS)", "Digital Logic", "Computer Networks"]
+        : ["NCERT (History, Geography, Polity)", "Current Affairs", "Optional subject", "Ethics & Case Studies"],
+    }));
+    combinedStrategy = {
+      commonPreparation: ["Aptitude (overlaps GATE GA + UPSC CSAT)", "Verbal ability + reading comprehension", "Numerical ability + basic math"],
+      examSpecificPreparation: exams.map((e) => ({
+        exam: e.name,
+        topics: e.name.toLowerCase().includes("gate") ? ["Engineering Math", "Technical subjects", "Virtual calculator practice"] : ["NCERTs", "Standard books", "Answer writing practice", "Optional"],
+      })),
+      priority: ["Shared aptitude foundation", "GATE technical focus (primary)", "UPSC NCERT + current affairs (ongoing)", "Answer writing for UPSC"],
+      dependencies: ["Basic math before numerical ability", "NCERT before standard books", "Aptitude before technical"],
+      scheduling: ["Morning: Aptitude (shared)", "Afternoon: GATE technical", "Evening: UPSC current affairs + reading"],
+      revision: ["Weekend: subject revision (GATE technical + UPSC optional)", "Spaced repetition for formulas + facts"],
+      mockTesting: ["GATE mocks: 3 months before GATE", "UPSC tests: weekly answer writing + monthly sectional"],
+    };
+    conflicts = [
+      { type: "Different scope", description: "GATE is technical + objective; UPSC is general studies + subjective", reason: "Different preparation approaches" },
+      { type: "Different timeline", description: "GATE is 3h single paper; UPSC is 2-stage (Prelims + Mains) spanning months", reason: "Schedule conflicts during overlap" },
+      { type: "Different marking", description: "GATE has 1/3 + 2/3 negative; UPSC has 1/3 negative (Prelims only)", reason: "Different risk strategies" },
+    ];
+  } else if (isSSC && isBanking) {
+    // SSC + Banking combo (most common)
+    common = ["Quantitative Aptitude", "Reasoning Ability", "English Language", "General Awareness"];
+    examSpecific = exams.map((e) => ({
+      exam: e.name,
+      priority: e.priority,
+      topics: e.name.toLowerCase().includes("bank")
+        ? ["Banking Awareness", "Computer Awareness", "Descriptive English (PO)"]
+        : e.name.toLowerCase().includes("ntpc") || e.name.toLowerCase().includes("railway")
+        ? ["Railway Awareness", "Typing Test"]
+        : ["Advanced Maths", "Static GK", "Statistics (JSO)"],
+    }));
+    combinedStrategy = {
+      commonPreparation: ["Arithmetic (Percentage, Ratio, P&L, Time-Speed-Distance)", "Reasoning (Series, Coding, Puzzles)", "English (Grammar, Vocab, RC)", "Current Affairs (last 6 months)"],
+      examSpecificPreparation: exams.map((e) => ({
+        exam: e.name,
+        topics: e.name.toLowerCase().includes("bank") ? ["Banking/Financial Awareness", "Computer Awareness", "Descriptive writing"] : e.name.toLowerCase().includes("ntpc") ? ["Railway-specific GK", "Typing practice"] : ["Advanced Math (Geometry, Trigo)", "Static GK (History, Polity, Geography)"],
+      })),
+      priority: ["Shared arithmetic foundation (6 weeks)", "Reasoning + English (parallel)", "Then exam-specific specialization", "Mock tests closer to each exam"],
+      dependencies: ["Percentage before P&L before Discount", "Ratio before Mixture before Alligation", "Series before complex puzzles"],
+      scheduling: ["Morning: Quant (common — 2h)", "Afternoon: Reasoning (common — 1.5h)", "Evening: English + exam-specific GA (1.5h)"],
+      revision: ["Saturday: weekly revision + sectional test", "Sunday: full mock (rotating exam) + analysis"],
+      mockTesting: ["SSC mocks: from week 10", "Banking mocks: from week 11", "Railway mocks: from week 13"],
+    };
+    conflicts = [
+      { type: "Different speed requirements", description: "SSC = 100Q/60min (1.5 min/Q); Banking = 100Q/60min but DI-heavy", reason: "Pace strategies differ" },
+      { type: "Different negative marking", description: "SSC -0.5/Q; Banking -0.25/Q; Railway -0.33/Q", reason: "Risk tolerance differs — SSC penalizes more" },
+      { type: "Different awareness focus", description: "SSC = static GK; Banking = banking/financial; Railway = rail-specific", reason: "Requires separate GA prep — cannot share" },
+      { type: "Typing requirement", description: "CHSL + NTPC require typing; SSC CGL + Banking PO don't", reason: "Typing practice takes time from core prep" },
+    ];
+  } else if (isGATE) {
+    // Multiple GATE papers
+    common = ["Engineering Mathematics", "General Aptitude", "Numerical Ability", "Verbal Ability"];
+    examSpecific = exams.map((e) => ({
+      exam: e.name,
+      priority: e.priority,
+      topics: e.name.toLowerCase().includes("cs") ? ["Data Structures", "Algorithms", "OS", "DBMS", "Networks"]
+        : e.name.toLowerCase().includes("me") ? ["Thermodynamics", "Fluid Mechanics", "Manufacturing", "SOM"]
+        : e.name.toLowerCase().includes("ce") ? ["Structural", "Geotechnical", "Hydrology"]
+        : e.name.toLowerCase().includes("ec") ? ["Signals & Systems", "Analog Circuits", "Electromagnetics"]
+        : ["Technical subjects"],
+    }));
+    combinedStrategy = {
+      commonPreparation: ["Engineering Mathematics (Linear Algebra, Calculus, Probability)", "General Aptitude (15 marks common)", "Numerical + Verbal Ability"],
+      examSpecificPreparation: exams.map((e) => ({ exam: e.name, topics: ["Discipline-specific technical subjects", "PYQs for that discipline"] })),
+      priority: ["Shared Engineering Math (high weightage)", "Shared Aptitude", "Primary exam technical focus", "Secondary exam technical (maintenance)"],
+      dependencies: ["Math before numerical problems", "Aptitude before technical"],
+      scheduling: ["Morning: Engineering Math (shared)", "Afternoon: Primary technical", "Evening: Secondary technical or aptitude"],
+      revision: ["Weekend: formula revision + subject tests", "Spaced repetition for technical concepts"],
+      mockTesting: ["Primary exam mocks: weekly", "Secondary: monthly"],
+    };
+    conflicts = [
+      { type: "Different technical syllabi", description: "Each GATE paper tests different technical domains", reason: "Minimal technical overlap" },
+      { type: "Shared Math + Aptitude", description: "15 marks Engineering Math + 15 marks Aptitude common", reason: "Can be shared efficiently" },
+    ];
+  } else {
+    // Generic default (SSC family)
+    common = ["Quantitative Aptitude", "Reasoning", "English", "General Awareness"];
+    examSpecific = exams.map((e, i) => ({
+      exam: e.name,
+      priority: e.priority,
+      topics: i === 0 ? ["Advanced topics", "Exam-specific GK"] : i === 1 ? ["Specific awareness", "Additional subjects"] : ["Backup exam topics"],
+    }));
+    combinedStrategy = {
+      commonPreparation: ["Arithmetic basics", "Reasoning patterns", "English grammar + vocab", "Current affairs"],
+      examSpecificPreparation: exams.map((e) => ({ exam: e.name, topics: ["Exam-specific topics"] })),
+      priority: ["Shared foundations", "Primary exam focus", "Secondary maintenance", "Backup mock-only"],
+      dependencies: ["Percentage before P&L", "Tables before quick arithmetic"],
+      scheduling: ["Morning: Quant", "Afternoon: Reasoning", "Evening: English + GA"],
+      revision: ["Weekend revision + mocks"],
+      mockTesting: ["Primary mocks weekly", "Secondary monthly"],
+    };
+    conflicts = [
+      { type: "Different patterns", description: "Each exam has different pattern", reason: "Requires separate mock practice" },
+      { type: "Different marking", description: "Negative marking varies", reason: "Different risk strategies" },
+    ];
+  }
+
+  weeklySchedule = [
+    { day: "Monday", sessions: ["Quant (common): 2h", "Reasoning: 1.5h", "English: 1.5h"] },
+    { day: "Tuesday", sessions: [exams[0] ? `Quant (${exams[0].name}-specific): 1.5h` : "Quant (specific): 1.5h", exams[1] ? `${exams[1].name} prep: 1.5h` : "Exam 2 prep: 1.5h", "Reasoning: 2h"] },
+    { day: "Wednesday", sessions: ["Quant (common): 2h", "English: 1.5h", "General prep: 1.5h"] },
+    { day: "Thursday", sessions: [exams[1] ? `Quant (${exams[1].name}-specific): 1.5h` : "Quant (specific): 1.5h", "Computer/Specific: 1.5h", "Reasoning: 2h"] },
+    { day: "Friday", sessions: ["Quant (common): 2h", "Current Affairs: 1.5h", exams[2] ? `${exams[2].name} GK: 1.5h` : "Backup prep: 1.5h"] },
+    { day: "Saturday", sessions: ["Weekly revision: 2.5h", "Sectional test: 2.5h"] },
+    { day: "Sunday", sessions: ["Full mock (rotating): 2h", "Analysis: 1.5h", "Weak topic: 1.5h"] },
+  ];
+
+  return {
+    exams,
+    availableHours,
     knowledgeMap: {
-      common: ["Quantitative Aptitude", "Reasoning", "English", "General Awareness"],
-      examSpecific: [
-        { exam: "SSC CGL", priority: "Primary", topics: ["Static GK", "Advanced Maths", "Statistics (JSO)"] },
-        { exam: "Banking PO", priority: "Secondary", topics: ["Banking Awareness", "Descriptive English", "Computer Awareness"] },
-        { exam: "Railway NTPC", priority: "Backup", topics: ["Railway Awareness", "Typing"] },
-      ],
+      common,
+      examSpecific,
     },
-    combinedStrategy: {
-      commonPreparation: ["Percentage", "Ratio", "Series", "Comprehension", "Current Affairs"],
-      examSpecificPreparation: [{ exam: "CGL", topics: ["Statistics", "Static GK"] }, { exam: "Banking", topics: ["Banking Awareness", "Computer"] }, { exam: "Railway", topics: ["Railway GK", "Typing"] }],
-      priority: ["Shared foundations first", "Then CGL-specific", "Banking maintenance", "Railway mock-only before exam"],
-      dependencies: ["Percentage before Profit & Loss", "Tables before quick arithmetic"],
-      scheduling: ["Morning: Quant (common)", "Afternoon: Reasoning (common)", "Evening: Exam-specific"],
-      revision: ["Weekend shared revision", "Topic-level spaced repetition"],
-      mockTesting: ["CGL mocks closer to June", "Banking mocks in July", "Railway mocks in August"],
-    },
-    conflicts: [
-      { type: "Different patterns", description: "CGL 100q/60min vs Banking 100q/60min vs NTPC variable", reason: "Speed requirements differ" },
-      { type: "Different marking", description: "CGL -0.5, Banking -0.25, NTPC -0.33", reason: "Different risk tolerance per exam" },
-      { type: "Different awareness", description: "CGL static GK, Banking banking-awareness, Railway rail-awareness", reason: "Requires separate prep" },
-    ],
-    weeklySchedule: [
-      { day: "Monday", sessions: ["Quant (common): 2h", "Reasoning: 1.5h", "English: 1.5h"] },
-      { day: "Tuesday", sessions: ["Quant (CGL-adv): 1.5h", "Banking Awareness: 1.5h", "Reasoning: 2h"] },
-      { day: "Wednesday", sessions: ["Quant (common): 2h", "English: 1.5h", "Static GK: 1.5h"] },
-      { day: "Thursday", sessions: ["Quant (Banking): 1.5h", "Computer Awareness: 1.5h", "Reasoning: 2h"] },
-      { day: "Friday", sessions: ["Quant (common): 2h", "Current Affairs: 1.5h", "Railway GK: 1.5h"] },
-      { day: "Saturday", sessions: ["Weekly revision: 2.5h", "Sectional test: 2.5h"] },
-      { day: "Sunday", sessions: ["Full mock (rotating): 2h", "Analysis: 1.5h", "Weak topic: 1.5h"] },
-    ],
+    combinedStrategy,
+    conflicts,
+    weeklySchedule,
     sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
     generatedAt: new Date().toISOString(),
   };
@@ -1624,3 +1894,413 @@ function mockPYQs(query: string): unknown {
 
   return { pyqs };
 }
+
+// ============================================================
+// Exam Strategy Guide — exam-aware canned strategies.
+// Returns an ExamStrategy object tailored to the exam family:
+//   - SSC family  → Speed-focused     (60min/100Q, easy Quant first, skip hard GA)
+//   - GATE family → Accuracy-focused  (180min/65Q, aptitude first, skip if unsure)
+//   - UPSC family → Elimination-based (120min/100Q, eliminate 2 first, selective guess)
+//   - Banking      → Mixed             (60min/100Q, simplification first, 80+ attempts)
+//   - default      → Mixed             (balanced generic strategy)
+// Falls back to user-supplied sections/duration/questions when present.
+// ============================================================
+function mockExamStrategy(query: string): unknown {
+  // Parse user-supplied exam structure from the prompt body.
+  let examName = "SSC CGL";
+  const examMatch = query.match(/Exam name:\s*([^\n]+)/i);
+  if (examMatch && examMatch[1]) {
+    const v = examMatch[1].trim();
+    if (v) examName = v;
+  }
+  // Also respect quoted form as fallback.
+  if (examName === "SSC CGL") {
+    const quoted = query.match(/"([^"]+)"/);
+    if (quoted && quoted[1]) examName = quoted[1].trim();
+  }
+
+  let totalQuestions = 100;
+  const tqMatch = query.match(/Total questions:\s*(\d+)/i);
+  if (tqMatch && tqMatch[1]) {
+    const v = parseInt(tqMatch[1], 10);
+    if (Number.isFinite(v) && v > 0) totalQuestions = v;
+  }
+  let durationMinutes = 60;
+  const dmMatch = query.match(/Duration:\s*(\d+)\s*minutes/i);
+  if (dmMatch && dmMatch[1]) {
+    const v = parseInt(dmMatch[1], 10);
+    if (Number.isFinite(v) && v > 0) durationMinutes = v;
+  }
+  let negativeMarking = "0.5 per incorrect";
+  const nmMatch = query.match(/Negative marking:\s*([^\n]+)/i);
+  if (nmMatch && nmMatch[1]) {
+    const v = nmMatch[1].trim();
+    if (v && v.toLowerCase() !== "not specified") negativeMarking = v;
+  }
+  let sections: string[] = [];
+  const secMatch = query.match(/Sections:\s*([^\n]+)/i);
+  if (secMatch && secMatch[1]) {
+    const v = secMatch[1].trim();
+    if (v && v.toLowerCase() !== "not specified — infer from exam name") {
+      sections = v.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+    }
+  }
+
+  const name = examName.toLowerCase();
+
+  // ---------- SSC family → Speed-focused ----------
+  if (name.includes("ssc") || name.includes("cgl") || name.includes("chsl") || name.includes("ntpc") || name.includes("rrb") || name.includes("cet")) {
+    const defaultSections = ["General Intelligence & Reasoning", "General Awareness", "Quantitative Aptitude", "English Comprehension"];
+    const secs = sections.length >= 2 ? sections : defaultSections;
+    const tq = totalQuestions || 100;
+    const dur = durationMinutes || 60;
+    const perQ = Math.max(1, Math.round(tq / Math.max(1, secs.length)));
+    const revisionBuffer = Math.max(5, Math.round(dur * 0.08));
+    const remaining = Math.max(0, dur - revisionBuffer);
+    // Weight: Reasoning & Quant get more time than GA / English.
+    const weightMap: Record<string, number> = {
+      reasoning: 1.4, aptitude: 1.4, quant: 1.4, maths: 1.3,
+      awareness: 0.8, "general awareness": 0.8, ga: 0.8,
+      english: 0.9, comprehension: 0.9,
+    };
+    const weights = secs.map((s) => {
+      const k = s.toLowerCase();
+      let w = 1;
+      for (const key of Object.keys(weightMap)) if (k.includes(key)) w = weightMap[key]!;
+      return w;
+    });
+    const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
+    const timeAllocation = secs.map((s, i) => {
+      const minutes = Math.max(3, Math.round((remaining * weights[i]!) / weightSum));
+      const k = s.toLowerCase();
+      const priority: "High" | "Medium" | "Low" =
+        k.includes("quant") || k.includes("reasoning") || k.includes("aptitude") ? "High"
+        : k.includes("english") || k.includes("comprehension") ? "Medium"
+        : "Low";
+      return { section: s, minutes, questions: perQ, priority };
+    });
+    return {
+      examName,
+      examType: "Speed-focused",
+      timeAllocation,
+      attemptOrder: [
+        { step: 1, action: "Sweep easy Quantitative Aptitude questions first", rationale: "Quant carries the highest ROI per minute in SSC; lock in 15–18 quick wins in 12 minutes to build momentum and bank marks." },
+        { step: 2, action: "Move to General Intelligence & Reasoning", rationale: "Reasoning is pattern-based and high-accuracy once seen; do all 25 (or your section quota) in a single focused pass." },
+        { step: 3, action: "Skim General Awareness — attempt only confident ones", rationale: "GA is binary (know it or don't); spending 60+ seconds rarely helps. Cap each GA question at 20 seconds." },
+        { step: 4, action: "Tackle English Comprehension", rationale: "Vocabulary and error-spotting are fast wins; save the longest Reading Comprehension passage for the end of this section." },
+        { step: 5, action: "Use revision buffer on flagged Quant/Reasoning questions", rationale: "Revisit only questions you marked 'come back later' — never start a fresh hard question with under 3 minutes left." },
+      ],
+      negativeMarkingStrategy: [
+        { situation: "Question you can solve in under 45 seconds", action: "Guess", threshold: "Always attempt — even a 50% guess has positive expected value at SSC's 0.5 neg on 2-mark questions" },
+        { situation: "Down to two options after eliminating two clearly wrong ones", action: "Guess", threshold: "50%+ confidence — expected value is positive with 0.5 neg" },
+        { situation: "No idea after 30 seconds in General Awareness", action: "Skip", threshold: "Below 40% confidence — net negative expected value; don't bubble" },
+        { situation: "Quant question eating 90+ seconds with no clear path", action: "Skip", threshold: "Time-sunk > 90s with no answer — skip and revisit in revision buffer" },
+        { situation: "Question with no obvious elimination", action: "Eliminate then guess", threshold: "If you can eliminate 1 of 4 options → guess; otherwise skip" },
+      ],
+      revisionBuffer,
+      sectionTargets: secs.map((s) => {
+        const k = s.toLowerCase();
+        const safe = Math.max(10, Math.round(perQ * 0.75));
+        const acc = k.includes("quant") || k.includes("reasoning") || k.includes("aptitude") ? 90
+          : k.includes("english") || k.includes("comprehension") ? 85
+          : 70;
+        return { section: s, safeAttempts: safe, targetAccuracy: acc };
+      }),
+      lastFiveMinutes: [
+        { action: "Bubble-check sweep", detail: "Re-verify every bubbled answer against the question number — confirm no row-shift errors (the #1 SSC mistake)." },
+        { action: "Revisit flagged questions only", detail: "Open ONLY questions you marked 'come back later'. Do not start any new question." },
+        { action: "Final guess pass on 50/50 questions", detail: "Any question where you've eliminated 2 options → guess now. Skip pure wild guesses (negative marking)." },
+        { action: "Submit safeguard", detail: "Save the response sheet 60 seconds before the deadline. Do not wait for the auto-submit at 00:00." },
+      ],
+      commonMistakes: [
+        { mistake: "Sinking 4+ minutes into one tough Quant question", prevention: "Hard-cap any question at 90 seconds. If no answer, mark, skip, revisit in buffer." },
+        { mistake: "Bubbling the wrong row on the OMR sheet", prevention: "After every 5 questions, glance at the question number on the sheet vs the booklet — catch row shifts early." },
+        { mistake: "Skipping easy GA to attempt hard Reasoning puzzles", prevention: "GA is 25 free marks if you know it — never skip a confident GA answer just because Reasoning is unfinished." },
+        { mistake: "Wild-guessing every unanswered question in the last 30 seconds", prevention: "Only guess when you can eliminate ≥1 option. Wild guesses lose marks at 0.5 negative." },
+        { mistake: "Forgetting the sectional cut-off exists", prevention: "Each of the 4 sections has its own cut-off — attempt at least 15 questions per section, even your weakest." },
+        { mistake: "Spending 8 minutes on one Reading Comprehension passage", prevention: "Cap RC passages at 5 minutes each. Skim questions first, then target-scan the passage." },
+      ],
+      sources: [
+        { type: "USER_INPUT", label: "Exam structure provided by user" },
+        { type: "AI_ANALYSIS", label: "Speed-focused exam-day strategy synthesis" },
+        { type: "OFFICIAL", label: "SSC exam-day pattern reference" },
+      ],
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  // ---------- GATE family → Accuracy-focused ----------
+  if (name.includes("gate") || name.includes("jee") || name.includes("cat")) {
+    const defaultSections = ["General Aptitude", "Technical (Subject)", "Engineering Mathematics"];
+    const secs = sections.length >= 2 ? sections : defaultSections;
+    const tq = totalQuestions || 65;
+    const dur = durationMinutes || 180;
+    const perQ = Math.max(1, Math.round(tq / Math.max(1, secs.length)));
+    const revisionBuffer = Math.max(15, Math.round(dur * 0.1));
+    const remaining = Math.max(0, dur - revisionBuffer);
+    // Weight: Technical >> Mathematics > Aptitude (for GATE); distribute accordingly.
+    const weights = secs.map((s) => {
+      const k = s.toLowerCase();
+      if (k.includes("aptitude")) return 0.85;
+      if (k.includes("math")) return 1.0;
+      if (k.includes("technical") || k.includes("subject")) return 1.4;
+      return 1.0;
+    });
+    const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
+    const timeAllocation = secs.map((s, i) => {
+      const minutes = Math.max(8, Math.round((remaining * weights[i]!) / weightSum));
+      const k = s.toLowerCase();
+      const priority: "High" | "Medium" | "Low" =
+        k.includes("technical") || k.includes("subject") ? "High"
+        : k.includes("math") ? "Medium"
+        : "Medium";
+      return { section: s, minutes, questions: perQ, priority };
+    });
+    return {
+      examName,
+      examType: "Accuracy-focused",
+      timeAllocation,
+      attemptOrder: [
+        { step: 1, action: "Start with General Aptitude (15 marks)", rationale: "Aptitude is the highest-accuracy, lowest-time section — bank 12–14 marks in 20 minutes and free up your mental RAM for technicals." },
+        { step: 2, action: "Move to Engineering Mathematics next", rationale: "Maths questions are formula-driven and predictable — nail them while your mind is still fresh and not yet fatigued by hard technicals." },
+        { step: 3, action: "Begin Technical section with your strongest subject area", rationale: "GATE papers mix subjects inside the technical block; scanning for your strongest topic first locks in marks and builds confidence." },
+        { step: 4, action: "Second pass: attempt medium-confidence technicals", rationale: "After the easy sweep, revisit questions you skipped — many will look solvable now that the panic of the first pass has cleared." },
+        { step: 5, action: "Use the 20-minute revision buffer on flagged numerical-answer questions", rationale: "Numerical Answer Type (NAT) questions have NO negative marking — these are pure upside; revisit and recompute carefully." },
+      ],
+      negativeMarkingStrategy: [
+        { situation: "Confident in the answer (worked it through, verified units)", action: "Guess", threshold: "Always attempt — expected value is strongly positive" },
+        { situation: "Numerical Answer Type (NAT) question — no options", action: "Guess", threshold: "Always attempt — zero negative marking; even a rough estimate is positive expected value" },
+        { situation: "Multiple-choice with no idea after 2 minutes", action: "Skip", threshold: "Below 40% confidence — GATE's 1/3 + 2/3 negative makes blind guessing net-negative" },
+        { situation: "Down to two options after elimination", action: "Eliminate then guess", threshold: "60%+ confidence AND you've spent >90 seconds on the question — otherwise skip" },
+        { situation: "Question on your weakest topic", action: "Skip", threshold: "If you can't solve in 60 seconds on a known-weak topic — skip immediately, don't fight it" },
+      ],
+      revisionBuffer,
+      sectionTargets: secs.map((s) => {
+        const k = s.toLowerCase();
+        const safe = Math.max(3, Math.round(perQ * 0.55));
+        const acc = k.includes("aptitude") ? 90
+          : k.includes("math") ? 85
+          : 80;
+        return { section: s, safeAttempts: safe, targetAccuracy: acc };
+      }),
+      lastFiveMinutes: [
+        { action: "Final NAT sweep", detail: "Re-attempt every Numerical Answer Type question — even rough estimates are pure upside (zero negative marking). Don't leave any blank." },
+        { action: "Verify numerical units and rounding", detail: "Re-check that your NAT answers are in the right units (m vs cm, kPa vs Pa) and rounded as the question specifies." },
+        { action: "Skip flagged non-NAT questions you're still unsure of", detail: "Under 5 minutes left, only commit to MCQs you're 70%+ confident in — leave the rest blank." },
+        { action: "Submit safeguard", detail: "Save and submit 60 seconds before deadline. GATE's auto-submit at 00:00 is reliable but verify your responses are saved." },
+      ],
+      commonMistakes: [
+        { mistake: "Treating GATE like a speed test", prevention: "65 questions in 180 min = ~2.8 min/Q average. You're meant to SOLVE, not sprint. Quality over quantity — 40 well-attempted beats 60 wild guesses." },
+        { mistake: "Leaving NAT questions blank", prevention: "NAT questions have ZERO negative marking. Always bubble a reasonable numerical estimate — never submit blank." },
+        { mistake: "Guessing MCQs you're not sure about", prevention: "GATE's 1/3 (1-mark) and 2/3 (2-mark) negative is brutal. Only commit to an MCQ if you're 60%+ confident." },
+        { mistake: "Spending 10+ minutes on one tough technical", prevention: "Hard-cap any single question at 4 minutes. Flag, skip, revisit in buffer — never sink the whole paper's time into one 2-mark question." },
+        { mistake: "Ignoring the virtual calculator's limitations", prevention: "Practice with the on-screen calculator before the exam. It has no graphing, limited memory — re-derive complex expressions on rough sheets." },
+        { mistake: "Forgetting formula sheet isn't provided", prevention: "Memorize key formulae (transistor I-V, thermodynamics cycles, beam equations) — GATE provides NO formula sheet. A formula gap = a lost question." },
+      ],
+      sources: [
+        { type: "USER_INPUT", label: "Exam structure provided by user" },
+        { type: "AI_ANALYSIS", label: "Accuracy-focused exam-day strategy synthesis" },
+        { type: "OFFICIAL", label: "GATE exam-day pattern reference" },
+      ],
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  // ---------- UPSC family → Elimination-based ----------
+  if (name.includes("upsc") || name.includes("psc") || name.includes("civil")) {
+    const defaultSections = ["General Studies Paper I"];
+    const secs = sections.length >= 1 ? sections : defaultSections;
+    const tq = totalQuestions || 100;
+    const dur = durationMinutes || 120;
+    const perQ = Math.max(1, Math.round(tq / Math.max(1, secs.length)));
+    const revisionBuffer = Math.max(10, Math.round(dur * 0.1));
+    const remaining = Math.max(0, dur - revisionBuffer);
+    const weights = secs.map(() => 1);
+    const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
+    const timeAllocation = secs.map((s, i) => {
+      const minutes = Math.max(20, Math.round((remaining * weights[i]!) / weightSum));
+      return { section: s, minutes, questions: perQ, priority: "High" as const };
+    });
+    return {
+      examName,
+      examType: "Elimination-based",
+      timeAllocation,
+      attemptOrder: [
+        { step: 1, action: "First sweep: skim ALL 100 questions in 25 minutes", rationale: "UPSC rewards question selection. Skim once, mark each question Easy / Medium / Hard / Skip — never commit on the first pass." },
+        { step: 2, action: "Second pass: attempt all 'Easy' questions", rationale: "Bank the 40–50 questions you're confident about first. This is your safe base — typically the cut-off hovers around 50% of these." },
+        { step: 3, action: "Third pass: attempt 'Medium' questions with elimination", rationale: "For each Medium question, eliminate 2 of 4 options systematically — then guess between the remaining 2. Expected value is positive at 1/3 negative." },
+        { step: 4, action: "Skip every 'Hard' question unless you can eliminate 2 options", rationale: "Hard questions with no clear elimination are net-negative — skip them. UPSC's marking punishes wild guesses." },
+        { step: 5, action: "Final 10 minutes: bubble verification + revisit 50/50s", rationale: "Use revision buffer to verify every bubble and to take a final swing at 2-option questions you left pending." },
+      ],
+      negativeMarkingStrategy: [
+        { situation: "You can eliminate 2 of 4 options confidently", action: "Eliminate then guess", threshold: "Always attempt — 50% expected hit rate beats 1/3 negative" },
+        { situation: "You can eliminate 1 of 4 options", action: "Eliminate then guess", threshold: "If remaining confidence is 50%+ (you have a hunch between 2 of the 3) → guess; otherwise skip" },
+        { situation: "No elimination possible, pure wild guess", action: "Skip", threshold: "Below 33% confidence — net negative expected value at 1/3 negative marking" },
+        { situation: "Question on your strong topic (Polity / History / etc.)", action: "Guess", threshold: "Topic mastery ≥ 70% confidence — attempt even if you can't formally eliminate" },
+        { situation: "Question on current affairs you don't recall", action: "Skip", threshold: "If you can't recall the fact within 30 seconds — skip; current-affairs guessing has low hit rate" },
+      ],
+      revisionBuffer,
+      sectionTargets: secs.map((s) => {
+        const safe = Math.max(20, Math.round(perQ * 0.5));
+        return { section: s, safeAttempts: safe, targetAccuracy: 85 };
+      }),
+      lastFiveMinutes: [
+        { action: "Bubble verification sweep", detail: "Cross-check every bubbled answer against the question number. UPSC's #1 mistake is row-shifting on the OMR." },
+        { action: "Final 50/50 attempt", detail: "Any question where you've eliminated 2 options but didn't bubble — guess now. 50% hit rate beats 1/3 negative." },
+        { action: "Do NOT start new questions", detail: "Under 5 minutes, do not attempt any fresh Hard question. The expected value is negative." },
+        { action: "Submit safeguard", detail: "Save and submit 60 seconds early. UPSC's auto-submit is reliable but verify your responses are saved." },
+      ],
+      commonMistakes: [
+        { mistake: "Attempting all 100 questions like a school exam", prevention: "UPSC is elimination-based. Attempt 55–70 questions with high accuracy — quality over quantity. Wild-guessing the last 20 is a cut-off killer." },
+        { mistake: "Wild-guessing after eliminating only 1 option", prevention: "Only guess when you can eliminate 2 of 4 options. A 33% guess at 1/3 negative is break-even — wait for a better edge." },
+        { mistake: "Spending 3 minutes on a single current-affairs question", prevention: "Cap any single question at 90 seconds on the first sweep. If you don't know the fact, you don't know it — skip and revisit." },
+        { mistake: "Ignoring CSAT (Paper II) cut-off", prevention: "Paper II is qualifying at 33% — but many toppers fail it. Spend the last week on CSAT comprehension + basic math; don't assume it's easy." },
+        { mistake: "Marking the wrong bubble row on the OMR sheet", prevention: "Verify the question number on the OMR every 10 questions. A row-shift error can tank an entire section." },
+        { mistake: "Leaving 50/50 questions blank in the last 2 minutes", prevention: "If you've eliminated 2 options, ALWAYS bubble a guess in the final minutes. 50% hit rate at 1/3 negative = positive expected value." },
+      ],
+      sources: [
+        { type: "USER_INPUT", label: "Exam structure provided by user" },
+        { type: "AI_ANALYSIS", label: "Elimination-based exam-day strategy synthesis" },
+        { type: "OFFICIAL", label: "UPSC CSE exam-day pattern reference" },
+      ],
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  // ---------- Banking family → Mixed (speed + accuracy) ----------
+  if (name.includes("bank") || name.includes("ibps") || name.includes("sbi") || name.includes("rbi") || name.includes("po") || name.includes("clerk")) {
+    const defaultSections = ["Reasoning Ability", "Quantitative Aptitude", "English Language", "Computer Awareness", "Banking Awareness"];
+    const secs = sections.length >= 2 ? sections : defaultSections;
+    const tq = totalQuestions || 100;
+    const dur = durationMinutes || 60;
+    const perQ = Math.max(1, Math.round(tq / Math.max(1, secs.length)));
+    const revisionBuffer = Math.max(5, Math.round(dur * 0.08));
+    const remaining = Math.max(0, dur - revisionBuffer);
+    const weights = secs.map((s) => {
+      const k = s.toLowerCase();
+      if (k.includes("reasoning")) return 1.3;
+      if (k.includes("quant") || k.includes("aptitude")) return 1.2;
+      if (k.includes("english")) return 1.0;
+      if (k.includes("computer") || k.includes("banking") || k.includes("awareness")) return 0.7;
+      return 1.0;
+    });
+    const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
+    const timeAllocation = secs.map((s, i) => {
+      const minutes = Math.max(3, Math.round((remaining * weights[i]!) / weightSum));
+      const k = s.toLowerCase();
+      const priority: "High" | "Medium" | "Low" =
+        k.includes("reasoning") || k.includes("quant") || k.includes("aptitude") ? "High"
+        : k.includes("english") ? "Medium"
+        : "Low";
+      return { section: s, minutes, questions: perQ, priority };
+    });
+    return {
+      examName,
+      examType: "Mixed",
+      timeAllocation,
+      attemptOrder: [
+        { step: 1, action: "Start Quantitative Aptitude with Simplification/Approximation + Number Series", rationale: "These are the fastest, highest-accuracy questions in Banking exams. Lock in 12–15 quick wins in 8 minutes to build buffer." },
+        { step: 2, action: "Move to Reasoning — Inequalities, Syllogisms, Coding-Decoding first", rationale: "Single-question reasoning sets are quick wins; save the 5-question puzzle sets (Puzzles, Seating) for the end." },
+        { step: 3, action: "English Language — Error Spotting, Cloze Test, Para Jumbles", rationale: "Banking English is pattern-based; bang out 15 quick ones in 10 minutes. Save Reading Comprehension for last." },
+        { step: 4, action: "Computer Awareness + Banking Awareness (only if time allows)", rationale: "These are 0.5-min binary questions — attempt the confident ones; do NOT spend >30 seconds each. Skip the unfamiliar." },
+        { step: 5, action: "Return to Reasoning Puzzles with remaining time + buffer", rationale: "Puzzles are time-sinks but high-accuracy once cracked. With 8+ minutes of buffer, attempt 1 puzzle you can fully crack." },
+      ],
+      negativeMarkingStrategy: [
+        { situation: "Simplification / Number Series question you can solve in 60 seconds", action: "Guess", threshold: "Always attempt — high accuracy, positive expected value" },
+        { situation: "Down to 2 options after elimination", action: "Eliminate then guess", threshold: "60%+ confidence — at 0.25 negative, even 50% guesses are mildly positive" },
+        { situation: "Puzzle set you've worked for 5+ minutes with no breakthrough", action: "Skip", threshold: "Time-sunk > 5 min with no full solve — skip the whole set, don't bubble partial" },
+        { situation: "Banking Awareness question you don't recognize", action: "Skip", threshold: "Below 40% confidence — skip; current-affairs guessing is low-hit" },
+        { situation: "Question with 4 unknown options", action: "Skip", threshold: "Pure wild guess — net negative at 0.25 neg. Only guess if you can eliminate 1+" },
+      ],
+      revisionBuffer,
+      sectionTargets: secs.map((s) => {
+        const k = s.toLowerCase();
+        const safe = Math.max(10, Math.round(perQ * 0.75));
+        const acc = k.includes("reasoning") || k.includes("quant") ? 85
+          : k.includes("english") ? 80
+          : 75;
+        return { section: s, safeAttempts: safe, targetAccuracy: acc };
+      }),
+      lastFiveMinutes: [
+        { action: "Bubble-check sweep", detail: "Verify every bubble against the question number. Banking exams' #1 mistake is row-shift on the OMR." },
+        { action: "Target 80+ total attempts", detail: "Banking cut-offs reward volume. If you've attempted < 70, take final 50/50 guesses to push toward 80." },
+        { action: "Final guess pass on 2-option questions", detail: "Any question where you've eliminated 2 options → guess now. 50% hit rate beats 0.25 negative." },
+        { action: "Submit safeguard", detail: "Save the test 60 seconds before the deadline. Verify responses are saved." },
+      ],
+      commonMistakes: [
+        { mistake: "Starting with Reasoning Puzzles", prevention: "Puzzles are time-sinks with high variance. Always start with Simplification/Series/Inequalities — bank the easy marks first." },
+        { mistake: "Spending 8 minutes on one puzzle and not finishing", prevention: "Hard-cap any 5-question puzzle at 6 minutes. If you can't crack it by then, skip the whole set; don't bubble partial answers." },
+        { mistake: "Ignoring sectional timing in Prelims", prevention: "Banking Prelims has 20-min sectional limits. Don't overshoot the Quant window trying to perfect it — move on the moment the timer pings." },
+        { mistake: "Wild-guessing Banking Awareness in the last 30 seconds", prevention: "Only guess on questions you recognize. Random guessing on unfamiliar schemes/rates is net-negative at 0.25." },
+        { mistake: "Reading the entire Reading Comprehension passage", prevention: "Skim questions FIRST, then target-scan the passage. Saves 4–5 minutes per passage vs reading end-to-end." },
+        { mistake: "Forgetting to attempt at least 80 questions", prevention: "Banking cut-offs reward volume. Aim for 80+ attempts with 80%+ accuracy — fewer attempts means cut-off miss even at high accuracy." },
+      ],
+      sources: [
+        { type: "USER_INPUT", label: "Exam structure provided by user" },
+        { type: "AI_ANALYSIS", label: "Mixed (speed+accuracy) exam-day strategy synthesis" },
+        { type: "OFFICIAL", label: "Banking exam-day pattern reference" },
+      ],
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  // ---------- Default → Mixed (generic balanced strategy) ----------
+  const secs = sections.length >= 2 ? sections : ["Section A", "Section B", "Section C"];
+  const tq = totalQuestions || 100;
+  const dur = durationMinutes || 120;
+  const perQ = Math.max(1, Math.round(tq / secs.length));
+  const revisionBuffer = Math.max(8, Math.round(dur * 0.08));
+  const remaining = Math.max(0, dur - revisionBuffer);
+  const perSectionMinutes = Math.max(5, Math.round(remaining / secs.length));
+  const timeAllocation = secs.map((s, i) => ({
+    section: s,
+    minutes: perSectionMinutes,
+    questions: perQ,
+    priority: (i === 0 ? "High" : i === 1 ? "Medium" : "Low") as "High" | "Medium" | "Low",
+  }));
+  return {
+    examName,
+    examType: "Mixed",
+    timeAllocation,
+    attemptOrder: [
+      { step: 1, action: "First sweep: skim all questions in 15 minutes", rationale: "Mark each as Easy / Medium / Hard — never commit on the first pass." },
+      { step: 2, action: "Second pass: attempt all Easy questions", rationale: "Bank the confident marks first to build buffer and momentum." },
+      { step: 3, action: "Third pass: attempt Medium questions with elimination", rationale: "Eliminate wrong options systematically before guessing — positive expected value at most negative rates." },
+      { step: 4, action: "Skip Hard questions unless you can eliminate down to 2 options", rationale: "Hard questions with no clear elimination are net-negative — don't bubble wild guesses." },
+      { step: 5, action: "Use the revision buffer to revisit flagged 50/50 questions", rationale: "Re-attempt only the questions you marked 'come back later' — never start fresh hard questions." },
+    ],
+    negativeMarkingStrategy: [
+      { situation: "Question you can solve confidently in under 60 seconds", action: "Guess", threshold: "Always attempt — positive expected value" },
+      { situation: "Down to 2 options after elimination", action: "Eliminate then guess", threshold: "50%+ confidence — at most negative rates this is positive expected value" },
+      { situation: "No elimination possible", action: "Skip", threshold: "Below 33% confidence — net negative; don't bubble" },
+      { situation: "Question on your weakest topic", action: "Skip", threshold: "If you can't crack it in 90 seconds on a weak topic — skip immediately" },
+      { situation: "Last-minute guess on 50/50 questions", action: "Eliminate then guess", threshold: "Final 2 minutes — always bubble 2-option guesses; expected value is positive" },
+    ],
+    revisionBuffer,
+    sectionTargets: secs.map((s) => ({
+      section: s,
+      safeAttempts: Math.max(8, Math.round(perQ * 0.65)),
+      targetAccuracy: 82,
+    })),
+    lastFiveMinutes: [
+      { action: "Bubble verification sweep", detail: "Cross-check every bubble against the question number — verify no row-shift errors." },
+      { action: "Final 50/50 guess pass", detail: "Bubble any 2-option elimination guess. 50% hit rate is positive expected value." },
+      { action: "Do NOT start new Hard questions", detail: "Under 5 minutes left, do not attempt any fresh Hard question." },
+      { action: "Submit safeguard", detail: "Save and submit 60 seconds before deadline. Verify your responses are saved." },
+    ],
+    commonMistakes: [
+      { mistake: "Spending 5+ minutes on a single tough question", prevention: "Hard-cap any question at 2 minutes. If no answer, mark, skip, revisit in buffer." },
+      { mistake: "Wild-guessing all unanswered questions in the last 30 seconds", prevention: "Only guess when you can eliminate ≥1 option. Pure wild guesses are net-negative." },
+      { mistake: "Bubbling the wrong row on the OMR", prevention: "Verify question number on the sheet every 5 questions — catch row shifts early." },
+      { mistake: "Ignoring the revision buffer", prevention: "Reserve 8–10% of total time at the top for revision. Don't blow through the buffer mid-paper." },
+      { mistake: "Reading the entire Reading Comprehension passage", prevention: "Skim questions FIRST, then target-scan the passage — saves 4–5 minutes per passage." },
+      { mistake: "Forgetting to verify the test is submitted", prevention: "Don't wait for auto-submit. Save and submit explicitly 60 seconds early." },
+    ],
+    sources: [
+      { type: "USER_INPUT", label: "Exam structure provided by user" },
+      { type: "AI_ANALYSIS", label: "Mixed exam-day strategy synthesis" },
+    ],
+    generatedAt: new Date().toISOString(),
+  };
+}
+

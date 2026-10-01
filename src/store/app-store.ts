@@ -33,12 +33,14 @@ export type ViewKey =
   | "achievements"
   | "topic-mastery"
   | "analytics"
+  | "study-stats"
   | "revision-scheduler"
   | "pyq-browser"
   | "concept-map"
   | "study-notes"
   | "daily-goals"
   | "quick-practice"
+  | "exam-strategy"
   | "api-keys";
 
 export interface AIStatus {

@@ -26,6 +26,7 @@ import {
   Filter,
   Hash,
   BookOpen,
+  ArrowUpDown,
 } from "lucide-react";
 
 import { useAppStore } from "@/store/app-store";
@@ -460,6 +461,7 @@ export function MyResearch() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterValue>("all");
   const [inspector, setInspector] = useState<SavedItem | null>(null);
+  const [sortBy, setSortBy] = useState<"recent" | "title" | "type">("recent");
 
   // Per-type counts (for stats row)
   const counts = useMemo(() => {
@@ -470,10 +472,10 @@ export function MyResearch() {
     return map;
   }, [saved]);
 
-  // Filtered items
+  // Filtered + sorted items
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return saved.filter((s) => {
+    const items = saved.filter((s) => {
       if (filter !== "all" && s.type !== filter) return false;
       if (!q) return true;
       return (
@@ -482,7 +484,17 @@ export function MyResearch() {
         TYPE_LABEL[s.type].toLowerCase().includes(q)
       );
     });
-  }, [saved, search, filter]);
+    // Sort
+    const sorted = [...items];
+    if (sortBy === "recent") {
+      sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else if (sortBy === "title") {
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortBy === "type") {
+      sorted.sort((a, b) => a.type.localeCompare(b.type) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    return sorted;
+  }, [saved, search, filter, sortBy]);
 
   // Performance aggregation across all saved paper/mcq items
   const perf = useMemo(() => aggregatePerf(saved), [saved]);
@@ -627,9 +639,27 @@ export function MyResearch() {
                 className="pl-9"
               />
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 px-2">
-              <Filter className="h-3.5 w-3.5" />
-              Filter
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+                <ArrowUpDown className="h-3.5 w-3.5" />
+                Sort
+              </div>
+              <div className="flex rounded-md border border-border overflow-hidden">
+                {([["recent","Recent"],["title","A-Z"],["type","Type"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setSortBy(val)}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-medium transition-colors",
+                      sortBy === val
+                        ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
+                        : "text-muted-foreground hover:bg-accent"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

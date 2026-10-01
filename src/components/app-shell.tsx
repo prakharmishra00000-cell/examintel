@@ -63,11 +63,13 @@ import { FormulaQuiz } from "@/components/views/formula-quiz";
 import { TopicMastery } from "@/components/views/topic-mastery";
 import { RevisionScheduler } from "@/components/views/revision-scheduler";
 import { Analytics } from "@/components/views/analytics";
+import { StudyStats } from "@/components/views/study-stats";
 import { PYQBrowser } from "@/components/views/pyq-browser";
 import { ConceptMap } from "@/components/views/concept-map";
 import { StudyNotes } from "@/components/views/study-notes";
 import { QuickPractice } from "@/components/views/quick-practice";
 import { DailyGoals } from "@/components/views/daily-goals";
+import { ExamStrategy } from "@/components/views/exam-strategy";
 import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
@@ -126,6 +128,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "preparation-simulator", label: "Preparation", icon: CalendarRange, desc: "Adaptive study plan" },
       { key: "multi-exam-optimizer", label: "Multi-Exam", icon: Layers, desc: "Optimize across exams" },
+      { key: "exam-strategy", label: "Exam Strategy", icon: Target, desc: "Exam-day tactics" },
       { key: "exam-calendar", label: "Calendar", icon: Calendar, desc: "Dates & milestones" },
       { key: "revision-scheduler", label: "Revision", icon: RotateCcw, desc: "Daily spaced repetition" },
     ],
@@ -139,6 +142,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "concept-map", label: "Concept Map", icon: Network, desc: "Visual knowledge graph" },
       { key: "topic-mastery", label: "Topic Mastery", icon: Target, desc: "Strength heatmap" },
       { key: "analytics", label: "Analytics", icon: BarChart3, desc: "Performance insights" },
+      { key: "study-stats", label: "Study Stats", icon: Activity, desc: "Habit deep dive" },
       { key: "study-timer", label: "Study Timer", icon: Timer, desc: "Pomodoro + streaks" },
       { key: "progress-journal", label: "Journal", icon: BookOpen, desc: "Daily study log" },
       { key: "study-notes", label: "Notes", icon: BookOpen, desc: "Markdown study notes" },
@@ -359,6 +363,8 @@ export function AppShell() {
         return <TopicMastery />;
       case "analytics":
         return <Analytics />;
+      case "study-stats":
+        return <StudyStats />;
       case "revision-scheduler":
         return <RevisionScheduler />;
       case "formula-sheet":
@@ -375,6 +381,8 @@ export function AppShell() {
         return <DailyGoals />;
       case "quick-practice":
         return <QuickPractice />;
+      case "exam-strategy":
+        return <ExamStrategy />;
       case "api-keys":
         return <ApiKeysView />;
       default:
@@ -461,7 +469,7 @@ export function AppShell() {
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "revision-scheduler", "exam-pattern-analyzer", "pyq-browser", "concept-map", "study-notes", "daily-goals", "quick-practice"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "study-stats", "revision-scheduler", "exam-pattern-analyzer", "pyq-browser", "concept-map", "study-notes", "daily-goals", "quick-practice", "exam-strategy"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (

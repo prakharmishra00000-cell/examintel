@@ -1,0 +1,1346 @@
+     1→"use client";
+     2→
+     3→import { useMemo, useState, useSyncExternalStore } from "react";
+     4→import { motion } from "framer-motion";
+     5→import {
+     6→  BarChart3,
+     7→  TrendingUp,
+     8→  Clock,
+     9→  Target,
+    10→  Award,
+    11→  Brain,
+    12→  Calendar,
+    13→  Activity,
+    14→  PieChart,
+    15→  Lightbulb,
+    16→  Sparkles,
+    17→  ChevronUp,
+    18→  ChevronDown,
+    19→  Timer,
+    20→  Trophy,
+    21→  ListChecks,
+    22→} from "lucide-react";
+    23→import {
+    24→  Card,
+    25→  CardContent,
+    26→  CardHeader,
+    27→  CardTitle,
+    28→  CardDescription,
+    29→} from "@/components/ui/card";
+    30→import { Badge } from "@/components/ui/badge";
+    31→import { cn } from "@/lib/utils";
+    32→import {
+    33→  LineChart,
+    34→  Line,
+    35→  BarChart,
+    36→  Bar,
+    37→  PieChart as RPieChart,
+    38→  Pie,
+    39→  Cell,
+    40→  XAxis,
+    41→  YAxis,
+    42→  CartesianGrid,
+    43→  Tooltip,
+    44→  ResponsiveContainer,
+    45→  AreaChart,
+    46→  Area,
+    47→  RadarChart,
+    48→  PolarGrid,
+    49→  PolarAngleAxis,
+    50→  PolarRadiusAxis,
+    51→  Radar,
+    52→} from "recharts";
+    53→import { useAppStore } from "@/store/app-store";
+    54→import { useStudyStore, type StudySession } from "@/store/study-store";
+    55→import { useJournalStore, type JournalEntry } from "@/store/journal-store";
+    56→import { useFlashcardStore } from "@/store/flashcard-store";
+    57→import {
+    58→  useAchievementsStore,
+    59→  useRecomputeAchievements,
+    60→} from "@/store/achievements-store";
+    61→import { AnimatedCounter, PremiumEmptyState } from "@/components/shared/premium-empty-state";
+    62→import type { SavedItem, PerformanceAnalysis } from "@/types";
+    63→
+    64→// ============================================================
+    65→// Analytics Dashboard
+    66→// Unified insights across all exam-preparation activity:
+    67→//   - Performance trends over time
+    68→//   - Time distribution by subject (study + journal)
+    69→//   - Daily study activity (stacked sessions vs journal)
+    70→//   - Mastery by subject (radar)
+    71→//   - Difficulty-wise performance (grouped bars)
+    72→//   - Topic performance table (sortable)
+    73→//   - Auto-generated text insights
+    74→// Reads live from 5 stores (app/study/journal/flashcard/achievements).
+    75→// Read-only — no new store, no API route.
+    76→// ============================================================
+    77→
+    78→// ---------- Chart palette (NO indigo/blue) ----------
+    79→const CHART = {
+    80→  violet: "#8b5cf6",
+    81→  fuchsia: "#d946ef",
+    82→  emerald: "#10b981",
+    83→  amber: "#f59e0b",
+    84→  sky: "#0ea5e9",
+    85→  rose: "#f43f5e",
+    86→} as const;
+    87→const PIE_PALETTE = [
+    88→  CHART.violet,
+    89→  CHART.fuchsia,
+    90→  CHART.emerald,
+    91→  CHART.amber,
+    92→  CHART.sky,
+    93→  CHART.rose,
+    94→];
+    95→
+    96→// ---------- Hydration-safe mounted guard (mirrors topic-mastery.tsx) ----------
+    97→// useSyncExternalStore with noop subscribe + true(client)/false(server) —
+    98→// the lint-compliant "is client" pattern that avoids react-hooks/set-state-in-effect.
+    99→function useMounted() {
+   100→  return useSyncExternalStore(
+   101→    () => () => {},
+   102→    () => true,
+   103→    () => false,
+   104→  );
+   105→}
+   106→
+   107→// ---------- Small defensive helpers ----------
+   108→function str(v: unknown): string | undefined {
+   109→  return typeof v === "string" && v.trim() ? v.trim() : undefined;
+   110→}
+   111→function numOr(v: unknown, fallback = 0): number {
+   112→  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+   113→}
+   114→
+   115→// Normalize subject strings (trim, collapse spaces, fallback "General").
+   116→function normSubject(s: unknown): string {
+   117→  const t = str(s);
+   118→  if (!t) return "General";
+   119→  return t.replace(/\s+/g, " ");
+   120→}
+   121→
+   122→// Parse "1m 30s" / "45s" / "90" / "1.5 min" → seconds.
+   123→function parseSeconds(v: unknown): number | null {
+   124→  if (typeof v === "number" && Number.isFinite(v)) return v;
+   125→  if (typeof v !== "string") return null;
+   126→  const s = v.trim().toLowerCase();
+   127→  if (!s) return null;
+   128→  // pattern "Xm Ys"
+   129→  let m = s.match(/(\d+)\s*m(?:\s*(\d+(?:\.\d+)?)\s*s)?/);
+   130→  if (m) {
+   131→    const mins = parseInt(m[1]!, 10);
+   132→    const secs = m[2] ? parseFloat(m[2]) : 0;
+   133→    return mins * 60 + secs;
+   134→  }
+   135→  // pattern "Xs"
+   136→  m = s.match(/^(\d+(?:\.\d+)?)\s*s/);
+   137→  if (m) return parseFloat(m[1]!);
+   138→  // pattern "X min" / "X mins"
+   139→  m = s.match(/^(\d+(?:\.\d+)?)\s*(?:min|mins|minutes)/);
+   140→  if (m) return parseFloat(m[1]!) * 60;
+   141→  // bare number
+   142→  m = s.match(/^(\d+(?:\.\d+)?)/);
+   143→  if (m) return parseFloat(m[1]!);
+   144→  return null;
+   145→}
+   146→
+   147→// ---------- Types ----------
+   148→type RangeKey = "7" | "30" | "all";
+   149→
+   150→interface AttemptPoint {
+   151→  id: string;
+   152→  dateISO: string;
+   153→  title: string;
+   154→  type: "paper" | "mcq";
+   155→  accuracy: number; // 0-100
+   156→  correct: number;
+   157→  incorrect: number;
+   158→  unattempted: number;
+   159→  total: number;
+   160→  hasAnalysis: boolean;
+   161→  difficultyBreakdown: Record<
+   162→    "Easy" | "Medium" | "Hard",
+   163→    { correct: number; incorrect: number; unattempted: number }
+   164→  >;
+   165→  topicMap: Map<string, { correct: number; incorrect: number; unattempted: number; total: number }>;
+   166→  avgTimePerQuestionSec: number | null;
+   167→}
+   168→
+   169→// ---------- Range helpers ----------
+   170→function rangeCutoffMs(range: RangeKey): number | null {
+   171→  if (range === "all") return null;
+   172→  const days = range === "7" ? 7 : 30;
+   173→  return Date.now() - days * 24 * 60 * 60 * 1000;
+   174→}
+   175→function withinRange(iso: string, cutoff: number | null): boolean {
+   176→  if (cutoff === null) return true;
+   177→  const t = Date.parse(iso);
+   178→  if (Number.isNaN(t)) return true; // keep if unparseable (better to show than hide)
+   179→  return t >= cutoff;
+   180→}
+   181→function rangeDays(range: RangeKey): number {
+   182→  if (range === "all") return 90; // cap "all time" daily chart at last 90 days for readability
+   183→  return range === "7" ? 7 : 30;
+   184→}
+   185→function rangeLabel(range: RangeKey): string {
+   186→  return range === "all" ? "all time" : `last ${range} days`;
+   187→}
+   188→
+   189→// ---------- Attempt extractor (papers + mcqs) ----------
+   190→// Paper shape: { paper: GeneratedPaper, analysis?: PerformanceAnalysis, answers?: Record<string,string> }
+   191→// MCQ shape: { set: { mcqs: GeneratedMCQ[] }, answers?: Record<string,string>, ... }
+   192→function extractAttempt(item: SavedItem): AttemptPoint | null {
+   193→  const data = (item.data ?? null) as Record<string, unknown> | null;
+   194→  if (!data) return null;
+   195→
+   196→  // Use item.createdAt as the attempt date (when the user saved/attemped it).
+   197→  const dateISO = item.createdAt;
+   198→
+   199→  // Difficulty buckets keyed by difficulty string
+   200→  const diffBuckets: AttemptPoint["difficultyBreakdown"] = {
+   201→    Easy: { correct: 0, incorrect: 0, unattempted: 0 },
+   202→    Medium: { correct: 0, incorrect: 0, unattempted: 0 },
+   203→    Hard: { correct: 0, incorrect: 0, unattempted: 0 },
+   204→  };
+   205→  function bucketFor(diff?: string): keyof AttemptPoint["difficultyBreakdown"] | null {
+   206→    const d = (diff ?? "").trim().toLowerCase();
+   207→    if (d === "easy") return "Easy";
+   208→    if (d === "medium" || d === "moderate") return "Medium";
+   209→    if (d === "hard" || d === "difficult") return "Hard";
+   210→    return null;
+   211→  }
+   212→
+   213→  const topicMap = new Map<
+   214→    string,
+   215→    { correct: number; incorrect: number; unattempted: number; total: number }
+   216→  >();
+   217→  function pushTopic(
+   218→    topic: string | undefined,
+   219→    correct: number,
+   220→    incorrect: number,
+   221→    unattempted: number,
+   222→  ) {
+   223→    const t = (topic ?? "").trim();
+   224→    if (!t) return;
+   225→    const cur = topicMap.get(t) ?? { correct: 0, incorrect: 0, unattempted: 0, total: 0 };
+   226→    cur.correct += correct;
+   227→    cur.incorrect += incorrect;
+   228→    cur.unattempted += unattempted;
+   229→    cur.total += correct + incorrect + unattempted;
+   230→    topicMap.set(t, cur);
+   231→  }
+   232→
+   233→  let correct = 0;
+   234→  let incorrect = 0;
+   235→  let unattempted = 0;
+   236→  let total = 0;
+   237→  let accuracy = 0;
+   238→  let hasAnalysis = false;
+   239→  let avgTimePerQuestionSec: number | null = null;
+   240→
+   241→  if (item.type === "paper") {
+   242→    const paper = (data as { paper?: Record<string, unknown> }).paper;
+   243→    const questions = Array.isArray(paper?.questions)
+   244→      ? (paper!.questions as unknown as Array<Record<string, unknown>>)
+   245→      : Array.isArray((data as { questions?: unknown }).questions)
+   246→        ? ((data as { questions?: Array<Record<string, unknown>> }).questions as Array<Record<string, unknown>>)
+   247→        : [];
+   248→    const analysis = (data as { analysis?: PerformanceAnalysis }).analysis;
+   249→    const answers =
+   250→      (data as { answers?: Record<string, string> }).answers ?? undefined;
+   251→
+   252→    if (analysis) {
+   253→      hasAnalysis = true;
+   254→      correct = numOr(analysis.correct, 0);
+   255→      incorrect = numOr(analysis.incorrect, 0);
+   256→      unattempted = numOr(analysis.unattempted, 0);
+   257→      total = correct + incorrect + unattempted;
+   258→      const denom = total > 0 ? total : numOr(analysis.maxMarks, 0);
+   259→      accuracy = total > 0
+   260→        ? (correct / total) * 100
+   261→        : typeof analysis.accuracy === "number"
+   262→          ? analysis.accuracy
+   263→          : 0;
+   264→      // difficulty-wise from analysis if present (correct/total only)
+   265→      const dw = analysis.difficultyWise ?? [];
+   266→      for (const d of dw) {
+   267→        const b = bucketFor(d.difficulty);
+   268→        if (!b) continue;
+   269→        const t = numOr(d.total, 0);
+   270→        const c = numOr(d.correct, 0);
+   271→        // If we have per-question answers below, prefer that; otherwise split here.
+   272→        diffBuckets[b].correct += c;
+   273→        diffBuckets[b].incorrect += Math.max(0, t - c);
+   274→        diffBuckets[b].unattempted += 0;
+   275→      }
+   276→      // topic-wise from analysis (correct/total only — split remaining as incorrect)
+   277→      for (const tw of analysis.topicWise ?? []) {
+   278→        const t = numOr(tw.total, 0);
+   279→        const c = numOr(tw.correct, 0);
+   280→        pushTopic(tw.topic, c, Math.max(0, t - c), 0);
+   281→      }
+   282→      avgTimePerQuestionSec = parseSeconds(analysis.avgTimePerQuestion);
+   283→    }
+   284→
+   285→    // If we have per-question answers, recompute granular difficulty/topic breakdown
+   286→    if (questions.length > 0 && answers && typeof answers === "object") {
+   287→      // Reset difficulty counters if analysis-derived (so we don't double-count).
+   288→      if (hasAnalysis) {
+   289→        diffBuckets.Easy = { correct: 0, incorrect: 0, unattempted: 0 };
+   290→        diffBuckets.Medium = { correct: 0, incorrect: 0, unattempted: 0 };
+   291→        diffBuckets.Hard = { correct: 0, incorrect: 0, unattempted: 0 };
+   292→        topicMap.clear();
+   293→      }
+   294→      let gc = 0,
+   295→        gi = 0,
+   296→        gu = 0;
+   297→      for (const q of questions) {
+   298→        const qid = str(q.id);
+   299→        const diff = str(q.difficulty);
+   300→        const topic = str(q.topic);
+   301→        const correctAnswer = str(q.correctAnswer);
+   302→        const picked = qid ? answers[qid] : undefined;
+   303→        const b = bucketFor(diff);
+   304→        const hasPicked = typeof picked === "string" && picked.trim().length > 0;
+   305→        if (hasPicked && correctAnswer) {
+   306→          if (picked === correctAnswer) {
+   307→            gc++;
+   308→            if (b) diffBuckets[b].correct++;
+   309→            pushTopic(topic, 1, 0, 0);
+   310→          } else {
+   311→            gi++;
+   312→            if (b) diffBuckets[b].incorrect++;
+   313→            pushTopic(topic, 0, 1, 0);
+   314→          }
+   315→        } else {
+   316→          gu++;
+   317→          if (b) diffBuckets[b].unattempted++;
+   318→          pushTopic(topic, 0, 0, 1);
+   319→        }
+   320→      }
+   321→      // Prefer granular counts if any exist
+   322→      if (gc + gi + gu > 0) {
+   323→        correct = gc;
+   324→        incorrect = gi;
+   325→        unattempted = gu;
+   326→        total = gc + gi + gu;
+   327→        accuracy = total > 0 ? (gc / total) * 100 : 0;
+   328→        hasAnalysis = true;
+   329→      }
+   330→    }
+   331→  } else if (item.type === "mcq") {
+   332→    const set = (data as { set?: Record<string, unknown> }).set;
+   333→    const mcqs = Array.isArray(set?.mcqs)
+   334→      ? (set!.mcqs as unknown as Array<Record<string, unknown>>)
+   335→      : Array.isArray((data as { mcqs?: unknown }).mcqs)
+   336→        ? ((data as { mcqs?: Array<Record<string, unknown>> }).mcqs as Array<Record<string, unknown>>)
+   337→        : [];
+   338→    const answers =
+   339→      (data as { answers?: Record<string, string> }).answers ?? undefined;
+   340→
+   341→    if (mcqs.length === 0) return null;
+   342→
+   343→    // Reset (no analysis-derived counts for mcqs)
+   344→    let gc = 0,
+   345→      gi = 0,
+   346→      gu = 0;
+   347→    for (const q of mcqs) {
+   348→      const qid = str(q.id);
+   349→      const diff = str(q.difficulty);
+   350→      const topic = str(q.topic) ?? str(set?.topic);
+   351→      const correctAnswer = str(q.correctAnswer);
+   352→      const picked = qid ? answers?.[qid] : undefined;
+   353→      const b = bucketFor(diff);
+   354→      const hasPicked = typeof picked === "string" && picked.trim().length > 0;
+   355→      if (hasPicked && correctAnswer) {
+   356→        if (picked === correctAnswer) {
+   357→          gc++;
+   358→          if (b) diffBuckets[b].correct++;
+   359→          pushTopic(topic, 1, 0, 0);
+   360→        } else {
+   361→          gi++;
+   362→          if (b) diffBuckets[b].incorrect++;
+   363→          pushTopic(topic, 0, 1, 0);
+   364→        }
+   365→      } else {
+   366→        gu++;
+   367→        if (b) diffBuckets[b].unattempted++;
+   368→        pushTopic(topic, 0, 0, 1);
+   369→      }
+   370→    }
+   371→    correct = gc;
+   372→    incorrect = gi;
+   373→    unattempted = gu;
+   374→    total = mcqs.length;
+   375→    accuracy = total > 0 ? (gc / total) * 100 : 0;
+   376→    hasAnalysis = true;
+   377→    avgTimePerQuestionSec = null; // mcq sets don't carry avgTimePerQuestion
+   378→  } else {
+   379→    return null;
+   380→  }
+   381→
+   382→  if (total === 0 && !hasAnalysis) return null;
+   383→
+   384→  return {
+   385→    id: item.id,
+   386→    dateISO,
+   387→    title: item.title,
+   388→    type: item.type,
+   389→    accuracy: Math.round(accuracy * 10) / 10,
+   390→    correct,
+   391→    incorrect,
+   392→    unattempted,
+   393→    total,
+   394→    hasAnalysis,
+   395→    difficultyBreakdown: diffBuckets,
+   396→    topicMap,
+   397→    avgTimePerQuestionSec,
+   398→  };
+   399→}
+   400→
+   401→// ---------- Mastery score map (for radar) ----------
+   402→const MASTERY_SCORE: Record<string, number> = {
+   403→  Mastered: 100,
+   404→  Strong: 80,
+   405→  Reviewing: 70,
+   406→  Improving: 60,
+   407→  Practicing: 40,
+   408→  Learning: 20,
+   409→  New: 5,
+   410→  Weak: 10,
+   411→  Introduced: 10,
+   412→  "Not Started": 0,
+   413→};
+   414→
+   415→// ---------- Custom tooltip ----------
+   416→interface TipPayloadItem {
+   417→  name?: string;
+   418→  value?: number | string;
+   419→  color?: string;
+   420→  dataKey?: string | number;
+   421→  payload?: Record<string, unknown>;
+   422→}
+   423→function ChartTooltip({
+   424→  active,
+   425→  payload,
+   426→  label,
+   427→  suffix = "",
+   428→}: {
+   429→  active?: boolean;
+   430→  payload?: TipPayloadItem[];
+   431→  label?: string | number;
+   432→  suffix?: string;
+   433→}) {
+   434→  if (!active || !payload || payload.length === 0) return null;
+   435→  return (
+   436→    <div className="rounded-lg border border-border bg-popover/95 backdrop-blur px-3 py-2 shadow-lg text-xs">
+   437→      {label !== undefined && (
+   438→        <div className="font-medium text-foreground mb-1">{String(label)}</div>
+   439→      )}
+   440→      <div className="space-y-1">
+   441→        {payload.map((p, i) => (
+   442→          <div key={i} className="flex items-center gap-2">
+   443→            <span
+   444→              className="h-2 w-2 rounded-full inline-block"
+   445→              style={{ backgroundColor: p.color ?? CHART.violet }}
+   446→            />
+   447→            <span className="text-muted-foreground">{p.name ?? p.dataKey}</span>
+   448→            <span className="ml-auto font-semibold tabular-nums text-foreground">
+   449→              {typeof p.value === "number" ? p.value.toLocaleString() : p.value}
+   450→              {suffix}
+   451→            </span>
+   452→          </div>
+   453→        ))}
+   454→      </div>
+   455→    </div>
+   456→  );
+   457→}
+   458→
+   459→// ============================================================
+   460→// Component
+   461→// ============================================================
+   462→export function Analytics() {
+   463→  useRecomputeAchievements(); // keep achievements level live
+   464→  const mounted = useMounted();
+   465→
+   466→  const saved = useAppStore((s) => s.saved);
+   467→  const sessions = useStudyStore((s) => s.sessions);
+   468→  const entries = useJournalStore((s) => s.entries);
+   469→  const sets = useFlashcardStore((s) => s.sets);
+   470→  const totalXp = useAchievementsStore((s) => s.totalXp);
+   471→  const level = useAchievementsStore((s) => s.level);
+   472→
+   473→  const [range, setRange] = useState<RangeKey>("30");
+   474→  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+   475→
+   476→  // ---------- Aggregated metrics (memoized) ----------
+   477→  const data = useMemo(() => {
+   478→    const cutoff = rangeCutoffMs(range);
+   479→
+   480→    // Attempts: filter by createdAt within range
+   481→    const allAttempts: AttemptPoint[] = saved
+   482→      .map(extractAttempt)
+   483→      .filter((a): a is AttemptPoint => a !== null);
+   484→    const attempts = allAttempts.filter((a) => withinRange(a.dateISO, cutoff));
+   485→
+   486→    // Total study minutes (sessions + journal) within range
+   487→    const sessFiltered = sessions.filter((s) =>
+   488→      withinRange(s.date, cutoff),
+   489→    );
+   490→    const jourFiltered = entries.filter((e) => withinRange(e.createdAt, cutoff));
+   491→    const totalStudyMinutes =
+   492→      sessFiltered.reduce((sum, s) => sum + numOr(s.durationMinutes, 0), 0) +
+   493→      jourFiltered.reduce((sum, e) => sum + numOr(e.durationMinutes, 0), 0);
+   494→
+   495→    // Avg accuracy across attempts that have analysis (weighted by total questions)
+   496→    const attemptsWithAnalysis = attempts.filter((a) => a.hasAnalysis && a.total > 0);
+   497→    let avgAccuracy = 0;
+   498→    if (attemptsWithAnalysis.length > 0) {
+   499→      const totCorrect = attemptsWithAnalysis.reduce((s, a) => s + a.correct, 0);
+   500→      const totTotal = attemptsWithAnalysis.reduce((s, a) => s + a.total, 0);
+   501→      avgAccuracy = totTotal > 0 ? (totCorrect / totTotal) * 100 : 0;
+   502→    }
+   503→
+   504→    // Questions attempted (sum of total across papers + mcqs in range)
+   505→    const questionsAttempted = attempts.reduce(
+   506→      (sum, a) => sum + (a.total > 0 ? a.total : 0),
+   507→      0,
+   508→    );
+   509→
+   510→    // Performance trend (AreaChart): sorted attempts ascending by date
+   511→    const trend = [...attempts]
+   512→      .filter((a) => a.hasAnalysis && a.total > 0)
+   513→      .sort((a, b) => Date.parse(a.dateISO) - Date.parse(b.dateISO))
+   514→      .slice(-30) // cap to last 30 attempts
+   515→      .map((a) => ({
+   516→        date: new Date(a.dateISO).toLocaleDateString(undefined, {
+   517→          month: "short",
+   518→          day: "numeric",
+   519→        }),
+   520→        accuracy: a.accuracy,
+   521→        label: a.title,
+   522→      }));
+   523→
+   524→    // Time distribution by subject (PieChart)
+   525→    const subjectMinutes = new Map<string, number>();
+   526→    for (const s of sessFiltered) {
+   527→      const subj = normSubject(s.subject);
+   528→      subjectMinutes.set(subj, (subjectMinutes.get(subj) ?? 0) + numOr(s.durationMinutes, 0));
+   529→    }
+   530→    for (const e of jourFiltered) {
+   531→      const subj = normSubject(e.subject);
+   532→      subjectMinutes.set(subj, (subjectMinutes.get(subj) ?? 0) + numOr(e.durationMinutes, 0));
+   533→    }
+   534→    const pieData = [...subjectMinutes.entries()]
+   535→      .map(([name, minutes]) => ({ name, hours: +(minutes / 60).toFixed(2), minutes }))
+   536→      .sort((a, b) => b.minutes - a.minutes)
+   537→      .slice(0, 8); // cap to top 8 subjects
+   538→
+   539→    // Daily study activity (stacked BarChart): last N days
+   540→    const days = rangeDays(range);
+   541→    const today = new Date();
+   542→    today.setHours(0, 0, 0, 0);
+   543→    const dailyMap = new Map<string, { date: string; sessions: number; journal: number }>();
+   544→    for (let i = days - 1; i >= 0; i--) {
+   545→      const d = new Date(today);
+   546→      d.setDate(d.getDate() - i);
+   547→      const key = d.toISOString().slice(0, 10);
+   548→      dailyMap.set(key, {
+   549→        date: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+   550→        sessions: 0,
+   551→        journal: 0,
+   552→      });
+   553→    }
+   554→    const normDay = (iso: string) => {
+   555→      const d = new Date(iso);
+   556→      d.setHours(0, 0, 0, 0);
+   557→      return d.toISOString().slice(0, 10);
+   558→    };
+   559→    for (const s of sessFiltered) {
+   560→      const key = normDay(s.date);
+   561→      const row = dailyMap.get(key);
+   562→      if (row) row.sessions += numOr(s.durationMinutes, 0);
+   563→    }
+   564→    for (const e of jourFiltered) {
+   565→      const key = e.date?.slice(0, 10) ?? normDay(e.createdAt);
+   566→      const row = dailyMap.get(key);
+   567→      if (row) row.journal += numOr(e.durationMinutes, 0);
+   568→    }
+   569→    const daily = [...dailyMap.values()];
+   570→
+   571→    // Mastery by subject (RadarChart)
+   572→    // Subjects derived from: study sessions, journal entries, flashcard set topics,
+   573→    // paper examNames, mcq set topics.
+   574→    const radarSubjects = new Set<string>();
+   575→    sessFiltered.forEach((s) => radarSubjects.add(normSubject(s.subject)));
+   576→    jourFiltered.forEach((e) => radarSubjects.add(normSubject(e.subject)));
+   577→    sets.forEach((s) => radarSubjects.add(normSubject(s.topic)));
+   578→    for (const item of saved) {
+   579→      const d = (item.data ?? null) as Record<string, unknown> | null;
+   580→      if (!d) continue;
+   581→      if (item.type === "paper") {
+   582→        const paper = d.paper as Record<string, unknown> | undefined;
+   583→        radarSubjects.add(normSubject(paper?.examName ?? "Paper"));
+   584→      } else if (item.type === "mcq") {
+   585→        const set = d.set as Record<string, unknown> | undefined;
+   586→        radarSubjects.add(normSubject(set?.topic ?? "MCQ"));
+   587→      }
+   588→    }
+   589→
+   590→    // Per-subject mastery score
+   591→    const radarData: { subject: string; mastery: number }[] = [];
+   592→    for (const subj of radarSubjects) {
+   593→      // flashcard mastery (avg MASTERY_SCORE across cards whose set.topic normalizes to subj)
+   594→      let fcSum = 0;
+   595→      let fcN = 0;
+   596→      for (const s of sets) {
+   597→        if (normSubject(s.topic) !== subj) continue;
+   598→        for (const c of s.cards) {
+   599→          fcSum += MASTERY_SCORE[c.mastery] ?? 0;
+   600→          fcN++;
+   601→        }
+   602→      }
+   603→      // question accuracy (avg of attempts whose examName/set.topic/subject normalizes to subj)
+   604→      let accSum = 0;
+   605→      let accN = 0;
+   606→      for (const item of saved) {
+   607→        if (!withinRange(item.createdAt, cutoff)) continue;
+   608→        const d = (item.data ?? null) as Record<string, unknown> | null;
+   609→        if (!d) continue;
+   610→        let subjField: string | undefined;
+   611→        if (item.type === "paper") {
+   612→          const paper = d.paper as Record<string, unknown> | undefined;
+   613→          subjField = str(paper?.examName);
+   614→        } else if (item.type === "mcq") {
+   615→          const set = d.set as Record<string, unknown> | undefined;
+   616→          subjField = str(set?.topic);
+   617→        }
+   618→        if (subjField && normSubject(subjField) !== subj) continue;
+   619→        if (subjField) {
+   620→          const a = extractAttempt(item);
+   621→          if (a && a.hasAnalysis && a.total > 0) {
+   622→            accSum += a.accuracy;
+   623→            accN++;
+   624→          }
+   625→        }
+   626→      }
+   627→      const fcScore = fcN > 0 ? fcSum / fcN : null;
+   628→      const accScore = accN > 0 ? accSum / accN : null;
+   629→      let mastery = 0;
+   630→      if (fcScore !== null && accScore !== null) {
+   631→        mastery = 0.5 * fcScore + 0.5 * accScore;
+   632→      } else if (fcScore !== null) {
+   633→        mastery = fcScore;
+   634→      } else if (accScore !== null) {
+   635→        mastery = accScore;
+   636→      }
+   637→      radarData.push({ subject: subj, mastery: Math.round(mastery) });
+   638→    }
+   639→    // Keep top 8 subjects by mastery for readability
+   640→    radarData.sort((a, b) => b.mastery - a.mastery);
+   641→    const radar = radarData.slice(0, 8);
+   642→
+   643→    // Difficulty-wise performance (grouped BarChart)
+   644→    const diffAgg = {
+   645→      Easy: { correct: 0, incorrect: 0, unattempted: 0 },
+   646→      Medium: { correct: 0, incorrect: 0, unattempted: 0 },
+   647→      Hard: { correct: 0, incorrect: 0, unattempted: 0 },
+   648→    };
+   649→    for (const a of attempts) {
+   650→      for (const k of ["Easy", "Medium", "Hard"] as const) {
+   651→        diffAgg[k].correct += a.difficultyBreakdown[k].correct;
+   652→        diffAgg[k].incorrect += a.difficultyBreakdown[k].incorrect;
+   653→        diffAgg[k].unattempted += a.difficultyBreakdown[k].unattempted;
+   654→      }
+   655→    }
+   656→    const difficulty = [
+   657→      {
+   658→        difficulty: "Easy",
+   659→        Correct: diffAgg.Easy.correct,
+   660→        Incorrect: diffAgg.Easy.incorrect,
+   661→        Unattempted: diffAgg.Easy.unattempted,
+   662→      },
+   663→      {
+   664→        difficulty: "Medium",
+   665→        Correct: diffAgg.Medium.correct,
+   666→        Incorrect: diffAgg.Medium.incorrect,
+   667→        Unattempted: diffAgg.Medium.unattempted,
+   668→      },
+   669→      {
+   670→        difficulty: "Hard",
+   671→        Correct: diffAgg.Hard.correct,
+   672→        Incorrect: diffAgg.Hard.incorrect,
+   673→        Unattempted: diffAgg.Hard.unattempted,
+   674→      },
+   675→    ];
+   676→
+   677→    // Topic performance table (from attempts' topicMap)
+   678→    const topicAgg = new Map<
+   679→      string,
+   680→      { attempts: number; correct: number; total: number; avgTimeSec: number; timeSamples: number }
+   681→    >();
+   682→    for (const a of attempts) {
+   683→      for (const [topic, v] of a.topicMap.entries()) {
+   684→        if (v.total === 0) continue;
+   685→        const cur = topicAgg.get(topic) ?? {
+   686→          attempts: 0,
+   687→          correct: 0,
+   688→          total: 0,
+   689→          avgTimeSec: 0,
+   690→          timeSamples: 0,
+   691→        };
+   692→        cur.attempts += 1;
+   693→        cur.correct += v.correct;
+   694→        cur.total += v.total;
+   695→        if (a.avgTimePerQuestionSec !== null) {
+   696→          // Add this attempt's avgTimePerQuestion contribution.
+   697→          cur.avgTimeSec += a.avgTimePerQuestionSec;
+   698→          cur.timeSamples += 1;
+   699→        }
+   700→        topicAgg.set(topic, cur);
+   701→      }
+   702→    }
+   703→    const topicRows = [...topicAgg.entries()]
+   704→      .map(([topic, v]) => ({
+   705→        topic,
+   706→        attempts: v.attempts,
+   707→        accuracy: v.total > 0 ? Math.round((v.correct / v.total) * 1000) / 10 : 0,
+   708→        avgTime:
+   709→          v.timeSamples > 0 && v.avgTimeSec > 0
+   710→            ? Math.round((v.avgTimeSec / v.timeSamples) * 10) / 10
+   711→            : null,
+   712→      }))
+   713→      .sort((a, b) => (sortDir === "desc" ? b.accuracy - a.accuracy : a.accuracy - b.accuracy));
+   714→
+   715→    // Insights
+   716→    // Strongest subject by accuracy (only subjects with attempts)
+   717→    const subjAcc = new Map<string, { correct: number; total: number }>();
+   718→    for (const item of saved) {
+   719→      if (!withinRange(item.createdAt, cutoff)) continue;
+   720→      const d = (item.data ?? null) as Record<string, unknown> | null;
+   721→      if (!d) continue;
+   722→      let subjField: string | undefined;
+   723→      if (item.type === "paper") {
+   724→        const paper = d.paper as Record<string, unknown> | undefined;
+   725→        subjField = str(paper?.examName);
+   726→      } else if (item.type === "mcq") {
+   727→        const set = d.set as Record<string, unknown> | undefined;
+   728→        subjField = str(set?.topic);
+   729→      }
+   730→      if (!subjField) continue;
+   731→      const subj = normSubject(subjField);
+   732→      const a = extractAttempt(item);
+   733→      if (a && a.hasAnalysis && a.total > 0) {
+   734→        const cur = subjAcc.get(subj) ?? { correct: 0, total: 0 };
+   735→        cur.correct += a.correct;
+   736→        cur.total += a.total;
+   737→        subjAcc.set(subj, cur);
+   738→      }
+   739→    }
+   740→    const subjAccList = [...subjAcc.entries()]
+   741→      .map(([subj, v]) => ({
+   742→        subject: subj,
+   743→        accuracy: v.total > 0 ? Math.round((v.correct / v.total) * 1000) / 10 : 0,
+   744→        total: v.total,
+   745→      }))
+   746→      .filter((x) => x.total >= 1)
+   747→      .sort((a, b) => b.accuracy - a.accuracy);
+   748→    const strongest = subjAccList[0];
+   749→    const weakest = subjAccList[subjAccList.length - 1];
+   750→
+   751→    // Most studied topic (by total minutes across sessions + journal)
+   752→    const topicMinutes = new Map<string, number>();
+   753→    for (const s of sessFiltered) {
+   754→      const t = str(s.topic);
+   755→      if (!t) continue;
+   756→      topicMinutes.set(t, (topicMinutes.get(t) ?? 0) + numOr(s.durationMinutes, 0));
+   757→    }
+   758→    for (const e of jourFiltered) {
+   759→      const t = str(e.topic);
+   760→      if (!t) continue;
+   761→      topicMinutes.set(t, (topicMinutes.get(t) ?? 0) + numOr(e.durationMinutes, 0));
+   762→    }
+   763→    const mostStudiedTopic = [...topicMinutes.entries()].sort((a, b) => b[1] - a[1])[0];
+   764→
+   765→    return {
+   766→      attempts,
+   767→      totalStudyMinutes,
+   768→      avgAccuracy,
+   769→      questionsAttempted,
+   770→      trend,
+   771→      pieData,
+   772→      daily,
+   773→      radar,
+   774→      difficulty,
+   775→      topicRows,
+   776→      strongest,
+   777→      weakest,
+   778→      mostStudiedTopic,
+   779→      hasAnyData:
+   780→        attempts.length > 0 ||
+   781→        sessFiltered.length > 0 ||
+   782→        jourFiltered.length > 0 ||
+   783→        sets.length > 0,
+   784→      filteredSessCount: sessFiltered.length,
+   785→      filteredJourCount: jourFiltered.length,
+   786→    };
+   787→  }, [saved, sessions, entries, sets, range, sortDir]);
+   788→
+   789→  // ---------- Skeleton (during hydration) ----------
+   790→  if (!mounted) {
+   791→    return (
+   792→      <div className="space-y-6">
+   793→        <div className="space-y-1">
+   794→          <div className="h-7 w-56 rounded-md bg-muted/60 animate-pulse" />
+   795→          <div className="h-4 w-80 max-w-full rounded-md bg-muted/40 animate-pulse" />
+   796→        </div>
+   797→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+   798→          {[0, 1, 2, 3].map((i) => (
+   799→            <div key={i} className="h-28 rounded-xl border border-border bg-muted/30 animate-pulse" />
+   800→          ))}
+   801→        </div>
+   802→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   803→          {[0, 1].map((i) => (
+   804→            <div key={i} className="h-72 rounded-xl border border-border bg-muted/30 animate-pulse" />
+   805→          ))}
+   806→        </div>
+   807→      </div>
+   808→    );
+   809→  }
+   810→
+   811→  // ---------- Empty state ----------
+   812→  if (!data.hasAnyData) {
+   813→    return (
+   814→      <div className="space-y-6">
+   815→        <AnalyticsHeader />
+   816→        <PremiumEmptyState
+   817→          icon={BarChart3}
+   818→          accent="violet"
+   819→          title="No analytics yet"
+   820→          description="Attempt a paper or MCQ set, study with the timer, or write a journal entry to see your insights here."
+   821→          ctaLabel="Generate a paper"
+   822→          ctaIcon={Sparkles}
+   823→          ctaOnClick={() => useAppStore.getState().setView("paper-generator")}
+   824→        />
+   825→      </div>
+   826→    );
+   827→  }
+   828→
+   829→  // ---------- KPI cards ----------
+   830→  const kpis = [
+   831→    {
+   832→      label: "Total Study Time",
+   833→      value: data.totalStudyMinutes,
+   834→      suffix: "min",
+   835→      icon: Clock,
+   836→      grad: "from-violet-500 to-fuchsia-500",
+   837→      sub: `${data.filteredSessCount + data.filteredJourCount} sessions in ${rangeLabel(range)}`,
+   838→    },
+   839→    {
+   840→      label: "Avg Accuracy",
+   841→      value: Math.round(data.avgAccuracy * 10) / 10,
+   842→      suffix: "%",
+   843→      icon: Target,
+   844→      grad: "from-emerald-500 to-teal-500",
+   845→      sub: `${data.attempts.filter((a) => a.hasAnalysis && a.total > 0).length} attempts`,
+   846→    },
+   847→    {
+   848→      label: "Questions Attempted",
+   849→      value: data.questionsAttempted,
+   850→      suffix: "",
+   851→      icon: ListChecks,
+   852→      grad: "from-fuchsia-500 to-pink-500",
+   853→      sub: `${data.attempts.length} saved papers & MCQs`,
+   854→    },
+   855→    {
+   856→      label: "Current Level",
+   857→      value: level,
+   858→      suffix: "",
+   859→      icon: Trophy,
+   860→      grad: "from-amber-500 to-orange-500",
+   861→      sub: `${totalXp} XP total`,
+   862→    },
+   863→  ];
+   864→
+   865→  return (
+   866→    <div className="space-y-6 pb-4">
+   867→      <AnalyticsHeader />
+   868→
+   869→      {/* Time range selector */}
+   870→      <div className="flex flex-wrap items-center gap-2">
+   871→        <Calendar className="h-4 w-4 text-muted-foreground" />
+   872→        <span className="text-xs text-muted-foreground mr-1">Range:</span>
+   873→        {([
+   874→          { k: "7" as RangeKey, label: "7 days" },
+   875→          { k: "30" as RangeKey, label: "30 days" },
+   876→          { k: "all" as RangeKey, label: "All time" },
+   877→        ]).map((r) => (
+   878→          <button
+   879→            key={r.k}
+   880→            onClick={() => setRange(r.k)}
+   881→            className={cn(
+   882→              "rounded-full px-3 py-1.5 text-xs font-medium transition border",
+   883→              range === r.k
+   884→                ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white border-transparent shadow-md shadow-violet-500/20"
+   885→                : "border-border text-muted-foreground hover:text-foreground hover:bg-accent",
+   886→            )}
+   887→          >
+   888→            {r.label}
+   889→          </button>
+   890→        ))}
+   891→      </div>
+   892→
+   893→      {/* Row 1: KPI cards */}
+   894→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+   895→        {kpis.map((kpi, i) => {
+   896→          const KIcon = kpi.icon;
+   897→          return (
+   898→            <motion.div
+   899→              key={kpi.label}
+   900→              initial={{ opacity: 0, y: 12 }}
+   901→              animate={{ opacity: 1, y: 0 }}
+   902→              transition={{ duration: 0.3, delay: i * 0.05 }}
+   903→            >
+   904→              <Card className="relative overflow-hidden border-border/70 hover:border-border transition-colors">
+   905→                <div className={cn("absolute -top-8 -right-8 h-24 w-24 rounded-full blur-2xl opacity-25 bg-gradient-to-br", kpi.grad)} />
+   906→                <CardContent className="relative p-4">
+   907→                  <div className="flex items-center justify-between mb-2">
+   908→                    <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br text-white shadow-md", kpi.grad)}>
+   909→                      <KIcon className="h-4 w-4" />
+   910→                    </div>
+   911→                  </div>
+   912→                  <div className="text-2xl font-bold tabular-nums tracking-tight">
+   913→                    <AnimatedCounter value={kpi.value} />
+   914→                    <span className="text-sm text-muted-foreground ml-1">{kpi.suffix}</span>
+   915→                  </div>
+   916→                  <div className="text-xs font-medium mt-0.5">{kpi.label}</div>
+   917→                  <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{kpi.sub}</div>
+   918→                </CardContent>
+   919→              </Card>
+   920→            </motion.div>
+   921→          );
+   922→        })}
+   923→      </div>
+   924→
+   925→      {/* Row 2: Performance Trend + Time Distribution */}
+   926→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   927→        <Card className="border-border/70">
+   928→          <CardHeader className="pb-2">
+   929→            <div className="flex items-center gap-2">
+   930→              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-500">
+   931→                <TrendingUp className="h-4 w-4" />
+   932→              </div>
+   933→              <div>
+   934→                <CardTitle className="text-sm">Performance Trend</CardTitle>
+   935→                <CardDescription className="text-xs">Accuracy % over recent attempts</CardDescription>
+   936→              </div>
+   937→            </div>
+   938→          </CardHeader>
+   939→          <CardContent>
+   940→            {data.trend.length === 0 ? (
+   941→              <div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground text-center px-6">
+   942→                No analysed attempts in {rangeLabel(range)}. Generate &amp; attempt a paper to populate this chart.
+   943→              </div>
+   944→            ) : (
+   945→              <ResponsiveContainer width="100%" height={260}>
+   946→                <AreaChart data={data.trend} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+   947→                  <defs>
+   948→                    <linearGradient id="perfGrad" x1="0" y1="0" x2="0" y2="1">
+   949→                      <stop offset="0%" stopColor={CHART.violet} stopOpacity={0.55} />
+   950→                      <stop offset="100%" stopColor={CHART.violet} stopOpacity={0.02} />
+   951→                    </linearGradient>
+   952→                  </defs>
+   953→                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" vertical={false} />
+   954→                  <XAxis
+   955→                    dataKey="date"
+   956→                    tick={{ fontSize: 11 }}
+   957→                    stroke="currentColor"
+   958→                    className="text-muted-foreground"
+   959→                    tickLine={false}
+   960→                    axisLine={false}
+   961→                  />
+   962→                  <YAxis
+   963→                    domain={[0, 100]}
+   964→                    tick={{ fontSize: 11 }}
+   965→                    stroke="currentColor"
+   966→                    className="text-muted-foreground"
+   967→                    tickLine={false}
+   968→                    axisLine={false}
+   969→                    width={32}
+   970→                  />
+   971→                  <Tooltip content={<ChartTooltip suffix="%" />} />
+   972→                  <Area
+   973→                    type="monotone"
+   974→                    dataKey="accuracy"
+   975→                    name="Accuracy"
+   976→                    stroke={CHART.violet}
+   977→                    strokeWidth={2.5}
+   978→                    fill="url(#perfGrad)"
+   979→                    dot={{ r: 3, fill: CHART.violet, strokeWidth: 0 }}
+   980→                    activeDot={{ r: 5, fill: CHART.fuchsia }}
+   981→                  />
+   982→                </AreaChart>
+   983→              </ResponsiveContainer>
+   984→            )}
+   985→          </CardContent>
+   986→        </Card>
+   987→
+   988→        <Card className="border-border/70">
+   989→          <CardHeader className="pb-2">
+   990→            <div className="flex items-center gap-2">
+   991→              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-fuchsia-500/10 text-fuchsia-500">
+   992→                <PieChart className="h-4 w-4" />
+   993→              </div>
+   994→              <div>
+   995→                <CardTitle className="text-sm">Time Distribution</CardTitle>
+   996→                <CardDescription className="text-xs">Hours studied per subject</CardDescription>
+   997→              </div>
+   998→            </div>
+   999→          </CardHeader>
+  1000→          <CardContent>
+  1001→            {data.pieData.length === 0 ? (
+  1002→              <div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground text-center px-6">
+  1003→                No study sessions or journal entries in {rangeLabel(range)}.
+  1004→              </div>
+  1005→            ) : (
+  1006→              <div className="flex flex-col sm:flex-row items-center gap-4">
+  1007→                <ResponsiveContainer width="100%" height={220} className="!w-full sm:!w-1/2">
+  1008→                  <RPieChart>
+  1009→                    <Pie
+  1010→                      data={data.pieData}
+  1011→                      dataKey="hours"
+  1012→                      nameKey="name"
+  1013→                      cx="50%"
+  1014→                      cy="50%"
+  1015→                      innerRadius={48}
+  1016→                      outerRadius={84}
+  1017→                      paddingAngle={2}
+  1018→                      stroke="none"
+  1019→                    >
+  1020→                      {data.pieData.map((_, i) => (
+  1021→                        <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
+  1022→                      ))}
+  1023→                    </Pie>
+  1024→                    <Tooltip content={<ChartTooltip suffix="h" />} />
+  1025→                  </RPieChart>
+  1026→                </ResponsiveContainer>
+  1027→                <div className="flex-1 w-full sm:w-1/2 space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+  1028→                  {data.pieData.map((d, i) => (
+  1029→                    <div key={d.name} className="flex items-center gap-2 text-xs">
+  1030→                      <span
+  1031→                        className="h-2.5 w-2.5 rounded-sm inline-block shrink-0"
+  1032→                        style={{ backgroundColor: PIE_PALETTE[i % PIE_PALETTE.length] }}
+  1033→                      />
+  1034→                      <span className="flex-1 truncate text-foreground/90">{d.name}</span>
+  1035→                      <span className="tabular-nums font-medium text-foreground">
+  1036→                        {d.hours}h
+  1037→                      </span>
+  1038→                      <span className="text-[10px] text-muted-foreground tabular-nums w-10 text-right">
+  1039→                        {d.minutes}m
+  1040→                      </span>
+  1041→                    </div>
+  1042→                  ))}
+  1043→                </div>
+  1044→              </div>
+  1045→            )}
+  1046→          </CardContent>
+  1047→        </Card>
+  1048→      </div>
+  1049→
+  1050→      {/* Row 3: Daily Activity + Mastery Radar */}
+  1051→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1052→        <Card className="border-border/70">
+  1053→          <CardHeader className="pb-2">
+  1054→            <div className="flex items-center gap-2">
+  1055→              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+  1056→                <Activity className="h-4 w-4" />
+  1057→              </div>
+  1058→              <div>
+  1059→                <CardTitle className="text-sm">Daily Study Activity</CardTitle>
+  1060→                <CardDescription className="text-xs">Minutes per day, stacked by source</CardDescription>
+  1061→              </div>
+  1062→            </div>
+  1063→          </CardHeader>
+  1064→          <CardContent>
+  1065→            <ResponsiveContainer width="100%" height={260}>
+  1066→              <BarChart data={data.daily} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+  1067→                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" vertical={false} />
+  1068→                <XAxis
+  1069→                  dataKey="date"
+  1070→                  tick={{ fontSize: 10 }}
+  1071→                  stroke="currentColor"
+  1072→                  className="text-muted-foreground"
+  1073→                  tickLine={false}
+  1074→                  axisLine={false}
+  1075→                  interval={Math.max(0, Math.floor(data.daily.length / 8))}
+  1076→                />
+  1077→                <YAxis
+  1078→                  tick={{ fontSize: 11 }}
+  1079→                  stroke="currentColor"
+  1080→                  className="text-muted-foreground"
+  1081→                  tickLine={false}
+  1082→                  axisLine={false}
+  1083→                  width={32}
+  1084→                />
+  1085→                <Tooltip content={<ChartTooltip suffix=" min" />} cursor={{ fill: "currentColor", fillOpacity: 0.06 }} />
+  1086→                <Bar dataKey="sessions" name="Sessions" stackId="a" fill={CHART.violet} radius={[0, 0, 0, 0]} />
+  1087→                <Bar dataKey="journal" name="Journal" stackId="a" fill={CHART.fuchsia} radius={[3, 3, 0, 0]} />
+  1088→              </BarChart>
+  1089→            </ResponsiveContainer>
+  1090→          </CardContent>
+  1091→        </Card>
+  1092→
+  1093→        <Card className="border-border/70">
+  1094→          <CardHeader className="pb-2">
+  1095→            <div className="flex items-center gap-2">
+  1096→              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+  1097→                <Target className="h-4 w-4" />
+  1098→              </div>
+  1099→              <div>
+  1100→                <CardTitle className="text-sm">Mastery by Subject</CardTitle>
+  1101→                <CardDescription className="text-xs">Avg mastery 0–100 (flashcards + accuracy)</CardDescription>
+  1102→              </div>
+  1103→            </div>
+  1104→          </CardHeader>
+  1105→          <CardContent>
+  1106→            {data.radar.length === 0 ? (
+  1107→              <div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground text-center px-6">
+  1108→                No subject activity yet. Study a subject or create flashcards to see your mastery map.
+  1109→              </div>
+  1110→            ) : (
+  1111→              <ResponsiveContainer width="100%" height={260}>
+  1112→                <RadarChart data={data.radar} outerRadius={88}>
+  1113→                  <PolarGrid stroke="currentColor" className="text-border" />
+  1114→                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} stroke="currentColor" className="text-muted-foreground" />
+  1115→                  <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 9 }} stroke="currentColor" className="text-muted-foreground" tickCount={5} />
+  1116→                  <Radar
+  1117→                    name="Mastery"
+  1118→                    dataKey="mastery"
+  1119→                    stroke={CHART.violet}
+  1120→                    strokeWidth={2}
+  1121→                    fill={CHART.violet}
+  1122→                    fillOpacity={0.35}
+  1123→                  />
+  1124→                  <Tooltip content={<ChartTooltip />} />
+  1125→                </RadarChart>
+  1126→              </ResponsiveContainer>
+  1127→            )}
+  1128→          </CardContent>
+  1129→        </Card>
+  1130→      </div>
+  1131→
+  1132→      {/* Row 4: Difficulty-wise performance */}
+  1133→      <Card className="border-border/70">
+  1134→        <CardHeader className="pb-2">
+  1135→          <div className="flex items-center gap-2">
+  1136→            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500">
+  1137→              <BarChart3 className="h-4 w-4" />
+  1138→            </div>
+  1139→            <div>
+  1140→              <CardTitle className="text-sm">Difficulty-wise Performance</CardTitle>
+  1141→              <CardDescription className="text-xs">Correct vs incorrect vs unattempted across difficulty levels</CardDescription>
+  1142→            </div>
+  1143→          </div>
+  1144→        </CardHeader>
+  1145→        <CardContent>
+  1146→          <ResponsiveContainer width="100%" height={280}>
+  1147→            <BarChart data={data.difficulty} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+  1148→              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" vertical={false} />
+  1149→              <XAxis
+  1150→                dataKey="difficulty"
+  1151→                tick={{ fontSize: 11 }}
+  1152→                stroke="currentColor"
+  1153→                className="text-muted-foreground"
+  1154→                tickLine={false}
+  1155→                axisLine={false}
+  1156→              />
+  1157→              <YAxis
+  1158→                tick={{ fontSize: 11 }}
+  1159→                stroke="currentColor"
+  1160→                className="text-muted-foreground"
+  1161→                tickLine={false}
+  1162→                axisLine={false}
+  1163→                width={32}
+  1164→              />
+  1165→              <Tooltip content={<ChartTooltip />} cursor={{ fill: "currentColor", fillOpacity: 0.06 }} />
+  1166→              <Bar dataKey="Correct" name="Correct" fill={CHART.emerald} radius={[3, 3, 0, 0]} />
+  1167→              <Bar dataKey="Incorrect" name="Incorrect" fill={CHART.rose} radius={[3, 3, 0, 0]} />
+  1168→              <Bar dataKey="Unattempted" name="Unattempted" fill={CHART.amber} radius={[3, 3, 0, 0]} />
+  1169→            </BarChart>
+  1170→          </ResponsiveContainer>
+  1171→        </CardContent>
+  1172→      </Card>
+  1173→
+  1174→      {/* Row 5: Topic performance table */}
+  1175→      {data.topicRows.length > 0 && (
+  1176→        <Card className="border-border/70">
+  1177→          <CardHeader className="pb-2">
+  1178→            <div className="flex items-center justify-between gap-2">
+  1179→              <div className="flex items-center gap-2">
+  1180→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-500">
+  1181→                  <Brain className="h-4 w-4" />
+  1182→                </div>
+  1183→                <div>
+  1184→                  <CardTitle className="text-sm">Topic Performance</CardTitle>
+  1185→                  <CardDescription className="text-xs">Accuracy breakdown per topic — click accuracy to sort</CardDescription>
+  1186→                </div>
+  1187→              </div>
+  1188→              <Badge variant="secondary" className="text-[11px]">
+  1189→                {data.topicRows.length} topics
+  1190→              </Badge>
+  1191→            </div>
+  1192→          </CardHeader>
+  1193→          <CardContent>
+  1194→            <div className="relative w-full overflow-x-auto">
+  1195→              <table className="w-full caption-bottom text-sm">
+  1196→                <thead>
+  1197→                  <tr className="border-b border-border text-left">
+  1198→                    <th className="h-9 px-3 text-xs font-semibold text-muted-foreground">Topic</th>
+  1199→                    <th className="h-9 px-3 text-xs font-semibold text-muted-foreground text-right">Attempts</th>
+  1200→                    <th className="h-9 px-3 text-xs font-semibold text-muted-foreground">
+  1201→                      <button
+  1202→                        onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+  1203→                        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+  1204→                      >
+  1205→                        Accuracy
+  1206→                        {sortDir === "desc" ? (
+  1207→                          <ChevronDown className="h-3 w-3" />
+  1208→                        ) : (
+  1209→                          <ChevronUp className="h-3 w-3" />
+  1210→                        )}
+  1211→                      </button>
+  1212→                    </th>
+  1213→                    <th className="h-9 px-3 text-xs font-semibold text-muted-foreground text-right">Avg time</th>
+  1214→                  </tr>
+  1215→                </thead>
+  1216→                <tbody>
+  1217→                  {data.topicRows.slice(0, 50).map((row) => (
+  1218→                    <tr key={row.topic} className="border-b border-border/50 last:border-0 hover:bg-muted/40 transition-colors">
+  1219→                      <td className="p-3 font-medium truncate max-w-[260px]">{row.topic}</td>
+  1220→                      <td className="p-3 text-right tabular-nums text-muted-foreground">{row.attempts}</td>
+  1221→                      <td className="p-3">
+  1222→                        <div className="flex items-center gap-2">
+  1223→                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden max-w-[120px]">
+  1224→                            <div
+  1225→                              className={cn(
+  1226→                                "h-full rounded-full bg-gradient-to-r",
+  1227→                                row.accuracy >= 70
+  1228→                                  ? "from-emerald-500 to-teal-500"
+  1229→                                  : row.accuracy >= 40
+  1230→                                    ? "from-amber-500 to-orange-500"
+  1231→                                    : "from-rose-500 to-pink-500",
+  1232→                              )}
+  1233→                              style={{ width: `${Math.min(100, Math.max(0, row.accuracy))}%` }}
+  1234→                            />
+  1235→                          </div>
+  1236→                          <span className="text-xs tabular-nums font-medium w-12 text-right">
+  1237→                            {row.accuracy}%
+  1238→                          </span>
+  1239→                        </div>
+  1240→                      </td>
+  1241→                      <td className="p-3 text-right tabular-nums text-muted-foreground text-xs">
+  1242→                        {row.avgTime !== null ? `${row.avgTime}s` : "—"}
+  1243→                      </td>
+  1244→                    </tr>
+  1245→                  ))}
+  1246→                </tbody>
+  1247→              </table>
+  1248→            </div>
+  1249→          </CardContent>
+  1250→        </Card>
+  1251→      )}
+  1252→
+  1253→      {/* Row 6: Insights card */}
+  1254→      <Card className="relative overflow-hidden border-violet-500/30">
+  1255→        <div className="absolute -top-12 -right-12 h-40 w-40 rounded-full blur-3xl opacity-25 bg-gradient-to-br from-violet-500 to-fuchsia-500" />
+  1256→        <div className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full blur-3xl opacity-15 bg-gradient-to-br from-fuchsia-500 to-violet-500" />
+  1257→        <CardHeader className="pb-2 relative">
+  1258→          <div className="flex items-center gap-2">
+  1259→            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-md">
+  1260→              <Lightbulb className="h-4 w-4" />
+  1261→            </div>
+  1262→            <div>
+  1263→              <CardTitle className="text-sm">Insights</CardTitle>
+  1264→              <CardDescription className="text-xs">Auto-generated from your activity</CardDescription>
+  1265→            </div>
+  1266→          </div>
+  1267→        </CardHeader>
+  1268→        <CardContent className="relative space-y-3">
+  1269→          <InsightLine
+  1270→            icon={Trophy}
+  1271→            iconColor="text-amber-500"
+  1272→            text={
+  1273→              data.strongest
+  1274→                ? <>Your strongest subject is <strong className="text-foreground">{data.strongest.subject}</strong> ({data.strongest.accuracy}% accuracy).</>
+  1275→                : <>Attempt a paper or MCQ set to surface your strongest subject.</>
+  1276→            }
+  1277→          />
+  1278→          <InsightLine
+  1279→            icon={Clock}
+  1280→            iconColor="text-violet-500"
+  1281→            text={<>You&apos;ve studied <strong className="text-foreground">{data.totalStudyMinutes}</strong> minutes in <span className="text-foreground/80">{rangeLabel(range)}</span>.</>}
+  1282→          />
+  1283→          <InsightLine
+  1284→            icon={Brain}
+  1285→            iconColor="text-fuchsia-500"
+  1286→            text={
+  1287→              data.mostStudiedTopic
+  1288→                ? <>Most studied topic: <strong className="text-foreground">{data.mostStudiedTopic[0]}</strong> ({data.mostStudiedTopic[1]} minutes).</>
+  1289→                : <>Start a study session or write a journal entry to track your most-studied topic.</>
+  1290→            }
+  1291→          />
+  1292→          <InsightLine
+  1293→            icon={Target}
+  1294→            iconColor="text-rose-500"
+  1295→            text={
+  1296→              data.weakest
+  1297→                ? <>Recommendation: focus on <strong className="text-foreground">{data.weakest.subject}</strong> — currently at {data.weakest.accuracy}% accuracy.</>
+  1298→                : <>Keep practising — when you have multiple subjects tracked, personalised recommendations will appear here.</>
+  1299→            }
+  1300→          />
+  1301→        </CardContent>
+  1302→      </Card>
+  1303→    </div>
+  1304→  );
+  1305→}
+  1306→
+  1307→// ---------- Header (presentational) ----------
+  1308→function AnalyticsHeader() {
+  1309→  return (
+  1310→    <div className="space-y-2">
+  1311→      <div className="flex items-start gap-3">
+  1312→        <div className="relative">
+  1313→          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 blur-md opacity-50" />
+  1314→          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg">
+  1315→            <BarChart3 className="h-5 w-5" />
+  1316→          </div>
+  1317→        </div>
+  1318→        <div>
+  1319→          <h1 className="text-2xl font-bold tracking-tight">Analytics Dashboard</h1>
+  1320→          <p className="text-sm text-muted-foreground max-w-2xl">
+  1321→            Unified insights across all your exam preparation activity. Trends, distribution, and performance breakdowns.
+  1322→          </p>
+  1323→        </div>
+  1324→      </div>
+  1325→    </div>
+  1326→  );
+  1327→}
+  1328→
+  1329→// ---------- Insight line (presentational) ----------
+  1330→function InsightLine({
+  1331→  icon: Icon,
+  1332→  iconColor,
+  1333→  text,
+  1334→}: {
+  1335→  icon: React.ComponentType<{ className?: string }>;
+  1336→  iconColor: string;
+  1337→  text: React.ReactNode;
+  1338→}) {
+  1339→  return (
+  1340→    <div className="flex items-start gap-3 text-sm text-muted-foreground">
+  1341→      <Icon className={cn("h-4 w-4 mt-0.5 shrink-0", iconColor)} />
+  1342→      <div className="flex-1 leading-relaxed">{text}</div>
+  1343→    </div>
+  1344→  );
+  1345→}
+  1346→

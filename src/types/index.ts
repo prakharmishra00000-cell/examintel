@@ -423,6 +423,21 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+// ---------- Exam Strategy Guide ----------
+export interface ExamStrategy {
+  examName: string;
+  examType: "Speed-focused" | "Accuracy-focused" | "Elimination-based" | "Mixed";
+  timeAllocation: { section: string; minutes: number; questions: number; priority: "High" | "Medium" | "Low" }[];
+  attemptOrder: { step: number; action: string; rationale: string }[];
+  negativeMarkingStrategy: { situation: string; action: "Guess" | "Skip" | "Eliminate then guess"; threshold: string }[];
+  revisionBuffer: number; // minutes reserved for revision
+  sectionTargets: { section: string; safeAttempts: number; targetAccuracy: number }[];
+  lastFiveMinutes: { action: string; detail: string }[];
+  commonMistakes: { mistake: string; prevention: string }[];
+  sources: { type: string; label: string }[];
+  generatedAt: string;
+}
+
 // ---------- Saved Research ----------
 export type SavedType =
   | "exam"
