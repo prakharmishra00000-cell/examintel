@@ -63,6 +63,8 @@ import { TopicMastery } from "@/components/views/topic-mastery";
 import { RevisionScheduler } from "@/components/views/revision-scheduler";
 import { Analytics } from "@/components/views/analytics";
 import { PYQBrowser } from "@/components/views/pyq-browser";
+import { ConceptMap } from "@/components/views/concept-map";
+import { StudyNotes } from "@/components/views/study-notes";
 import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
@@ -130,10 +132,12 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Activity,
     items: [
       { key: "my-research", label: "My Research", icon: Save, desc: "Saved intelligence" },
+      { key: "concept-map", label: "Concept Map", icon: Network, desc: "Visual knowledge graph" },
       { key: "topic-mastery", label: "Topic Mastery", icon: Target, desc: "Strength heatmap" },
       { key: "analytics", label: "Analytics", icon: BarChart3, desc: "Performance insights" },
       { key: "study-timer", label: "Study Timer", icon: Timer, desc: "Pomodoro + streaks" },
       { key: "progress-journal", label: "Journal", icon: BookOpen, desc: "Daily study log" },
+      { key: "study-notes", label: "Notes", icon: BookOpen, desc: "Markdown study notes" },
       { key: "achievements", label: "Achievements", icon: Trophy, desc: "Badges & XP" },
     ],
   },
@@ -358,6 +362,10 @@ export function AppShell() {
         return <FormulaQuiz />;
       case "pyq-browser":
         return <PYQBrowser />;
+      case "concept-map":
+        return <ConceptMap />;
+      case "study-notes":
+        return <StudyNotes />;
       case "api-keys":
         return <ApiKeysView />;
       default:
@@ -444,7 +452,7 @@ export function AppShell() {
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "revision-scheduler", "exam-pattern-analyzer", "pyq-browser"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "revision-scheduler", "exam-pattern-analyzer", "pyq-browser", "concept-map", "study-notes"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (

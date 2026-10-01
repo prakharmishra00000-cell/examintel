@@ -446,22 +446,84 @@ function mockQuestionExplanation(query: string): unknown {
 }
 
 function mockQuestionEvolution(query: string): unknown {
-  const src = query.slice(0, 150) || "A train 150 m long passes a pole in 15 seconds. Find its speed.";
-  return {
-    sourceQuestion: src,
-    coreConcept: "Speed = Distance / Time",
-    subject: "Quantitative Aptitude",
-    topic: "Time, Speed & Distance",
-    subtopic: "Trains",
-    difficulty: "Medium",
-    variants: [
+  // Extract the actual question from the triple-quoted prompt wrapper
+  let src = "";
+  const triple = query.match(/"""\s*\n([\s\S]*?)\n\s*"""/);
+  if (triple && triple[1]) src = triple[1].trim().slice(0, 300);
+  if (!src || src.length < 5) src = query.slice(0, 150) || "A train 150 m long passes a pole in 15 seconds. Find its speed.";
+
+  const s = src.toLowerCase();
+  let subject = "Quantitative Aptitude";
+  let topic = "Time, Speed & Distance";
+  let subtopic = "Trains";
+  let coreConcept = "Speed = Distance / Time";
+  let difficulty: "Easy" | "Medium" | "Hard" = "Medium";
+  let variants: unknown[];
+
+  type Variant = { level: number; levelName: string; question: string; options: string[]; correctAnswer: string; explanation: string; shortcut?: string; commonTrap?: string; validationStatus: "verified" | "needs-review"; validationNotes?: string[] };
+
+  if (s.includes("train") || s.includes("speed") || s.includes("distance") || s.includes("pole")) {
+    subject = "Quantitative Aptitude"; topic = "Time, Speed & Distance"; subtopic = "Trains";
+    coreConcept = "Speed = Distance / Time"; difficulty = "Medium";
+    variants = [
       { level: 1, levelName: "Same Concept, Easier", question: "A train 100 m long passes a pole in 10 seconds. Find its speed.", options: ["8 m/s", "10 m/s", "12 m/s", "15 m/s"], correctAnswer: "10 m/s", explanation: "Speed = 100/10 = 10 m/s", validationStatus: "verified", validationNotes: [] },
       { level: 2, levelName: "Same Concept, Different Framing", question: "A train crosses a stationary pole in 20 seconds at a speed of 5 m/s. What is the length of the train?", options: ["50 m", "100 m", "75 m", "125 m"], correctAnswer: "100 m", explanation: "Length = Speed × Time = 5 × 20 = 100 m", validationStatus: "verified" },
       { level: 3, levelName: "Multi-Concept", question: "Two trains of length 100 m each approach each other at 10 m/s and 15 m/s. Time to cross each other?", options: ["4 s", "8 s", "10 s", "12 s"], correctAnswer: "8 s", explanation: "Relative speed = 25 m/s, total distance = 200 m, time = 200/25 = 8 s", validationStatus: "verified" },
       { level: 4, levelName: "Difficult Variant", question: "A train 200 m long passes a platform 300 m long in 25 seconds. Find its speed in km/h.", options: ["54 km/h", "72 km/h", "60 km/h", "90 km/h"], correctAnswer: "72 km/h", explanation: "Total distance = 500 m, time = 25 s, speed = 20 m/s = 72 km/h", validationStatus: "verified" },
       { level: 5, levelName: "Exam-Trap Variant", question: "A train crosses a pole in 8 s and a platform 240 m long in 20 s. Find the length of the train.", options: ["120 m", "160 m", "180 m", "240 m"], correctAnswer: "160 m", explanation: "Let length L, speed S. L/S = 8 → S = L/8. (L+240)/S = 20 → L + 240 = 20S = 20 × L/8 = 2.5L → 1.5L = 240 → L = 160 m", commonTrap: "Assuming train length equals platform length", validationStatus: "verified" },
-    ],
-    lineage: "Original train-pole problem → 5 variants across difficulty and concept combination.",
+    ];
+  } else if (s.includes("percentage") || s.includes("%") || s.includes("profit") || s.includes("loss")) {
+    subject = "Quantitative Aptitude"; topic = "Percentage & Profit-Loss"; subtopic = "Percentage";
+    coreConcept = "Percentage = (Part / Whole) × 100"; difficulty = "Easy";
+    variants = [
+      { level: 1, levelName: "Same Concept, Easier", question: "What is 10% of 200?", options: ["10", "20", "15", "25"], correctAnswer: "20", explanation: "10% of 200 = 0.10 × 200 = 20", validationStatus: "verified", validationNotes: [] },
+      { level: 2, levelName: "Same Concept, Different Framing", question: "If 25% of a number is 50, what is the number?", options: ["100", "150", "200", "250"], correctAnswer: "200", explanation: "0.25x = 50 → x = 50/0.25 = 200", validationStatus: "verified" },
+      { level: 3, levelName: "Multi-Concept", question: "A shopkeeper marks goods 40% above cost and gives 10% discount. His profit % is?", options: ["26%", "30%", "36%", "40%"], correctAnswer: "26%", explanation: "If CP=100, MP=140, SP=140×0.9=126. Profit=26%. (MP×Discount≠MP-Discount%)", validationStatus: "verified" },
+      { level: 4, levelName: "Difficult Variant", question: "Successive discounts of 20% and 10% are equivalent to a single discount of:", options: ["28%", "30%", "32%", "25%"], correctAnswer: "28%", explanation: "SP = 0.8 × 0.9 = 0.72 of original. Single discount = 1-0.72 = 28%", validationStatus: "verified" },
+      { level: 5, levelName: "Exam-Trap Variant", question: "A's salary is 50% more than B's. By what % is B's salary less than A's?", options: ["33.33%", "50%", "40%", "25%"], correctAnswer: "33.33%", explanation: "Let B=100, A=150. B is 50 less than A. 50/150 × 100 = 33.33%", commonTrap: "Answering 50% (the base changes)", validationStatus: "verified" },
+    ];
+  } else if (s.includes("series") || s.includes("sequence") || s.includes("pattern") || s.includes("next number")) {
+    subject = "General Intelligence & Reasoning"; topic = "Series & Patterns"; subtopic = "Number Series";
+    coreConcept = "Identify the rule governing the sequence"; difficulty = "Medium";
+    variants = [
+      { level: 1, levelName: "Same Concept, Easier", question: "Find the next: 2, 4, 6, 8, ?", options: ["9", "10", "11", "12"], correctAnswer: "10", explanation: "Common difference = 2. Next = 8+2 = 10.", validationStatus: "verified", validationNotes: [] },
+      { level: 2, levelName: "Same Concept, Different Framing", question: "Which number completes: 3, 6, 12, 24, ?", options: ["30", "36", "48", "42"], correctAnswer: "48", explanation: "Each term doubles: 3×2=6, 6×2=12... 24×2=48", validationStatus: "verified" },
+      { level: 3, levelName: "Multi-Concept", question: "Find next: 1, 4, 9, 16, 25, ? (hint: think squares)", options: ["30", "36", "42", "49"], correctAnswer: "36", explanation: "Perfect squares: 1², 2², 3², 4², 5² → 6² = 36", validationStatus: "verified" },
+      { level: 4, levelName: "Difficult Variant", question: "Find next: 2, 6, 12, 20, 30, ?", options: ["40", "42", "44", "46"], correctAnswer: "42", explanation: "Differences: 4,6,8,10,12 (even numbers). Next = 30+12 = 42", validationStatus: "verified" },
+      { level: 5, levelName: "Exam-Trap Variant", question: "Find next: 1, 2, 6, 24, 120, ?", options: ["240", "360", "600", "720"], correctAnswer: "720", explanation: "Factorials: 1!, 2!, 3!, 4!, 5! → 6! = 720", commonTrap: "Assuming addition pattern (differences look tempting)", validationStatus: "verified" },
+    ];
+  } else if (s.includes("solve") || s.includes("equation") || /[a-z]\s*[-+]\s*\d/.test(s)) {
+    subject = "Quantitative Aptitude"; topic = "Algebra"; subtopic = "Linear Equations";
+    coreConcept = "Isolate the variable via inverse operations"; difficulty = "Easy";
+    variants = [
+      { level: 1, levelName: "Same Concept, Easier", question: "If x + 5 = 10, find x.", options: ["3", "5", "7", "15"], correctAnswer: "5", explanation: "x = 10 - 5 = 5", validationStatus: "verified", validationNotes: [] },
+      { level: 2, levelName: "Same Concept, Different Framing", question: "Twice a number equals 14. What is the number?", options: ["6", "7", "8", "12"], correctAnswer: "7", explanation: "2x = 14 → x = 7", validationStatus: "verified" },
+      { level: 3, levelName: "Multi-Concept", question: "The sum of two numbers is 20 and their difference is 4. Find the larger number.", options: ["10", "12", "14", "8"], correctAnswer: "12", explanation: "x+y=20, x-y=4. Adding: 2x=24 → x=12, y=8. Larger = 12.", validationStatus: "verified" },
+      { level: 4, levelName: "Difficult Variant", question: "If 3(x - 2) + 2x = 15, find x.", options: ["3", "4.2", "5", "6"], correctAnswer: "4.2", explanation: "3x-6+2x=15 → 5x=21 → x=4.2", validationStatus: "verified" },
+      { level: 5, levelName: "Exam-Trap Variant", question: "If 2x + 3y = 12 and x - y = 1, find x + y.", options: ["3", "4", "5", "6"], correctAnswer: "5", explanation: "From x-y=1: x=y+1. Substitute: 2(y+1)+3y=12 → 5y=10 → y=2, x=3. x+y=5.", commonTrap: "Solving for x and y separately then forgetting to add them", validationStatus: "verified" },
+    ];
+  } else {
+    // Generic fallback — treat as a quantitative problem
+    subject = "Quantitative Aptitude"; topic = "Problem Solving"; subtopic = "Analytical";
+    coreConcept = "Break problem into structured steps"; difficulty = "Medium";
+    variants = [
+      { level: 1, levelName: "Same Concept, Easier", question: "What is 5 × 4?", options: ["15", "20", "25", "9"], correctAnswer: "20", explanation: "5 × 4 = 20", validationStatus: "verified", validationNotes: [] },
+      { level: 2, levelName: "Same Concept, Different Framing", question: "If 4 boxes each hold 5 items, how many items total?", options: ["9", "20", "15", "25"], correctAnswer: "20", explanation: "4 × 5 = 20 items", validationStatus: "verified" },
+      { level: 3, levelName: "Multi-Concept", question: "5 items cost ₹4 each. With 10% tax, total = ?", options: ["₹20", "₹22", "₹24", "₹18"], correctAnswer: "₹22", explanation: "5×4=20. Tax=10% of 20=2. Total=20+2=₹22", validationStatus: "verified" },
+      { level: 4, levelName: "Difficult Variant", question: "5 workers complete a job in 4 hours. How long for 4 workers?", options: ["3.2h", "5h", "4.5h", "6h"], correctAnswer: "5h", explanation: "Work = 5×4 = 20 worker-hours. 4 workers → 20/4 = 5 hours", validationStatus: "verified" },
+      { level: 5, levelName: "Exam-Trap Variant", question: "If 5 cats catch 5 mice in 5 minutes, how long for 100 cats to catch 100 mice?", options: ["5 min", "20 min", "100 min", "500 min"], correctAnswer: "5 min", explanation: "Each cat catches 1 mouse in 5 min. 100 cats catch 100 mice in the same 5 min (parallel).", commonTrap: "Assuming 100×5=500 min (confusing rate with scale)", validationStatus: "verified" },
+    ];
+  }
+
+  return {
+    sourceQuestion: src,
+    coreConcept,
+    subject,
+    topic,
+    subtopic,
+    difficulty,
+    variants,
+    lineage: `Original ${topic} problem → 5 variants across difficulty and concept combination.`,
     sources: [{ type: "AI_GENERATED", label: "AI-Generated", detail: "Variants derived from source question" }],
     generatedAt: new Date().toISOString(),
   };

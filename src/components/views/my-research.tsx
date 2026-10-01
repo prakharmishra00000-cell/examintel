@@ -25,6 +25,7 @@ import {
   AlertCircle,
   Filter,
   Hash,
+  BookOpen,
 } from "lucide-react";
 
 import { useAppStore } from "@/store/app-store";
@@ -78,6 +79,7 @@ const TYPE_ICON: Record<SavedType, IconType> = {
   mcq: ListChecks,
   preparation: CalendarRange,
   "multi-exam": Layers,
+  note: BookOpen,
 };
 
 const TYPE_LABEL: Record<SavedType, string> = {
@@ -91,6 +93,7 @@ const TYPE_LABEL: Record<SavedType, string> = {
   mcq: "MCQ Set",
   preparation: "Preparation Plan",
   "multi-exam": "Multi-Exam Plan",
+  note: "Study Note",
 };
 
 // Singular label for the stat card ("1 Exam Research" vs "2 Exam Research")
@@ -105,6 +108,7 @@ const TYPE_LABEL_SINGULAR: Record<SavedType, string> = {
   mcq: "MCQ Set",
   preparation: "Plan",
   "multi-exam": "Multi-Exam",
+  note: "Note",
 };
 
 // Color-coded badge classes per type — premium, NO indigo/blue primary
@@ -119,6 +123,7 @@ const TYPE_BADGE_CLASS: Record<SavedType, string> = {
   mcq: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30",
   preparation: "bg-teal-500/15 text-teal-600 dark:text-teal-300 border-teal-500/30",
   "multi-exam": "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30",
+  note: "bg-violet-500/15 text-violet-600 dark:text-violet-300 border-violet-500/30",
 };
 
 // Soft icon background classes per type (matches badge hue)
@@ -133,6 +138,7 @@ const TYPE_ICON_CLASS: Record<SavedType, string> = {
   mcq: "bg-rose-500/10 text-rose-600 dark:text-rose-300 border-rose-500/20",
   preparation: "bg-teal-500/10 text-teal-600 dark:text-teal-300 border-teal-500/20",
   "multi-exam": "bg-orange-500/10 text-orange-600 dark:text-orange-300 border-orange-500/20",
+  note: "bg-violet-500/10 text-violet-600 dark:text-violet-300 border-violet-500/20",
 };
 
 const FILTER_VALUES = ["all", ...Object.keys(TYPE_LABEL) as SavedType[]] as const;
@@ -150,6 +156,7 @@ const FILTER_LABEL: Record<FilterValue, string> = {
   mcq: "MCQs",
   preparation: "Plans",
   "multi-exam": "Multi-Exam",
+  note: "Notes",
 };
 
 // ---------- helpers ----------

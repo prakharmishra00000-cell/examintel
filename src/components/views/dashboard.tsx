@@ -163,8 +163,12 @@ export function Dashboard() {
 
       {/* Quick actions */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Quick AI Actions</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="h-5 w-1 rounded-full bg-gradient-to-b from-violet-500 to-fuchsia-500" />
+            <h2 className="text-lg font-semibold tracking-tight">Quick AI Actions</h2>
+            <Badge variant="secondary" className="text-[10px]">{quickActions.length} tools</Badge>
+          </div>
           <Button variant="ghost" size="sm" onClick={() => setAssistantOpen(true)} className="gap-1.5 text-violet-500">
             <Sparkles className="h-3.5 w-3.5" /> Ask AI
           </Button>

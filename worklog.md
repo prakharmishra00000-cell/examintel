@@ -1202,3 +1202,173 @@ Stage Summary:
 - 2 new API routes (pyq/browse, pyq/similar) — total 19 routes.
 - 1 new store (pyq-store) — total 10 stores.
 - Next cron run can focus on: more mock data variety, AI assistant deep integration, performance optimization, or additional features (e.g. study groups, leaderboard, formula quiz multiplayer, voice notes).
+
+---
+Task ID: cron7-feat-2
+Agent: full-stack-developer (Concept Map)
+Task: Build interactive visual mind map of topics/concepts from saved research
+
+Work Log:
+- Read /home/z/my-project/worklog.md (foundation + 26 existing views + shared infra: useAppStore with ViewKey/saved/setView, useFlashcardStore with sets/cards(mastery), types — DependencyMapReport.nodes (topic/prerequisites/dependents/mastery/level), ExamResearchReport.syllabus (subjects→topics→subtopics→concepts), FlashcardSet.topic + cards[].topic/mastery). Noted cron6-feat-2 added "pyq-browser" to ViewKey + mobile-nav exclusion; cron7-feat-1 (parallel agent) concurrently added "study-notes" view — both edits merged cleanly into shared files.
+- Added `| "concept-map"` to the ViewKey union in src/store/app-store.ts (inserted between "pyq-browser" and "study-notes").
+- Created src/components/views/concept-map.tsx — a 'use client' component with named export `ConceptMap`. ~1000 lines.
+  - Aggregation (buildTree): reads from 2 stores (useAppStore.saved + useFlashcardStore.sets):
+    1) saved items of type "exam" → walk ExamResearchReport.syllabus[]: each subject → subject node; each topic → topic node; each subtopic.name + each concept string → concept nodes. Source counts + related-item map populated per node.
+    2) saved items of type "dependency" → DependencyMapReport.root becomes a subject; each node (DependencyNode) becomes a topic under that subject; node.concept (if present) becomes a concept. Prerequisites/dependents id-arrays resolved to topic names via id→topic lookup map. Mastery strings mapped via DEP_MASTERY_MAP (Mastered/Strong→mastered, Improving/Practicing/Learning→learning, Weak→weak, Introduced/Not Started→not-started).
+    3) flashcard sets → grouped under a "Flashcards" pseudo-subject; set.topic becomes a topic node; set's best card mastery (FC_MASTERY_MAP: Mastered→mastered, Reviewing/Learning→learning, New→not-started) elevates the topic mastery; cards whose topic differs from set.topic become concept-level nodes.
+    Dedupe by normalized name at each level (subject/topic/concept). Best-mastery aggregation across sources per node.
+  - Tree built as Root ("Knowledge Graph") → Subjects (depth 1) → Topics (depth 2) → Concepts (depth 3). Each ConceptNode carries: id, label, type, children[], mastery, sourceCount, relatedItems[], prerequisites?[], dependents?[], depth.
+  - Layout algorithms (pure functions, mutate a JSON-cloned tree):
+    - layoutTree (horizontal): x = depth × 240px, y = leaf-row × 60px; internal y = midpoint of first/last child y. Respects collapsed set (collapsed node treated as leaf).
+    - layoutRadial: depth × 160px radius; each subtree gets an angular slice proportional to its leaf count; node angle = midpoint of its slice; x = r·cos(angle), y = r·sin(angle). Computes bounding box for viewport.
+  - Custom SVG visualization (NO library): single <svg width=100% height=100%> with a <g transform="translate(pan.x,pan.y) scale(zoom)"> containing:
+    - <defs> with linearGradient "edge-grad" (violet→fuchsia→emerald stops at 0.55/0.5/0.45 alpha), radialGradient "root-glow", feDropShadow filter "node-shadow".
+    - Edges: cubic-bezier paths (horizontal tree: C px+dx,py → cx-dx,cy) or quadratic (radial: Q midX*0.5,midY*0.5) — stroke="url(#edge-grad)", strokeWidth 1.5.
+    - Nodes (NodeShape): <g transform=translate(x,y)> with [selection halo if selected] + [mastery ring: circle r+3, stroke mastery color, strokeWidth 3] + [main fill: circle r, fill type color, stroke white/0.25] + [text label below] + [children count text inside]. Root node gets extra glow circle + larger radius.
+    - Node radius scales by sourceCount: base 18/13/9 (subject/topic/concept) + min(6, sourceCount-1) × 1.6.
+  - Interactions:
+    - Wheel zoom: native non-passive wheel listener on wrap div (useEffect + addEventListener {passive:false}); zoom toward mouse position by adjusting pan to keep mouse point stable; clamp 0.3×–3×.
+    - Pan drag: onMouseDown on background sets dragging + captures start coords; global mousemove/mouseup listeners (added via useEffect when dragging) update pan by delta. Cursor toggles grab↔grabbing.
+    - Click node: setSelectedId + toggle collapsed (except root).
+    - Hover node: setHoverNode + setHoverPos (with wrap-rect width captured to avoid ref-during-render lint). Floating tooltip overlay shows type pill, mastery pill (with dot), source count + children count.
+  - Controls bar (Card): ZoomIn/ZoomOut/ResetView buttons + zoom % readout, Expand all / Collapse all buttons, layout toggle (Tree/Radial) with active state gradient, hint text (desktop: "Scroll to zoom · drag to pan · click to expand"; mobile: "Tap nodes to expand").
+  - Legend overlay (bottom-left of viewport): type colors (violet=Subject, fuchsia=Topic, emerald=Concept) + mastery colors (emerald=Mastered, amber=Learning, rose=Weak, zinc=Not Started).
+  - Detail panel (right, lg:sticky): when a node is selected, shows type pill + mastery pill (with dot), label, MiniMetrics (Sources + Children), prerequisites badges (amber) if from dependency map, dependents badges (fuchsia) if present, Related Saved Items list (clickable → navigate to my-research). Empty state when nothing selected: muted icon + helper text.
+  - Stats card (4 tiles with AnimatedCounter): Subjects (violet), Topics (fuchsia), Concepts (emerald), Mastered (emerald) — counts derived from buildTree's stats output.
+  - Empty state: PremiumEmptyState (violet accent, Network icon, "No concepts to map yet") + 3 hint tiles (Exam Research / Dependency Map / Flashcards) each clickable to navigate to the respective view. Triggered when !mounted || root.children.length === 0.
+  - useMounted pattern via useSyncExternalStore (same as topic-mastery.tsx) to avoid hydration mismatch from localStorage-persisted stores.
+- Styling: NO indigo/blue. Type colors: subject=violet-500, topic=fuchsia-500, concept=emerald-500. Mastery ring: mastered=emerald-500, learning=amber-500, weak=rose-500, not-started=zinc-400. Edge gradient violet→fuchsia→emerald. Header icon gradient violet→fuchsia. Active layout-toggle button gradient violet→fuchsia. Stats tile accents violet/fuchsia/emerald. Mobile-first: viewport h-[60vh] min-h-[420px], controls bar wraps, detail panel stacks below viewport on mobile (grid-cols-1 lg:grid-cols-[1fr_320px]).
+- Wired into shared infra:
+  - src/store/app-store.ts: added `| "concept-map"` to ViewKey union (between "pyq-browser" and "study-notes" — the latter concurrently added by cron7-feat-1).
+  - src/components/app-shell.tsx: imported { ConceptMap } from "@/components/views/concept-map"; added `{ key: "concept-map", label: "Concept Map", icon: Network, desc: "Visual knowledge graph" }` to NAV_GROUPS "tracking" group (right after my-research, before topic-mastery); added `case "concept-map": return <ConceptMap />;` to render switch (between pyq-browser and study-notes); added "concept-map" to mobile bottom-nav exclusion filter (alongside existing exclusions for analytics/revision-scheduler/exam-pattern-analyzer/pyq-browser/study-notes etc.).
+- Lint iteration:
+  - First run: 3 errors at line 988 — `react-hooks/refs` rule: "Cannot access refs during render" — the floating tooltip's `style.left` was reading `svgWrapRef.current?.clientWidth` during render. Fixed by capturing the wrap-rect width inside the `onNodeHover` event handler (where ref access is allowed) and storing it in the `hoverPos` state alongside x/y. Render now reads `hoverPos.w` (a state value, not a ref).
+  - Second run: 0 errors, 0 warnings. Clean.
+  - Also removed unused imports (AnimatePresence, Badge, Tooltip/TooltipTrigger/TooltipContent/TooltipProvider, Brain, ChevronRight, ChevronDown, AlertCircle, Flame) to keep the file tidy.
+- Verified dev.log: Next.js 16.1.3 (Turbopack) started cleanly, no compile errors after file changes. Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ONE new feature view: src/components/views/concept-map.tsx (~1000 lines, 'use client', named export ConceptMap).
+- Aggregates from 2 stores (useAppStore.saved of type "exam"/"dependency" + useFlashcardStore.sets) into a hierarchical tree: Root → Subjects (violet) → Topics (fuchsia) → Concepts (emerald).
+- Custom SVG visualisation (NO library) with two layout modes: horizontal Tree (cubic-bezier edges) and Radial (quadratic edges through center). Both respect collapsed state.
+- Each node: type-colored circle (size scales with sourceCount) + mastery ring (mastered=emerald/learning=amber/weak=rose/not-started=zinc) + child-count indicator + selection halo when active.
+- Interactions: wheel zoom (0.3×–3×, mouse-anchored, non-passive listener), drag-to-pan (background only), click node to expand/collapse + select, hover for floating tooltip with type/mastery/sources/children info.
+- Controls bar: zoom in/out/reset, expand all / collapse all, Tree/Radial toggle. Legend overlay (types + mastery colors).
+- Detail panel (right side, lg:sticky): selected node's type/mastery badges, sources/children metrics, prerequisites (amber badges from dependency map), dependents (fuchsia badges), related saved items list (click → my-research).
+- Stats card: 4 AnimatedCounter tiles (Subjects/Topics/Concepts/Mastered).
+- Empty state: PremiumEmptyState (violet, Network icon) + 3 hint tiles linking to Exam Researcher / Dependency Mapper / Flashcards.
+- ViewKey union extended with "concept-map"; AppShell nav wired into "tracking" group (after My Research, before Topic Mastery); mobile bottom-nav excludes it (desktop-focused due to SVG viewport width requirements).
+- Shared infrastructure respected: only the explicitly-required ViewKey + nav + render switch + mobile-exclusion wiring changes; app-store, useFlashcardStore, types, PremiumEmptyState, shadcn/ui primitives all consumed as-is. Lint-clean (0 errors, 0 warnings) on all new/modified files.
+
+---
+Task ID: cron7-feat-1
+Agent: full-stack-developer (Study Notes)
+Task: Build markdown note-taking with AI summarize + organize by subject/topic
+
+Work Log:
+- Read /home/z/my-project/worklog.md (last entries: cron6-feat-1 Exam Pattern Analyzer, cron6-feat-2 PYQ Browser, cron-review-6). Confirmed shared infra: useAppStore (ViewKey, saveItem, setContext), getLLM().chat(messages) + ChatCompletionMessage type, shadcn/ui (Card/Button/Input/Textarea/Badge/Dialog/ScrollArea/Tabs/Select), react-markdown installed, lucide-react icons, useApi() hook returning { call }, PremiumEmptyState + LoadingState + ErrorState in src/components/shared/.
+- Noted a parallel agent had already added "concept-map" to the ViewKey union in src/store/app-store.ts (between "pyq-browser" and "api-keys") but had NOT wired it into app-shell.tsx. Left that untouched (out of scope).
+- Created src/store/notes-store.ts — separate zustand store with persist middleware, localStorage key "examintel-notes". Exports StudyNote interface (id, title, content, subject, topic, tags[], createdAt, updatedAt, pinned). Exposes notes[], addNote (returns id, stamps createdAt+updatedAt), updateNote (stamps updatedAt), deleteNote, togglePin, clearAll. partialize persists only notes[]. Server-safe (typeof window !== 'undefined' ? localStorage : undefined-as-Storage). ID format `note_{ts}_{rand6}`.
+- Created src/app/api/notes/summarize/route.ts — POST endpoint with `export const runtime = "nodejs"; export const dynamic = "force-dynamic";`. Reads { content } from body (string); 400s if empty. Truncates content > 8000 chars (preserves beginning, appends "[...note truncated...]"). System prompt instructs: produce markdown with 3 sections — ## Summary (3-5 bullet points), ## Key Terms (3-6 bolded terms w/ one-line definitions), ## Suggested Tags (comma-separated `tags: a, b, c` line). Rules: faithful to note content, 150-280 words, no preamble/code-fences. Calls getLLM().chat([{system},{user}]). Returns { summary, provider } on success, { error } on failure (400 for empty, 502 for empty AI response, 500 for exceptions). Mirrors the established pattern in /api/journal/summary/route.ts.
+- Created src/components/views/study-notes.tsx — 'use client' component with named export StudyNotes. ~660 lines.
+  - Header: gradient violet→fuchsia BookOpen icon (10x10 rounded box w/ blur halo), title "Study Notes", subtitle (verbatim per spec). Right-side: notes count badge + clear-all (trash) button (hidden on mobile, shown only when notes exist).
+  - Empty state (no notes): PremiumEmptyState (violet accent, BookOpen icon, "No study notes yet", CTA "Create your first note" → handleNewNote).
+  - Two-column layout (lg:grid-cols-[1fr_2fr]); columns stack on mobile.
+  - LEFT COLUMN:
+    - Search input (filters by title/content/subject/topic/tags — case-insensitive substring across all fields) with clear-X button.
+    - Subject filter chips: "All" + one chip per unique subject (with count badge). Active chip = violet gradient border/bg; inactive = border-border. Renders only when subjects exist.
+    - "+ New Note" button (full-width, violet→fuchsia gradient + shadow).
+    - Scrollable notes list (max-h-[calc(100vh-22rem)] overflow-y-auto custom-scroll). Sorted: pinned first, then updatedAt desc. Each item is a NoteListItem sub-component (Card with cursor-pointer, motion.div fade-in w/ layout animation + AnimatePresence for enter/exit): title (with Pin icon if pinned), subject badge (violet, BookOpen icon), topic badge (fuchsia, Tag icon), 2-line snippet (markdown-stripped, first 100 chars), tags (Hash icon, up to 3 + "+N"), updated time (Calendar icon, formatDistanceToNow). Right-side action buttons: pin toggle (Pin/PinOff, amber when pinned), delete (Trash2, rose hover). Active item highlighted with violet gradient border+bg. Clicking item loads it into the editor.
+  - RIGHT COLUMN:
+    - If not editing: PremiumEmptyState (FileText icon, "Select a note or create a new one", CTA "New Note" → handleNewNote).
+    - If editing: Card with gradient header (Edit/Plus icon, "Edit Note"/"New Note" title, "Unsaved" amber pill when isDirty). Header actions: Pin toggle button (amber when pinned), Preview toggle button (Eye/Pencil, violet when active). CardDescription shows "Updated X ago · Created MMM d, yyyy" (or "Drafting a new markdown note").
+    - Form fields: Title (Input, font-semibold), Subject (Input), Topic (Input), Tags (Input, comma-separated) — 3-col grid on sm+. Tags preview as violet outline badges (Hash icon) below inputs. Markdown Textarea (min-h-280px, font-mono) OR Preview (prose-styled ReactMarkdown render) toggled by the preview button. Live char + word count in edit mode. Empty-content preview shows italic "Nothing to preview yet." Placeholder shows markdown syntax examples.
+    - Action bar: Save (violet→fuchsia gradient, Save icon, "Save Changes"/"Save Note"), AI Summarize (violet outline, Sparkles icon), To Research (Layers icon, shown only when editing existing note — saves a copy to My Research via saveItem type "note"), Delete (rose ghost, shown only for existing notes), Close (ghost, resets form).
+  - AI Summarize Dialog: opens on "AI Summarize" click. Shows LoadingState while waiting, ErrorState on failure, or premium violet-gradient-bordered card with ReactMarkdown-rendered summary. Footer: Close (X icon) + "Insert into Note" (violet→fuchsia gradient, Plus icon — appends `\n\n---\n\n## AI Summary\n\n{summary}\n` to the note content and marks dirty). Disabled while loading or on error.
+  - Delete confirm Dialog: rose-titled, shows note title + snippet, Cancel + Delete (rose bg) buttons.
+  - handleSaveToResearch: saveItem({ type: "note", title, summary: snippet(content, 160), data: { subject, topic, tags, content } }) + toast.success.
+  - handleClearAll: window.confirm guard, clears store + resets editor.
+  - setContext called on note load + new note (feeds AI assistant context).
+  - Validation: requires content (toast.error if empty on save); title defaults to "Untitled Note".
+  - SSR-safe: removed mounted/useEffect hydration check (was triggering react-hooks/set-state-in-effect lint error). Zustand persist hydrates synchronously in browser; server renders default empty state, client hydrates with same default then re-renders with persisted notes. Matches pattern used by flashcards/journal views.
+- Wired into shared infra:
+  - src/store/app-store.ts: added `| "study-notes"` to ViewKey union (inserted after "concept-map", before "api-keys").
+  - src/types/index.ts: added `| "note"` to SavedType union (additive — needed for saveItem type to accept notes saved to My Research). NOT in the DO-NOT-MODIFY list, additive/safe change.
+  - src/components/views/my-research.tsx: added `note` entries to all 5 SavedType records (TYPE_ICON=BookOpen, TYPE_LABEL="Study Note", TYPE_LABEL_SINGULAR="Note", TYPE_BADGE_CLASS=violet, TYPE_ICON_CLASS=violet) + FILTER_LABEL "Notes". Added BookOpen to lucide-react imports. Required because TypeScript's Record<SavedType, T> demands all union members.
+  - src/components/app-shell.tsx: imported { StudyNotes } from "@/components/views/study-notes"; added `{ key: "study-notes", label: "Notes", icon: BookOpen, desc: "Markdown study notes" }` to NAV_GROUPS "tracking" group (right after progress-journal, before achievements); added `case "study-notes": return <StudyNotes />;` to render switch (right after pyq-browser); added "study-notes" to the mobile bottom-nav exclusion filter array.
+- Lint iteration:
+  - First run: 1 error in study-notes.tsx — `useEffect(() => setMounted(true), [])` flagged by react-hooks/set-state-in-effect. Fixed by removing the mounted/useEffect hydration guard entirely (relying on zustand's natural synchronous localStorage hydration in browser, matching the flashcards/journal view pattern). Replaced all `mounted && notes.length` / `!mounted ||` references with plain `notes.length` checks.
+  - Second run: 0 errors across all my files (study-notes, notes-store, app-shell, app-store, my-research, types/index, notes/summarize route). (concept-map.tsx had 3 errors from a parallel agent but those cleared on re-run.)
+- TypeScript check: `bunx tsc --noEmit` — 0 errors in my files (study-notes, notes-store, notes/summarize, app-shell, app-store, my-research, types/index). Pre-existing errors in unrelated files (examples/, skills/, multi-exam route) untouched.
+- Styling: NO indigo/blue primary. Violet→fuchsia gradients on New Note / Save / AI Summarize / Insert into Note buttons + header icon. Pinned notes = amber accent (Pin icon fill-amber, amber border on list item, amber pin toggle button). Subject badges violet, topic badges fuchsia, tags violet outline. Premium prose-styled markdown preview (prose-sm dark:prose-invert with violet blockquote borders, rounded code chips). Mobile-first responsive: single column on mobile, lg:grid-cols-[1fr_2fr] on desktop. Scrollable list with custom-scroll class. Touch targets ≥ 36px on action buttons.
+
+Stage Summary:
+- 3 new files: src/store/notes-store.ts (zustand+persist, key "examintel-notes"), src/app/api/notes/summarize/route.ts (POST → markdown summary w/ 3 sections: Summary, Key Terms, Suggested Tags), src/components/views/study-notes.tsx (~660 lines, 'use client', named export StudyNotes).
+- 4 modified files: src/store/app-store.ts (ViewKey += "study-notes"), src/types/index.ts (SavedType += "note"), src/components/views/my-research.tsx (added "note" entries to 5 SavedType records + FILTER_LABEL + BookOpen import), src/components/app-shell.tsx (import + nav item in "tracking" group + render case + mobile-nav exclusion).
+- Two-column layout: left = search + subject chips + New Note + scrollable pinned-first list (each item: title, subject/topic badges, snippet, tags, updated time, pin/delete actions); right = empty state OR markdown editor (title/subject/topic/tags inputs, large Textarea OR ReactMarkdown preview toggle, pin toggle, Save, AI Summarize, To Research, Delete, Close).
+- AI Summarize: violet-bordered Dialog with LoadingState/ErrorState/markdown card, "Insert into Note" appends summary under `## AI Summary` heading. Reuses getLLM().chat — works in mock mode (sandbox) and real mode (Vercel w/ OPENAI_API_KEY).
+- Notes persist to localStorage via separate zustand store (independent of global app-store). Pin support, search across all fields, subject filter chips, "Save to My Research" (writes type "note" SavedItem, visible in My Research with violet BookOpen badge).
+- Lint clean (0 errors, 0 warnings). TypeScript clean for all my files. Shared infrastructure respected: only the explicitly-required ViewKey + nav + render switch + mobile-exclusion wiring changes, plus the additive SavedType "note" member (needed for the To Research feature) and corresponding my-research.tsx record entries (needed for type safety).
+
+---
+Task ID: cron-review-7
+Agent: Main (orchestrator) — web dev review cron round 7
+Task: Question Evolution mock enrichment, 2 new features (Study Notes, Concept Map), dashboard polish
+
+Work Log:
+- Reviewed worklog (rounds 1-6 added 15 features: Command Palette, Onboarding, Study Timer, Flashcards, Exam Countdown, Progress Journal, Formula Sheet, Exam Calendar, Achievements, Formula Quiz, Topic Mastery, Analytics, Revision Scheduler, Exam Pattern Analyzer, PYQ Browser)
+- QA via agent-browser: swept ALL 26 views for runtime errors — NONE found. App is fully stable.
+- QA confirmed: all 19 API routes functional, all 26 views render cleanly.
+
+- ENHANCEMENT: Enriched mock Question Evolution (mockQuestionEvolution) — now topic-aware with 5 evolution profiles:
+  - Train/Speed/Distance → 5 train variants (easier, reframed, multi-concept relative speed, platform, exam-trap length)
+  - Percentage/Profit-Loss → 5 variants (10% of 200, 25% of number, MP+discount, successive discounts, salary comparison trap)
+  - Series/Patterns → 5 variants (arithmetic, geometric, squares, triangular, factorials trap)
+  - Algebra/Equations → 5 variants (x+5=10, 2x=14, simultaneous, distributive, system of equations trap)
+  - Generic fallback → 5 variants (multiplication, boxes, tax, workers, cats-mice trap)
+  Each with proper options, correct answers, explanations, and exam-trap commonTrap on level 5.
+- Verified: algebra question → "Algebra" topic + 5 variants (L1: "If x + 5 = 10, find x.") ✓
+- Verified: series question → "Series & Patterns" topic + 5 variants ✓
+
+- NEW FEATURE 1: Study Notes (markdown note-taking)
+  - Store: src/store/notes-store.ts (zustand+persist, StudyNote with title/content/subject/topic/tags/pinned/createdAt/updatedAt)
+  - API: src/app/api/notes/summarize/route.ts (getLLM().chat → markdown summary with 3 sections: Summary bullets, Key Terms, Suggested Tags)
+  - View: src/components/views/study-notes.tsx (~660 lines) — 2-column layout:
+    - Left: search, subject filter chips, + New Note, scrollable notes list (pinned first, snippet, badges, pin/delete)
+    - Right: markdown editor (title/subject/topic/tags inputs, Textarea ↔ react-markdown preview toggle, pin, Save, AI Summarize dialog, To Research, Delete)
+  - Added "note" to SavedType union + wired into My Research type maps
+  - Wired into AppShell nav (tracking group)
+
+- NEW FEATURE 2: Concept Map (interactive visual mind map)
+  - View: src/components/views/concept-map.tsx (~1000 lines)
+  - Aggregates from saved exams (syllabus subjects→topics→concepts), saved dependency maps (nodes), flashcard sets (card topics + mastery)
+  - Builds hierarchical tree: Root → Subjects (violet) → Topics (fuchsia) → Concepts (emerald)
+  - Custom SVG visualization (no library): Tree layout (cubic-bezier edges) + Radial layout (quadratic edges), gradient stroke edges
+  - Nodes: circles sized by sourceCount, mastery ring (emerald/amber/rose/zinc), child-count badge, selection halo
+  - Interactions: wheel zoom (0.3×–3×), drag-to-pan, click expand/collapse + select, hover tooltip
+  - Controls: zoom in/out/reset, expand/collapse all, tree/radial toggle
+  - Detail panel: type/mastery badges, metrics, prerequisites/dependents, related saved items
+  - Stats card: 4 AnimatedCounter tiles (subjects/topics/concepts/mastered)
+  - PremiumEmptyState when no data
+  - Wired into AppShell nav (tracking group)
+
+- STYLING: Dashboard section headers — added gradient underline bar (h-5 w-1 rounded-full bg-gradient-to-b from-violet-500 to-fuchsia-500) + tool count badge to "Quick AI Actions" header.
+
+- Verified via agent-browser E2E:
+  - Study Notes: renders with search + editor ✓
+  - Concept Map: "Interactive visual mind map of your saved topics & concepts" heading renders ✓
+  - Screenshots: notes (105KB), concept-map (109KB)
+- Verified via curl:
+  - question/evolve algebra → "Algebra" topic, 5 variants ✓
+  - question/evolve series → "Series & Patterns" topic, 5 variants ✓
+  - notes/summarize → returns markdown summary ✓
+- Lint: clean (0 errors, 0 warnings)
+- Final inventory: 137 TS/TSX files, 28 views, 20 API routes, 11 stores
+
+Stage Summary:
+- 2 new features added (Study Notes, Concept Map) — now 28 views total (was 26).
+- Question Evolution mock now topic-aware (5 profiles with realistic variants + exam traps).
+- 1 new API route (notes/summarize) — total 20 routes.
+- 1 new store (notes-store) — total 11 stores.
+- Dashboard section headers enhanced with gradient underline bars + count badges.
+- Next cron run can focus on: AI assistant deep integration with new features, performance optimization, voice notes, study groups, or more mock data variety.

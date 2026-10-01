@@ -1,0 +1,967 @@
+     1→"use client";
+     2→
+     3→import { useState, useMemo, useCallback } from "react";
+     4→import { motion, AnimatePresence } from "framer-motion";
+     5→import { toast } from "sonner";
+     6→import ReactMarkdown from "react-markdown";
+     7→import {
+     8→  BookOpen,
+     9→  Plus,
+    10→  Calendar,
+    11→  Sparkles,
+    12→  TrendingUp,
+    13→  Trash2,
+    14→  ArrowRight,
+    15→  Clock,
+    16→  Smile,
+    17→  Meh,
+    18→  Frown,
+    19→  ChevronDown,
+    20→  Loader2,
+    21→  Award,
+    22→  ListChecks,
+    23→  Flame,
+    24→} from "lucide-react";
+    25→import {
+    26→  format,
+    27→  isToday,
+    28→  isYesterday,
+    29→  isThisWeek,
+    30→  parseISO,
+    31→  subDays,
+    32→} from "date-fns";
+    33→
+    34→import {
+    35→  useJournalStore,
+    36→  type JournalEntry,
+    37→  type JournalMood,
+    38→} from "@/store/journal-store";
+    39→import { Button } from "@/components/ui/button";
+    40→import { Input } from "@/components/ui/input";
+    41→import { Label } from "@/components/ui/label";
+    42→import { Textarea } from "@/components/ui/textarea";
+    43→import { Badge } from "@/components/ui/badge";
+    44→import {
+    45→  Card,
+    46→  CardHeader,
+    47→  CardTitle,
+    48→  CardDescription,
+    49→  CardContent,
+    50→} from "@/components/ui/card";
+    51→import { cn } from "@/lib/utils";
+    52→import {
+    53→  EmptyState,
+    54→  LoadingState,
+    55→  ErrorState,
+    56→} from "@/components/shared/states";
+    57→
+    58→// ---------------- Constants ----------------
+    59→
+    60→const COMMON_SUBJECTS = [
+    61→  "Mathematics",
+    62→  "Physics",
+    63→  "Chemistry",
+    64→  "Biology",
+    65→  "English",
+    66→  "General Studies",
+    67→  "Current Affairs",
+    68→  "Reasoning",
+    69→  "Computer Science",
+    70→  "Economics",
+    71→  "History",
+    72→  "Geography",
+    73→  "Polity",
+    74→];
+    75→
+    76→const MOODS: {
+    77→  key: JournalMood;
+    78→  label: string;
+    79→  emoji: string;
+    80→  ring: string;
+    81→  bg: string;
+    82→  text: string;
+    83→  dot: string;
+    84→  Icon: React.ComponentType<{ className?: string }>;
+    85→}[] = [
+    86→  {
+    87→    key: "great",
+    88→    label: "Great",
+    89→    emoji: "😊",
+    90→    ring: "ring-emerald-500",
+    91→    bg: "bg-emerald-500/10 border-emerald-500/40",
+    92→    text: "text-emerald-600 dark:text-emerald-400",
+    93→    dot: "bg-emerald-500",
+    94→    Icon: Smile,
+    95→  },
+    96→  {
+    97→    key: "good",
+    98→    label: "Good",
+    99→    emoji: "🙂",
+   100→    ring: "ring-sky-500",
+   101→    bg: "bg-sky-500/10 border-sky-500/40",
+   102→    text: "text-sky-600 dark:text-sky-400",
+   103→    dot: "bg-sky-500",
+   104→    Icon: Smile,
+   105→  },
+   106→  {
+   107→    key: "okay",
+   108→    label: "Okay",
+   109→    emoji: "😐",
+   110→    ring: "ring-amber-500",
+   111→    bg: "bg-amber-500/10 border-amber-500/40",
+   112→    text: "text-amber-600 dark:text-amber-400",
+   113→    dot: "bg-amber-500",
+   114→    Icon: Meh,
+   115→  },
+   116→  {
+   117→    key: "struggle",
+   118→    label: "Struggle",
+   119→    emoji: "😣",
+   120→    ring: "ring-rose-500",
+   121→    bg: "bg-rose-500/10 border-rose-500/40",
+   122→    text: "text-rose-600 dark:text-rose-400",
+   123→    dot: "bg-rose-500",
+   124→    Icon: Frown,
+   125→  },
+   126→];
+   127→
+   128→const MOOD_SCORE: Record<JournalMood, number> = {
+   129→  great: 4,
+   130→  good: 3,
+   131→  okay: 2,
+   132→  struggle: 1,
+   133→};
+   134→
+   135→function moodMeta(m: JournalMood) {
+   136→  return MOODS.find((x) => x.key === m) ?? MOODS[1];
+   137→}
+   138→
+   139→function todayISODate() {
+   140→  // local date in YYYY-MM-DD (not UTC-shifted)
+   141→  const d = new Date();
+   142→  const y = d.getFullYear();
+   143→  const m = String(d.getMonth() + 1).padStart(2, "0");
+   144→  const day = String(d.getDate()).padStart(2, "0");
+   145→  return `${y}-${m}-${day}`;
+   146→}
+   147→
+   148→function fmtDuration(min: number) {
+   149→  if (!min || min <= 0) return "0m";
+   150→  const h = Math.floor(min / 60);
+   151→  const m = Math.round(min % 60);
+   152→  if (h && m) return `${h}h ${m}m`;
+   153→  if (h) return `${h}h`;
+   154→  return `${m}m`;
+   155→}
+   156→
+   157→// ---------------- Component ----------------
+   158→
+   159→export function ProgressJournal() {
+   160→  const entries = useJournalStore((s) => s.entries);
+   161→  const addEntry = useJournalStore((s) => s.addEntry);
+   162→  const deleteEntry = useJournalStore((s) => s.deleteEntry);
+   163→
+   164→  // ---- form state ----
+   165→  const today = todayISODate();
+   166→  const [fDate, setFDate] = useState(today);
+   167→  const [fSubject, setFSubject] = useState("");
+   168→  const [fTopic, setFTopic] = useState("");
+   169→  const [fDuration, setFDuration] = useState<string>("");
+   170→  const [fMood, setFMood] = useState<JournalMood>("good");
+   171→  const [fStudied, setFStudied] = useState("");
+   172→  const [fBlockers, setFBlockers] = useState("");
+   173→  const [fWins, setFWins] = useState("");
+   174→
+   175→  // ---- summary state ----
+   176→  const [summary, setSummary] = useState<string>("");
+   177→  const [summaryLoading, setSummaryLoading] = useState(false);
+   178→  const [summaryError, setSummaryError] = useState<string | null>(null);
+   179→
+   180→  const resetForm = useCallback(() => {
+   181→    setFDate(todayISODate());
+   182→    setFSubject("");
+   183→    setFTopic("");
+   184→    setFDuration("");
+   185→    setFMood("good");
+   186→    setFStudied("");
+   187→    setFBlockers("");
+   188→    setFWins("");
+   189→  }, []);
+   190→
+   191→  const handleSave = useCallback(() => {
+   192→    // basic validation
+   193→    if (!fSubject.trim()) {
+   194→      toast.error("Subject is required");
+   195→      return;
+   196→    }
+   197→    if (!fTopic.trim()) {
+   198→      toast.error("Topic is required");
+   199→      return;
+   200→    }
+   201→    const dur = Number(fDuration);
+   202→    if (!fDuration || isNaN(dur) || dur <= 0) {
+   203→      toast.error("Please enter a valid study duration (minutes)");
+   204→      return;
+   205→    }
+   206→    if (!fStudied.trim()) {
+   207→      toast.error("Tell us what you studied");
+   208→      return;
+   209→    }
+   210→    addEntry({
+   211→      date: fDate || todayISODate(),
+   212→      subject: fSubject.trim(),
+   213→      topic: fTopic.trim(),
+   214→      durationMinutes: dur,
+   215→      mood: fMood,
+   216→      whatStudied: fStudied.trim(),
+   217→      blockers: fBlockers.trim(),
+   218→      wins: fWins.trim(),
+   219→    });
+   220→    toast.success("Journal entry saved 🎉", {
+   221→      description: `${fSubject} · ${fmtDuration(dur)} · ${moodMeta(fMood).emoji} ${moodMeta(fMood).label}`,
+   222→    });
+   223→    resetForm();
+   224→    // invalidate cached summary so a stale one isn't shown after new entry
+   225→    setSummary("");
+   226→    setSummaryError(null);
+   227→  }, [fDate, fSubject, fTopic, fDuration, fMood, fStudied, fBlockers, fWins, addEntry, resetForm]);
+   228→
+   229→  // ---- weekly entries (last 7 days incl. today) ----
+   230→  const weekEntries = useMemo(() => {
+   231→    const cutoff = subDays(new Date(), 6);
+   232→    const startOfCutoff = new Date(cutoff);
+   233→    startOfCutoff.setHours(0, 0, 0, 0);
+   234→    return entries.filter((e) => {
+   235→      try {
+   236→        const d = parseISO(e.date);
+   237→        return d >= startOfCutoff;
+   238→      } catch {
+   239→        return false;
+   240→      }
+   241→    });
+   242→  }, [entries]);
+   243→
+   244→  const handleGenerate = useCallback(async () => {
+   245→    if (weekEntries.length === 0) {
+   246→      toast.error("No entries this week to summarize");
+   247→      return;
+   248→    }
+   249→    setSummaryLoading(true);
+   250→    setSummaryError(null);
+   251→    setSummary("");
+   252→    try {
+   253→      const res = await fetch("/api/journal/summary", {
+   254→        method: "POST",
+   255→        headers: { "Content-Type": "application/json" },
+   256→        body: JSON.stringify({ entries: weekEntries }),
+   257→      });
+   258→      const data = await res.json();
+   259→      if (!res.ok) {
+   260→        throw new Error(data?.error || `Request failed (${res.status})`);
+   261→      }
+   262→      setSummary(data.summary || "");
+   263→      toast.success("Weekly summary generated ✨");
+   264→    } catch (e: any) {
+   265→      setSummaryError(e?.message ?? "Failed to generate summary");
+   266→      toast.error("Could not generate summary", {
+   267→        description: e?.message,
+   268→      });
+   269→    } finally {
+   270→      setSummaryLoading(false);
+   271→    }
+   272→  }, [weekEntries]);
+   273→
+   274→  // ---- stats ----
+   275→  const stats = useMemo(() => {
+   276→    const total = entries.length;
+   277→    const totalMin = entries.reduce(
+   278→      (acc, e) => acc + (Number(e.durationMinutes) || 0),
+   279→      0
+   280→    );
+   281→    // most studied subject
+   282→    const subjMap: Record<string, number> = {};
+   283→    for (const e of entries) {
+   284→      const k = e.subject?.trim() || "Unknown";
+   285→      subjMap[k] = (subjMap[k] || 0) + (Number(e.durationMinutes) || 0);
+   286→    }
+   287→    const topSubject = Object.entries(subjMap).sort(
+   288→      (a, b) => b[1] - a[1]
+   289→    )[0]?.[0];
+   290→    const avgMood =
+   291→      total > 0
+   292→        ? entries.reduce((a, e) => a + (MOOD_SCORE[e.mood] || 0), 0) / total
+   293→        : 0;
+   294→    return { total, totalMin, topSubject, avgMood };
+   295→  }, [entries]);
+   296→
+   297→  // ---- grouped entries (most recent first) ----
+   298→  const groups = useMemo(() => buildGroups(entries), [entries]);
+   299→
+   300→  return (
+   301→    <div className="space-y-6">
+   302→      {/* Header */}
+   303→      <header className="space-y-2">
+   304→        <div className="flex items-center gap-2.5">
+   305→          <div className="relative">
+   306→            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 blur-md opacity-50" />
+   307→            <div className="relative h-9 w-9 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-lg">
+   308→              <BookOpen className="h-5 w-5" />
+   309→            </div>
+   310→          </div>
+   311→          <div>
+   312→            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+   313→              Progress Journal
+   314→            </h1>
+   315→            <p className="text-sm text-muted-foreground max-w-2xl">
+   316→              Daily study logs with AI weekly insights. Track what you studied,
+   317→              blockers, and wins.
+   318→            </p>
+   319→          </div>
+   320→        </div>
+   321→      </header>
+   322→
+   323→      {/* Stats bar */}
+   324→      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   325→        <StatCard
+   326→          icon={<ListChecks className="h-4 w-4" />}
+   327→          label="Total Entries"
+   328→          value={String(stats.total)}
+   329→          accent="from-violet-500/15 to-fuchsia-500/5 border-violet-500/20"
+   330→          iconWrap="bg-violet-500/15 text-violet-600 dark:text-violet-400"
+   331→        />
+   332→        <StatCard
+   333→          icon={<Clock className="h-4 w-4" />}
+   334→          label="Study Time"
+   335→          value={fmtDuration(stats.totalMin)}
+   336→          accent="from-fuchsia-500/15 to-pink-500/5 border-fuchsia-500/20"
+   337→          iconWrap="bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400"
+   338→        />
+   339→        <StatCard
+   340→          icon={<Award className="h-4 w-4" />}
+   341→          label="Top Subject"
+   342→          value={stats.topSubject ?? "—"}
+   343→          accent="from-emerald-500/15 to-teal-500/5 border-emerald-500/20"
+   344→          iconWrap="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+   345→        />
+   346→        <StatCard
+   347→          icon={<TrendingUp className="h-4 w-4" />}
+   348→          label="Avg Mood"
+   349→          value={moodLabelFromScore(stats.avgMood)}
+   350→          accent="from-amber-500/15 to-orange-500/5 border-amber-500/20"
+   351→          iconWrap="bg-amber-500/15 text-amber-600 dark:text-amber-400"
+   352→        />
+   353→      </section>
+   354→
+   355→      {/* Two-column layout */}
+   356→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+   357→        {/* LEFT: New entry form */}
+   358→        <div className="lg:col-span-1">
+   359→          <Card className="border-border/60 shadow-sm">
+   360→            <CardHeader className="pb-3">
+   361→              <CardTitle className="flex items-center gap-2 text-base">
+   362→                <Plus className="h-4 w-4 text-violet-500" />
+   363→                New Entry
+   364→              </CardTitle>
+   365→              <CardDescription className="text-xs">
+   366→                Log today's study session
+   367→              </CardDescription>
+   368→            </CardHeader>
+   369→            <CardContent className="space-y-4">
+   370→              {/* Date */}
+   371→              <div className="space-y-1.5">
+   372→                <Label htmlFor="je-date" className="text-xs font-medium">
+   373→                  Date
+   374→                </Label>
+   375→                <Input
+   376→                  id="je-date"
+   377→                  type="date"
+   378→                  value={fDate}
+   379→                  max={today}
+   380→                  onChange={(e) => setFDate(e.target.value)}
+   381→                  className="h-9 text-sm"
+   382→                />
+   383→              </div>
+   384→
+   385→              {/* Subject + Topic */}
+   386→              <div className="space-y-1.5">
+   387→                <Label htmlFor="je-subject" className="text-xs font-medium">
+   388→                  Subject <span className="text-rose-500">*</span>
+   389→                </Label>
+   390→                <Input
+   391→                  id="je-subject"
+   392→                  list="je-subjects"
+   393→                  placeholder="e.g. Mathematics"
+   394→                  value={fSubject}
+   395→                  onChange={(e) => setFSubject(e.target.value)}
+   396→                  className="h-9 text-sm"
+   397→                />
+   398→                <datalist id="je-subjects">
+   399→                  {COMMON_SUBJECTS.map((s) => (
+   400→                    <option key={s} value={s} />
+   401→                  ))}
+   402→                </datalist>
+   403→              </div>
+   404→
+   405→              <div className="space-y-1.5">
+   406→                <Label htmlFor="je-topic" className="text-xs font-medium">
+   407→                  Topic <span className="text-rose-500">*</span>
+   408→                </Label>
+   409→                <Input
+   410→                  id="je-topic"
+   411→                  placeholder="e.g. Integration by parts"
+   412→                  value={fTopic}
+   413→                  onChange={(e) => setFTopic(e.target.value)}
+   414→                  className="h-9 text-sm"
+   415→                />
+   416→              </div>
+   417→
+   418→              {/* Duration */}
+   419→              <div className="space-y-1.5">
+   420→                <Label htmlFor="je-duration" className="text-xs font-medium">
+   421→                  Duration (minutes) <span className="text-rose-500">*</span>
+   422→                </Label>
+   423→                <Input
+   424→                  id="je-duration"
+   425→                  type="number"
+   426→                  inputMode="numeric"
+   427→                  min={1}
+   428→                  placeholder="45"
+   429→                  value={fDuration}
+   430→                  onChange={(e) => setFDuration(e.target.value)}
+   431→                  className="h-9 text-sm"
+   432→                />
+   433→              </div>
+   434→
+   435→              {/* Mood */}
+   436→              <div className="space-y-1.5">
+   437→                <Label className="text-xs font-medium">Mood</Label>
+   438→                <div className="grid grid-cols-4 gap-1.5">
+   439→                  {MOODS.map((m) => {
+   440→                    const active = fMood === m.key;
+   441→                    return (
+   442→                      <button
+   443→                        key={m.key}
+   444→                        type="button"
+   445→                        onClick={() => setFMood(m.key)}
+   446→                        title={m.label}
+   447→                        className={cn(
+   448→                          "flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-[11px] font-medium transition-all",
+   449→                          active
+   450→                            ? cn(m.bg, "ring-2", m.ring, "scale-[1.02]")
+   451→                            : "border-border bg-background hover:bg-accent text-muted-foreground"
+   452→                        )}
+   453→                      >
+   454→                        <span className="text-lg leading-none">{m.emoji}</span>
+   455→                        <span className={active ? m.text : ""}>{m.label}</span>
+   456→                      </button>
+   457→                    );
+   458→                  })}
+   459→                </div>
+   460→              </div>
+   461→
+   462→              {/* What studied */}
+   463→              <div className="space-y-1.5">
+   464→                <Label htmlFor="je-studied" className="text-xs font-medium">
+   465→                  What I studied <span className="text-rose-500">*</span>
+   466→                </Label>
+   467→                <Textarea
+   468→                  id="je-studied"
+   469→                  placeholder="Topics covered, chapters, problems solved..."
+   470→                  value={fStudied}
+   471→                  onChange={(e) => setFStudied(e.target.value)}
+   472→                  rows={3}
+   473→                  className="text-sm resize-none"
+   474→                />
+   475→              </div>
+   476→
+   477→              {/* Blockers */}
+   478→              <div className="space-y-1.5">
+   479→                <Label
+   480→                  htmlFor="je-blockers"
+   481→                  className="text-xs font-medium flex items-center gap-1"
+   482→                >
+   483→                  Blockers{" "}
+   484→                  <span className="text-[10px] text-muted-foreground font-normal">
+   485→                    (optional)
+   486→                  </span>
+   487→                </Label>
+   488→                <Textarea
+   489→                  id="je-blockers"
+   490→                  placeholder="What got in the way? Distractions, tough concepts..."
+   491→                  value={fBlockers}
+   492→                  onChange={(e) => setFBlockers(e.target.value)}
+   493→                  rows={2}
+   494→                  className="text-sm resize-none"
+   495→                />
+   496→              </div>
+   497→
+   498→              {/* Wins */}
+   499→              <div className="space-y-1.5">
+   500→                <Label
+   501→                  htmlFor="je-wins"
+   502→                  className="text-xs font-medium flex items-center gap-1"
+   503→                >
+   504→                  Wins{" "}
+   505→                  <span className="text-[10px] text-muted-foreground font-normal">
+   506→                    (optional)
+   507→                  </span>
+   508→                </Label>
+   509→                <Textarea
+   510→                  id="je-wins"
+   511→                  placeholder="What went well? Breakthroughs, streaks kept..."
+   512→                  value={fWins}
+   513→                  onChange={(e) => setFWins(e.target.value)}
+   514→                  rows={2}
+   515→                  className="text-sm resize-none"
+   516→                />
+   517→              </div>
+   518→
+   519→              {/* Save */}
+   520→              <Button
+   521→                onClick={handleSave}
+   522→                className="w-full h-10 bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 text-white border-0 shadow-md shadow-violet-500/20"
+   523→              >
+   524→                <Plus className="h-4 w-4 mr-1.5" />
+   525→                Save Entry
+   526→              </Button>
+   527→            </CardContent>
+   528→          </Card>
+   529→        </div>
+   530→
+   531→        {/* RIGHT: Summary + timeline */}
+   532→        <div className="lg:col-span-2 space-y-5">
+   533→          {/* Weekly AI Summary */}
+   534→          <Card className="border-violet-500/30 bg-gradient-to-br from-violet-500/5 via-fuchsia-500/5 to-transparent shadow-sm">
+   535→            <CardHeader className="pb-3">
+   536→              <div className="flex items-start justify-between gap-3">
+   537→                <div className="space-y-1">
+   538→                  <CardTitle className="flex items-center gap-2 text-base">
+   539→                    <Sparkles className="h-4 w-4 text-violet-500" />
+   540→                    Weekly AI Summary
+   541→                  </CardTitle>
+   542→                  <CardDescription className="text-xs">
+   543→                    {weekEntries.length > 0
+   544→                      ? `${weekEntries.length} entr${weekEntries.length === 1 ? "y" : "ies"} this week · ${fmtDuration(
+   545→                          weekEntries.reduce(
+   546→                            (a, e) => a + (Number(e.durationMinutes) || 0),
+   547→                            0
+   548→                          )
+   549→                        )} studied`
+   550→                      : "Summarize the past 7 days with AI"}
+   551→                  </CardDescription>
+   552→                </div>
+   553→                <Button
+   554→                  size="sm"
+   555→                  onClick={handleGenerate}
+   556→                  disabled={summaryLoading || weekEntries.length === 0}
+   557→                  className="bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 text-white border-0 shadow-sm"
+   558→                >
+   559→                  {summaryLoading ? (
+   560→                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+   561→                  ) : (
+   562→                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+   563→                  )}
+   564→                  Generate
+   565→                </Button>
+   566→              </div>
+   567→            </CardHeader>
+   568→            <CardContent>
+   569→              {summaryLoading ? (
+   570→                <LoadingState label="AI is reading your week..." />
+   571→              ) : summaryError ? (
+   572→                <ErrorState
+   573→                  message={summaryError}
+   574→                  onRetry={handleGenerate}
+   575→                />
+   576→              ) : summary ? (
+   577→                <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-headings:text-foreground prose-li:my-0.5 prose-h1:text-base prose-h2:text-sm prose-h3:text-sm prose-p:my-1.5 prose-strong:text-foreground">
+   578→                  <ReactMarkdown>{summary}</ReactMarkdown>
+   579→                </div>
+   580→              ) : weekEntries.length === 0 ? (
+   581→                <EmptyState
+   582→                  title="No entries this week yet"
+   583→                  description="Log a study session on the left, then come back to generate your AI weekly insights."
+   584→                  icon={Calendar}
+   585→                />
+   586→              ) : (
+   587→                <div className="rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 p-4 text-sm text-muted-foreground flex items-start gap-3">
+   588→                  <Sparkles className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+   589→                  <div>
+   590→                    <p className="font-medium text-foreground">
+   591→                      Ready to summarize {weekEntries.length}{" "}
+   592→                      entr{weekEntries.length === 1 ? "y" : "ies"}
+   593→                    </p>
+   594→                    <p className="mt-0.5">
+   595→                      Click <span className="font-medium">Generate</span> for a
+   596→                      weekly recap: total study time, subjects covered, key wins,
+   597→                      recurring blockers, mood trend, and 3 recommendations for
+   598→                      next week.
+   599→                    </p>
+   600→                  </div>
+   601→                </div>
+   602→              )}
+   603→            </CardContent>
+   604→          </Card>
+   605→
+   606→          {/* Entries timeline */}
+   607→          <div className="space-y-4">
+   608→            <div className="flex items-center justify-between">
+   609→              <h2 className="text-sm font-semibold flex items-center gap-2">
+   610→                <Calendar className="h-4 w-4 text-muted-foreground" />
+   611→                Timeline
+   612→                {entries.length > 0 && (
+   613→                  <Badge variant="secondary" className="text-[10px]">
+   614→                    {entries.length}
+   615→                  </Badge>
+   616→                )}
+   617→              </h2>
+   618→            </div>
+   619→
+   620→            {entries.length === 0 ? (
+   621→              <EmptyState
+   622→                title="Start journaling — your first entry unlocks weekly AI insights."
+   623→                description="Use the form on the left to log what you studied today. Add wins and blockers to get the most out of your weekly AI summary."
+   624→                icon={BookOpen}
+   625→              />
+   626→            ) : (
+   627→              <div className="space-y-5">
+   628→                {groups.map((group) => (
+   629→                  <div key={group.key} className="space-y-2.5">
+   630→                    <div className="flex items-center gap-2">
+   631→                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+   632→                        {group.label}
+   633→                      </h3>
+   634→                      <div className="h-px flex-1 bg-border/60" />
+   635→                      <span className="text-[10px] text-muted-foreground">
+   636→                        {group.items.length}{" "}
+   637→                        {group.items.length === 1 ? "entry" : "entries"}
+   638→                      </span>
+   639→                    </div>
+   640→                    <div className="space-y-2.5">
+   641→                      {group.items.map((e) => (
+   642→                        <EntryCard
+   643→                          key={e.id}
+   644→                          entry={e}
+   645→                          onDelete={() => {
+   646→                            deleteEntry(e.id);
+   647→                            toast("Entry deleted", {
+   648→                              description: `${e.subject} · ${e.topic}`,
+   649→                            });
+   650→                            setSummary("");
+   651→                            setSummaryError(null);
+   652→                          }}
+   653→                        />
+   654→                      ))}
+   655→                    </div>
+   656→                  </div>
+   657→                ))}
+   658→              </div>
+   659→            )}
+   660→          </div>
+   661→        </div>
+   662→      </div>
+   663→    </div>
+   664→  );
+   665→}
+   666→
+   667→// ---------------- Sub-components ----------------
+   668→
+   669→function StatCard({
+   670→  icon,
+   671→  label,
+   672→  value,
+   673→  accent,
+   674→  iconWrap,
+   675→}: {
+   676→  icon: React.ReactNode;
+   677→  label: string;
+   678→  value: string;
+   679→  accent: string;
+   680→  iconWrap: string;
+   681→}) {
+   682→  return (
+   683→    <div
+   684→      className={cn(
+   685→        "rounded-xl border bg-gradient-to-br p-3 sm:p-4",
+   686→        accent
+   687→      )}
+   688→    >
+   689→      <div className="flex items-center gap-2">
+   690→        <div
+   691→          className={cn(
+   692→            "flex h-7 w-7 items-center justify-center rounded-lg",
+   693→            iconWrap
+   694→          )}
+   695→        >
+   696→          {icon}
+   697→        </div>
+   698→        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+   699→          {label}
+   700→        </span>
+   701→      </div>
+   702→      <div className="mt-2 text-base sm:text-lg font-bold truncate">
+   703→        {value}
+   704→      </div>
+   705→    </div>
+   706→  );
+   707→}
+   708→
+   709→function EntryCard({
+   710→  entry,
+   711→  onDelete,
+   712→}: {
+   713→  entry: JournalEntry;
+   714→  onDelete: () => void;
+   715→}) {
+   716→  const [expanded, setExpanded] = useState(false);
+   717→  const meta = moodMeta(entry.mood);
+   718→
+   719→  let dateLabel = "—";
+   720→  try {
+   721→    dateLabel = format(parseISO(entry.date), "EEE, MMM d");
+   722→  } catch {
+   723→    dateLabel = entry.date;
+   724→  }
+   725→
+   726→  return (
+   727→    <motion.div
+   728→      layout
+   729→      initial={{ opacity: 0, y: 6 }}
+   730→      animate={{ opacity: 1, y: 0 }}
+   731→      exit={{ opacity: 0, scale: 0.98 }}
+   732→      transition={{ duration: 0.18 }}
+   733→      className={cn(
+   734→        "rounded-xl border bg-card shadow-sm overflow-hidden transition-all hover:shadow-md",
+   735→        "border-border/60"
+   736→      )}
+   737→    >
+   738→      <button
+   739→        onClick={() => setExpanded((v) => !v)}
+   740→        className="w-full text-left p-3.5 sm:p-4 flex items-start gap-3"
+   741→      >
+   742→        {/* Mood rail */}
+   743→        <div
+   744→          className={cn(
+   745→            "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-lg",
+   746→            meta.bg
+   747→          )}
+   748→          title={`${meta.label} mood`}
+   749→        >
+   750→          {meta.emoji}
+   751→        </div>
+   752→
+   753→        {/* Content */}
+   754→        <div className="min-w-0 flex-1">
+   755→          <div className="flex items-start justify-between gap-2">
+   756→            <div className="min-w-0">
+   757→              <div className="flex items-center gap-2 flex-wrap">
+   758→                <span className="font-semibold text-sm truncate">
+   759→                  {entry.subject || "Untitled"}
+   760→                </span>
+   761→                <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+   762→                <span className="text-sm text-muted-foreground truncate">
+   763→                  {entry.topic || "—"}
+   764→                </span>
+   765→              </div>
+   766→              <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+   767→                <span className="inline-flex items-center gap-1">
+   768→                  <Calendar className="h-3 w-3" />
+   769→                  {dateLabel}
+   770→                </span>
+   771→                <span className="inline-flex items-center gap-1">
+   772→                  <Clock className="h-3 w-3" />
+   773→                  {fmtDuration(entry.durationMinutes)}
+   774→                </span>
+   775→                <span
+   776→                  className={cn(
+   777→                    "inline-flex items-center gap-1 font-medium",
+   778→                    meta.text
+   779→                  )}
+   780→                >
+   781→                  <Flame className="h-3 w-3" />
+   782→                  {meta.label}
+   783→                </span>
+   784→              </div>
+   785→            </div>
+   786→            <ChevronDown
+   787→              className={cn(
+   788→                "h-4 w-4 text-muted-foreground shrink-0 mt-0.5 transition-transform",
+   789→                expanded && "rotate-180"
+   790→              )}
+   791→            />
+   792→          </div>
+   793→
+   794→          {/* Preview when collapsed */}
+   795→          {!expanded && (
+   796→            <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">
+   797→              {entry.whatStudied || "No details"}
+   798→            </p>
+   799→          )}
+   800→        </div>
+   801→      </button>
+   802→
+   803→      {/* Expanded details */}
+   804→      <AnimatePresence initial={false}>
+   805→        {expanded && (
+   806→          <motion.div
+   807→            initial={{ height: 0, opacity: 0 }}
+   808→            animate={{ height: "auto", opacity: 1 }}
+   809→            exit={{ height: 0, opacity: 0 }}
+   810→            transition={{ duration: 0.2 }}
+   811→            className="overflow-hidden"
+   812→          >
+   813→            <div className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pl-[3.9rem] space-y-2.5 text-sm">
+   814→              <DetailRow label="What I studied" value={entry.whatStudied} />
+   815→              <DetailRow
+   816→                label="Blockers"
+   817→                value={entry.blockers}
+   818→                emptyText="None — clean session 🎯"
+   819→                tone="rose"
+   820→              />
+   821→              <DetailRow
+   822→                label="Wins"
+   823→                value={entry.wins}
+   824→                emptyText="No wins logged"
+   825→                tone="emerald"
+   826→              />
+   827→              <div className="flex items-center justify-between pt-1 border-t border-border/60">
+   828→                <span className="text-[10px] text-muted-foreground">
+   829→                  Logged{" "}
+   830→                  {(() => {
+   831→                    try {
+   832→                      return format(
+   833→                        parseISO(entry.createdAt),
+   834→                        "MMM d, h:mm a"
+   835→                      );
+   836→                    } catch {
+   837→                      return "";
+   838→                    }
+   839→                  })()}
+   840→                </span>
+   841→                <Button
+   842→                  variant="ghost"
+   843→                  size="sm"
+   844→                  onClick={onDelete}
+   845→                  className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10"
+   846→                >
+   847→                  <Trash2 className="h-3 w-3 mr-1" />
+   848→                  Delete
+   849→                </Button>
+   850→              </div>
+   851→            </div>
+   852→          </motion.div>
+   853→        )}
+   854→      </AnimatePresence>
+   855→    </motion.div>
+   856→  );
+   857→}
+   858→
+   859→function DetailRow({
+   860→  label,
+   861→  value,
+   862→  emptyText,
+   863→  tone,
+   864→}: {
+   865→  label: string;
+   866→  value: string;
+   867→  emptyText?: string;
+   868→  tone?: "rose" | "emerald";
+   869→}) {
+   870→  const labelColor =
+   871→    tone === "rose"
+   872→      ? "text-rose-600 dark:text-rose-400"
+   873→      : tone === "emerald"
+   874→      ? "text-emerald-600 dark:text-emerald-400"
+   875→      : "text-muted-foreground";
+   876→  return (
+   877→    <div className="space-y-0.5">
+   878→      <div className={cn("text-[10px] uppercase tracking-wider font-medium", labelColor)}>
+   879→        {label}
+   880→      </div>
+   881→      {value?.trim() ? (
+   882→        <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+   883→          {value}
+   884→        </p>
+   885→      ) : (
+   886→        <p className="text-xs italic text-muted-foreground">{emptyText}</p>
+   887→      )}
+   888→    </div>
+   889→  );
+   890→}
+   891→
+   892→// ---------------- Helpers ----------------
+   893→
+   894→function moodLabelFromScore(score: number) {
+   895→  if (score <= 0) return "—";
+   896→  if (score >= 3.5) return "😊 Great";
+   897→  if (score >= 2.5) return "🙂 Good";
+   898→  if (score >= 1.5) return "😐 Okay";
+   899→  return "😣 Struggle";
+   900→}
+   901→
+   902→interface EntryGroup {
+   903→  key: string;
+   904→  label: string;
+   905→  items: JournalEntry[];
+   906→}
+   907→
+   908→function buildGroups(entries: JournalEntry[]): EntryGroup[] {
+   909→  const sorted = [...entries].sort((a, b) => {
+   910→    // most recent first by date, then createdAt
+   911→    const dd = (b.date || "").localeCompare(a.date || "");
+   912→    if (dd !== 0) return dd;
+   913→    return (b.createdAt || "").localeCompare(a.createdAt || "");
+   914→  });
+   915→
+   916→  const today: JournalEntry[] = [];
+   917→  const yesterday: JournalEntry[] = [];
+   918→  const thisWeek: JournalEntry[] = [];
+   919→  const older: JournalEntry[] = [];
+   920→
+   921→  for (const e of sorted) {
+   922→    let d: Date;
+   923→    try {
+   924→      d = parseISO(e.date);
+   925→    } catch {
+   926→      older.push(e);
+   927→      continue;
+   928→    }
+   929→    if (isToday(d)) today.push(e);
+   930→    else if (isYesterday(d)) yesterday.push(e);
+   931→    else if (isThisWeek(d, { weekStartsOn: 1 })) thisWeek.push(e);
+   932→    else older.push(e);
+   933→  }
+   934→
+   935→  // sort older by month buckets? Just keep sorted list under "Older"
+   936→  const groups: EntryGroup[] = [];
+   937→  if (today.length) groups.push({ key: "today", label: "Today", items: today });
+   938→  if (yesterday.length)
+   939→    groups.push({ key: "yesterday", label: "Yesterday", items: yesterday });
+   940→  if (thisWeek.length)
+   941→    groups.push({ key: "thisweek", label: "Earlier this week", items: thisWeek });
+   942→  if (older.length) {
+   943→    // bucket older by month
+   944→    const monthBuckets: Record<string, JournalEntry[]> = {};
+   945→    for (const e of older) {
+   946→      let d: Date;
+   947→      try {
+   948→        d = parseISO(e.date);
+   949→      } catch {
+   950→        continue;
+   951→      }
+   952→      const k = format(d, "MMMM yyyy");
+   953→      (monthBuckets[k] ||= []).push(e);
+   954→    }
+   955→    // order month buckets by most recent first
+   956→    const ordered = Object.entries(monthBuckets).sort((a, b) => {
+   957→      const da = new Date(a[0]);
+   958→      const db = new Date(b[0]);
+   959→      return db.getTime() - da.getTime();
+   960→    });
+   961→    for (const [label, items] of ordered) {
+   962→      groups.push({ key: `older-${label}`, label, items });
+   963→    }
+   964→  }
+   965→  return groups;
+   966→}
+   967→

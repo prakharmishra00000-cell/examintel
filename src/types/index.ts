@@ -434,7 +434,8 @@ export type SavedType =
   | "pdf"
   | "mcq"
   | "preparation"
-  | "multi-exam";
+  | "multi-exam"
+  | "note";
 
 export interface SavedItem {
   id: string;

@@ -35,6 +35,8 @@ export type ViewKey =
   | "analytics"
   | "revision-scheduler"
   | "pyq-browser"
+  | "concept-map"
+  | "study-notes"
   | "api-keys";
 
 export interface AIStatus {
