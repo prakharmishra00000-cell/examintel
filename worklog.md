@@ -1058,3 +1058,147 @@ Stage Summary:
 - Question Explainer enhanced with level progress indicator + animated reveal transitions.
 - Analytics uses recharts for 6 chart types (Area, Pie, Bar, Radar, grouped Bar, table).
 - Next cron run can focus on: PDF Lab mock enrichment, more AI assistant integration, performance optimization, or additional features (e.g. study groups, leaderboard, exam pattern analyzer, formula quiz multiplayer).
+
+---
+Task ID: cron6-feat-1
+Agent: full-stack-developer (Exam Pattern Analyzer)
+Task: Build exam pattern comparison view with visual charts
+
+Work Log:
+- Read /home/z/my-project/worklog.md (especially last cron-review entries: cron3/cron4/cron5 builds + review notes). Confirmed shared infra: useAppStore (ViewKey, saveItem, setContext), ExamResearchReport pattern field shape (totalQuestions, maxMarks, duration, questionType, markingScheme, negativeMarking, sectionDistribution[], sectionalTiming, qualifyingRequirements[]), useApi() hook returning { call }, PremiumEmptyState, LoadingState, recharts already used in analytics.tsx (BarChart, Pie, Area, Radar).
+- Verified /api/exam/research POST route accepts { query: examName } and returns { report: ExamResearchReport } — the report.pattern field is the data source for this analyzer. No new API route needed; reuses existing Exam Researcher.
+- Added `| "exam-pattern-analyzer"` to the ViewKey union in src/store/app-store.ts (inserted right after "exam-comparison" for logical grouping).
+- Created src/components/views/exam-pattern-analyzer.tsx — a 'use client' component with named export `ExamPatternAnalyzer`. ~750 lines.
+  - Header: gradient icon (BarChart3 in violet→fuchsia box) + title "Exam Pattern Analyzer" + subtitle (verbatim per spec).
+  - Picker Card: Input (maxLength 80) + Add button, removable chips (violet border while pending, emerald border + green dot once loaded), 2 quick presets ("SSC CGL vs CHSL vs NTPC" → [SSC CGL, SSC CHSL, RRB NTPC]; "GATE CS vs GATE ME" → [GATE CS, GATE ME]), Analyze Patterns button (gradient violet→fuchsia), Save Comparison button (shown only when results exist), Reset button, dynamic status text. MAX_EXAMS=4 enforced with toast.warning.
+  - Sequential fetch: for each exam, calls api.call<{ report: ExamResearchReport }>("/api/exam/research", { query: exam }) and extracts .pattern. Partial-success tolerated (N/total toast). Loaded chips flip to emerald.
+  - Empty state: PremiumEmptyState (violet accent) suggesting to add exams, with "Try a preset" CTA that pre-fills the SSC preset.
+  - Loading state: LoadingState card with multi-exam message.
+  - Insights card: ONE Card with grid of 4 InsightItem sub-cards: Most questions (violet/TrendingUp), Longest duration (emerald/Clock), Harshest negative (rose/AlertTriangle, displayed as "-{marks}"), Highest marks (amber/Target). N/A gracefully handled when no exam has the relevant field.
+  - Comparison Table: 7 attribute rows × N exam columns. Attributes: Total Questions (numeric→violet intensity), Max Marks (numeric→violet intensity), Duration (raw string + parsed minutes→violet intensity), Question Type (raw string), Marking Scheme (raw string), Negative Marking (raw string + parsed magnitude→violet intensity), Sectional Timing (raw string). Violet intensity uses literal class strings (bg-violet-500/5, /10, /20, /30) computed from min/max range — Tailwind JIT-safe. Attribute column is sticky left on horizontal scroll.
+  - Charts (4 cards, lg:grid-cols-2):
+    1. Questions & Marks (grouped BarChart, vertical): two bars per exam — Questions (violet) + Marks / 10 (fuchsia). Legend included.
+    2. Duration (horizontal BarChart, layout="vertical"): minutes per exam (emerald bars).
+    3. Negative Marking (vertical BarChart): magnitude per exam (rose bars).
+    4. Section Distribution: grid of donut PieCharts (innerRadius 20, outerRadius 50), one per exam, PIE_PALETTE [violet, fuchsia, emerald, amber, rose] for sections. Legend strip below each pie shows up to 4 section names with color dots.
+  - All charts use ResponsiveContainer with explicit heights (260 for charts, 140 for pies), custom ChartTooltip with rounded border + backdrop blur, currentColor CartesianGrids that respect dark mode.
+  - Custom helper parseDurationMinutes: handles "1 hour 30 minutes", "2 hours", "1 hr 30", "90 min", "90 minutes", "90", bare numbers → minutes. Returns null for "no/none/nil".
+  - Custom helper parseNegativeMarking: handles "1/4" (fraction), "-0.25", "0.5", "no negative marking" → magnitude (abs number).
+  - Save Comparison: saveItem({ type: "comparison", title: keys.join(" vs "), summary: "Pattern analysis", data: { patterns } }) + toast.success + setContext for AI assistant context.
+- Wired into src/components/app-shell.tsx: imported ExamPatternAnalyzer, added `{ key: "exam-pattern-analyzer", label: "Pattern Analyzer", icon: BarChart3, desc: "Compare exam patterns" }` to NAV_GROUPS "core-ai" group (right after exam-comparison, before dependency-mapper), added `case "exam-pattern-analyzer": return <ExamPatternAnalyzer />;` to render switch, added "exam-pattern-analyzer" to mobile bottom-nav exclusion filter (keeps desktop-sidebar focus since charts need width).
+- Verified ChartTooltip handles Number formatting: integers → toLocaleString, decimals → toFixed(2). Negative marking value "-0.25" rendered as literal string.
+- Lint check: `bun run lint` — 0 errors on my files (exam-pattern-analyzer.tsx, app-shell.tsx, app-store.ts). (Note: an unrelated untracked file pyq-browser.tsx from a parallel agent has a pre-existing JSX parse error at line 264:32 — not my scope, not modified.)
+- Styling: NO indigo/blue. Violet→fuchsia gradients on actions + header. Chart palette = violet, fuchsia, emerald, amber, rose. Premium card-based layout. Mobile-first responsive (single column → sm:2 → lg:2/4 grids, sticky table column on mobile, no-scrollbar mobile nav).
+
+Stage Summary:
+- ONE new feature view: src/components/views/exam-pattern-analyzer.tsx (~750 lines, 'use client', named export ExamPatternAnalyzer).
+- Reuses the existing /api/exam/research endpoint (no new API route needed) — extracts .pattern from each fetched ExamResearchReport.
+- 4 recharts visualizations: grouped BarChart (questions vs marks), horizontal BarChart (duration), vertical BarChart (negative marking), grid of donut PieCharts (section distribution per exam).
+- Pattern comparison table with violet intensity color-coding on numeric cells (Total Questions / Max Marks / Duration minutes / Negative marking magnitude) — Tailwind-safe literal class strings.
+- Insights card auto-generates 4 takeaways (most questions, longest duration, harshest negative, highest marks) with graceful N/A fallback.
+- Save Comparison writes to useAppStore.saved as type:"comparison" with patterns in data — visible in My Research.
+- ViewKey union extended with "exam-pattern-analyzer"; AppShell nav wired into "core-ai" group; mobile bottom-nav excludes it (desktop-focused due to chart width requirements).
+- Shared infrastructure untouched beyond the explicit task-required wiring (ViewKey + nav + render switch + mobile exclusion). Lint-clean for all my files.
+
+---
+Task ID: cron6-feat-2
+Agent: full-stack-developer (PYQ Browser)
+Task: Build previous-year question browser with AI similar-question finder
+
+Work Log:
+- Read /home/z/my-project/worklog.md to understand prior work (foundation, AI provider abstraction with getLLM().json<T>() + jsonWithFallback helper, useAppStore with ViewKey/setContext/saveItem, useApi() hook returning { call }, shared LoadingState/ErrorState/EmptyState/PremiumEmptyState, complete shadcn/ui component set including Select/Collapsible/Badge/Card). Noted cron6-feat-1 (Exam Pattern Analyzer) added "exam-pattern-analyzer" to ViewKey and to mobile-nav exclusion filter — that file is what I must add "pyq-browser" alongside.
+- Verified shared AI infra: jsonWithFallback<T>(system, user, schemaHint, validate) in src/lib/ai/json-with-fallback.ts (try primary LLM, fall back to MockProvider.json on failure or invalid). MockProvider.json routes primarily on schemaHint (case-insensitive .includes), with combined system+user keyword fallback.
+- Created src/types/pyq.ts — exports `PYQ` (id, exam, year, topic, subject, question, options[], correctAnswer, explanation, difficulty union, marks, sourceType, optional similarityReason) and `PYQSet` (exam, year, pyqs[], sources[], generatedAt). Used by both API routes and the view.
+- Created src/store/pyq-store.ts — separate zustand store (NOT the global app-store) with persist middleware, key "examintel-pyqs", localStorage storage. Exposes bookmarked[], toggleBookmark, isBookmarked, attempts Record<id, "correct"|"incorrect"|"unattempted">, recordAttempt, getAttempt, clearAll. partialize persists only bookmarked + attempts. Server-safe (typeof window !== undefined check returns undefined storage on SSR).
+- Created src/app/api/pyq/browse/route.ts — POST endpoint with `runtime = "nodejs"` and `dynamic = "force-dynamic"`. Reads { exam, year, topic } from body (all optional; exam defaults "All", year validated /^\d{4}$/). Uses jsonWithFallback<{ pyqs: PYQ[] }>(SYSTEM, USER, SCHEMA, isPYQList). System prompt instructs: act as PYQ Browser, return 8-10 previous-year questions matching filters, each PYQ has exam/year/topic/subject/question/options[4]/correctAnswer (verbatim member of options)/explanation/difficulty/marks/sourceType="SEARCH_SOURCE". If no specific year, draw from recent years (2020-2024) varied across the set. SCHEMA string documents the exact shape. sanitizePYQs helper ensures: dedup options, correctAnswer verbatim in options (fallback to first), valid year (fallback "2024"), valid difficulty, marks ≥ 1, sourceType always "SEARCH_SOURCE". Returns { pyqs } on success, { error } on failure.
+- Created src/app/api/pyq/similar/route.ts — POST endpoint, same runtime/dynamic exports. Reads { question } from body; 400s if missing. Uses jsonWithFallback<{ pyqs: PYQ[] }>(SYSTEM, USER, SCHEMA, isPYQList). System prompt instructs: act as Similar-Question Finder; given a source question, return 3-5 PYQs that test the same underlying concept or are structurally similar, each WITH a similarityReason (1 sentence explaining the connection). Same sanitization rules as browse route, plus similarityReason fallback to a default string when AI omits it. Returns { pyqs } or { error }.
+- Updated src/lib/ai/mock-provider.ts — added routing rule in the json() method BEFORE the generic fallback: `if (schema.includes("pyqset") || schema.includes("pyqlist") || req.includes("pyq browser") || req.includes("similar-question finder")) return mockPYQs(user) as T;`. Added mockPYQs(query) helper at end of file. Returns 8-10 realistic PYQs organized by exam: SSC CGL (10 questions covering quant + reasoning + english + GA, all 4 sections represented, years 2020-2024 mixed), GATE CS (10 questions covering DS/Algorithms/OS/DBMS/Networks/TOC/Discrete Math/Digital Logic/Compiler Design, years mixed), default fallback (10 mixed quant questions: Percentage, Average, TSD, SI, CI, Number System, Mixture, Probability, Ratio, Geometry). Detects exam from query keywords (ssc cgl/gate/upsc/rrb/banking) or from the explicit "Exam: X" line in the user prompt (since both API routes format their user prompts that way). Detects year from "Year: YYYY" line and applies uniformly if present. Detects topic from "Topic filter: X" line and filters the canned set (keeping all if filter would empty). For similar-finder requests (detected via "similar-question finder" or "find similar" in query), trims to 5 items and attaches a default similarityReason. Fixed a bug in the mixture question (correctAnswer "11:4" was inconsistent with the explanation; corrected to "7:3" matching the actual calculation). All pyqs have realistic question text, 4 distinct options, correct answer verbatim in options, concise explanation, difficulty spread (Easy/Medium/Hard), marks (1 or 2), sourceType="SEARCH_SOURCE".
+- Built src/components/views/pyq-browser.tsx — 'use client' component with named export `PYQBrowser`. ~800 lines.
+  - Header: gradient violet→fuchsia icon (FileText in 11x11 rounded box with blur halo), title "PYQ Browser", subtitle "Browse previous-year questions by exam, year, and topic. Find similar PYQs for any question." Reset button in top-right (clears bookmarks + attempts + browse state).
+  - Filter Bar Card: Exam Select (All/SSC CGL/GATE CS/UPSC CSE/RRB JE/Banking PO), Year Select (All/2024/2023/2022/2021/2020), Topic Input (with Enter-to-browse), 8 quick chips (Percentage, Profit & Loss, Ratio, Time & Work, Algorithms, DBMS, Operating Systems, Polity). Browse button with violet→fuchsia gradient + Search icon. Spinning RotateCcw icon when loading.
+  - Similar Question Finder Card (fuchsia→violet gradient border/background): Textarea + "Find Similar PYQs" button (fuchsia→violet gradient + Sparkles icon). Renders similar results inline in a 1/2-col grid with each PYQCard showing similarityReason in a fuchsia callout box.
+  - PYQCard sub-component: motion.div fade-in (staggered delay). CardHeader shows 5 badges — Exam (violet), Year (Calendar), Topic (BookOpen), Difficulty (emerald/amber/rose), Marks (Hash). Subject label as muted uppercase. Question text. Options grid (1 col): each option is a clickable button with A/B/C/D letter badge; on click, recordAttempt({correct|incorrect}) → store, setRevealed(true), toast.success/error feedback. After reveal: correct option shows emerald border + check icon; user's wrong selection shows rose border + X icon; correct answer badge + attempt badge shown. Skip button (CircleDashed) marks unattempted before reveal. Collapsible explanation (Lightbulb icon, amber border/background). Bookmark button (Star, amber when bookmarked, fill when active). "Find Similar" button per card (Sparkles + ChevronRight, violet gradient) triggers handleFindSimilar(pyq.question) which scrolls the similar finder into view.
+  - Key/identity: PYQCard uses index-derived stableId but parent passes key including question text slice so a new browse fully remounts each card → useState initializer picks up the existing attempt from the store automatically (no useEffect needed, no set-state-in-effect lint violations).
+  - StatsCard sub-component: 4 mini-cards (Browsed/Layers violet, Attempts/Target emerald, Accuracy/CheckCircle2 amber, Bookmarked/Star fuchsia). Accuracy = correct/(correct+incorrect), N/A→0 when no attempts.
+  - Bookmarks Panel Card: shows bookmarked-count badge, "Show only bookmarks" toggle button (enables showBookmarksOnly state which filters visiblePyqs to those bookmarked in the current browse session). When filter active, renders bookmarked PYQs in 1/2-col grid.
+  - Browse Results section: results header (Layers icon, count badge, current filter summary). LoadingState during browse. Empty placeholder card when 0 results. Results grid (1 col mobile, 2 col lg) with each PYQCard.
+  - Empty State: PremiumEmptyState (violet accent, FileText icon, "Browse Previous-Year Questions" title, descriptive subtitle, "Browse PYQs" CTA with Search icon → triggers handleBrowse). Shown only before first browse.
+  - Toast feedback on browse (Found N PYQs), similar search (Found N similar PYQs), correct/incorrect attempts, reset/clear actions.
+- Wired into shared infra:
+  - src/store/app-store.ts: added `| "pyq-browser"` to the ViewKey union (inserted right after "revision-scheduler", before "api-keys").
+  - src/components/app-shell.tsx: imported { PYQBrowser } from "@/components/views/pyq-browser"; added `{ key: "pyq-browser", label: "PYQ Browser", icon: FileText, desc: "Previous-year questions" }` to the NAV_GROUPS "practice" group (right after mcq-generator, before flashcards); added `case "pyq-browser": return <PYQBrowser />;` to the render switch (between formula-quiz and api-keys); added "pyq-browser" to the mobile bottom-nav exclusion filter (alongside the existing exclusions for analytics/revision-scheduler/exam-pattern-analyzer etc.).
+- Lint iteration:
+  - First run flagged a JSX parsing error at pyq-browser.tsx:264:32 — caused by `<ATTEMPT_BADGE[attempt].icon />` (member expression cannot be used as JSX tag). Fixed by extracting to a capitalized local variable inside an IIFE: `{(() => { const AttemptIcon = ATTEMPT_BADGE[attempt].icon; return <AttemptIcon className="h-3 w-3" />; })()}`.
+  - Second run flagged two `react-hooks/set-state-in-effect` errors — I had two useEffects resetting/restoring PYQCard state on id/attempts change. Refactored to: (a) drop both useEffects, (b) initialize `revealed` state with `useState<boolean>(!!attempt)` so cards restored from bookmarks naturally show as revealed, (c) include question text slice in the parent's React `key` so each PYQ card fully remounts on a new browse → React's natural remount replaces the manual reset effect. Removed the now-unused useEffect import.
+  - Third run: `bun run lint` — 0 errors, 0 warnings. Clean.
+- Styling: NO indigo/blue primary. Violet→fuchsia gradients on Browse/Find Similar/Find Similar-per-card buttons + header icon + AI status pill (reused from AppShell). Difficulty colors: Easy=emerald, Medium=amber, Hard=rose. Attempt feedback: correct=emerald, incorrect=rose, unattempted=zinc. Similarity reasoning callout in fuchsia. Mobile-first responsive: 1 col → sm:2 → lg:2 grids. Touch targets ≥ 36px on option buttons (h-6 + py-2 = ~32px text height, 44px tap on row).
+
+Stage Summary:
+- 5 new files: src/types/pyq.ts, src/store/pyq-store.ts, src/app/api/pyq/browse/route.ts, src/app/api/pyq/similar/route.ts, src/components/views/pyq-browser.tsx.
+- 3 modified files: src/lib/ai/mock-provider.ts (added PYQ routing rule + mockPYQs helper), src/store/app-store.ts (ViewKey += "pyq-browser"), src/components/app-shell.tsx (import + nav item + render case + mobile exclusion).
+- Two new API routes: /api/pyq/browse (POST → 8-10 PYQs by exam/year/topic) and /api/pyq/similar (POST → 3-5 conceptually similar PYQs with similarity reasoning). Both use jsonWithFallback so they degrade gracefully to mock mode in the sandbox (no API key needed).
+- Mock provider returns exam-aware canned PYQs (SSC CGL = quant+reasoning+english+GA across all 4 sections; GATE CS = DS/Algorithms/OS/DBMS/Networks/TOC/Discrete/Digital Logic/Compiler; default = mixed quant). Years spread 2020-2024. Topic filter applied when present.
+- Separate pyq-store (localStorage key "examintel-pyqs") tracks bookmarks (toggleable star) and per-PYQ attempt results (correct/incorrect/unattempted) — independent of the global app-store so PYQ data persists across sessions without bloating the main store.
+- PYQBrowser view: filter bar (Exam/Year/Topic selects + chips) + Similar Question Finder (textarea + button + inline results with similarity reasoning callouts) + stats card (Browsed/Attempts/Accuracy/Bookmarked) + bookmarks panel (toggle filter) + browse results grid (cards with badges, clickable options, collapsible explanation, per-card bookmark + Find Similar) + PremiumEmptyState before first browse.
+- Lint: clean (0 errors, 0 warnings) on all new/modified files.
+- Shared infrastructure respected: only the explicitly-required ViewKey + nav + render switch + mobile-exclusion wiring changes; app-store, useApi, jsonWithFallback, mock-provider skeleton, PremiumEmptyState, LoadingState, shadcn/ui primitives all consumed as-is.
+
+---
+Task ID: cron-review-6
+Agent: Main (orchestrator) — web dev review cron round 6
+Task: Critical bug fix (RevisionScheduler Brain import), PDF mock enrichment, 2 new features (Pattern Analyzer, PYQ Browser), paper generator polish
+
+Work Log:
+- Reviewed worklog (rounds 1-5 added 13 features: Command Palette, Onboarding, Study Timer, Flashcards, Exam Countdown, Progress Journal, Formula Sheet, Exam Calendar, Achievements, Formula Quiz, Topic Mastery, Analytics, Revision Scheduler)
+- QA via agent-browser: found CRITICAL runtime error in RevisionScheduler: "ReferenceError: Brain is not defined" — the component used the Brain icon (line 841) but didn't import it from lucide-react. The ErrorBoundary was catching it but the view was broken.
+- Fix: Added Brain to the lucide-react import list in revision-scheduler.tsx. Required nuclear cache clear (rm -rf .next + node_modules/.cache) + fresh browser session to bust the stale Turbopack bundle.
+- Post-fix QA: swept ALL 24 views for runtime errors — none found. Every view renders cleanly.
+
+- ENHANCEMENT: Enriched mock PDF Lab (mockPdfAnalysis) — now content-aware:
+  - Extracts real data from pasted text: ages (regex), dates, question counts, marks, duration, negative marking
+  - Detects exam from keywords: SSC/GATE/UPSC/Railway/Banking → sets correct organisation + document type
+  - Builds grounded extraction with source pages + sections
+  - Detects OCR mentions → sets ocrUsed + ocrWarning
+  - Computes wordCount from actual content length
+  - Returns 7 categories: Eligibility, Age Limit, Important Dates, Exam Pattern, Syllabus, Marking Scheme, Selection Process
+- Verified: SSC CGL content → "SSC CGL" + "Staff Selection Commission" + 7 categories + wordCount 106 ✓
+
+- NEW FEATURE 1: Exam Pattern Analyzer (compare patterns across exams)
+  - View: src/components/views/exam-pattern-analyzer.tsx (~750 lines)
+  - Add up to 4 exams, fetch patterns via /api/exam/research, extract .pattern field
+  - 4 recharts visualizations: Questions & Marks (grouped BarChart), Duration (horizontal BarChart), Negative Marking (BarChart), Section Distribution (PieCharts per exam)
+  - Comparison table: 7 attributes × N exams, color-coded cells by violet intensity
+  - Insights card: most questions, longest duration, harshest negative, highest marks
+  - Save Comparison → saveItem type "comparison"
+  - Wired into AppShell nav (core-ai group)
+
+- NEW FEATURE 2: PYQ Browser (previous-year questions)
+  - Types: src/types/pyq.ts (PYQ, PYQSet)
+  - Store: src/store/pyq-store.ts (bookmarks, attempts, zustand+persist)
+  - APIs: /api/pyq/browse (filter by exam/year/topic), /api/pyq/similar (find similar PYQs)
+  - Mock: mockPYQs() with exam-aware canned PYQs (SSC CGL quant/reasoning/english/GA, GATE CS DS/algorithms/OS/DBMS/networks, years 2020-2024)
+  - View: src/components/views/pyq-browser.tsx (~800 lines) — filter bar, similar question finder, PYQ cards with clickable options (record attempt), collapsible explanations, bookmarks, stats, PremiumEmptyState
+  - Wired into AppShell nav (practice group)
+
+- STYLING: Paper Generator test-taking UI polish — enhanced timer with 3-tier urgency (violet >5min → amber ≤5min → rose ≤1min + animate-pulse ≤30s). Added time-elapsed gradient progress bar at bottom of timer. Added question type icons in topic badge (○ MCQ, ☑ Multiple Correct, ⇄ Assertion&Reason, ⇋ Match, ≡ Statement, ✓ True/False).
+
+- Verified via agent-browser E2E:
+  - Dashboard: Achievements + welcome ✓
+  - Pattern Analyzer: view renders ✓
+  - PYQ Browser: "PYQ Browser" heading renders ✓
+  - Revision Scheduler: renders with "Today's Revision Plan" + "Revision Stats" (NO Brain error) ✓
+  - Screenshots: pyq (140KB), pattern (96KB)
+- Verified via curl:
+  - pdf/analyze SSC CGL content → exam "SSC CGL", 7 categories, wordCount 106 ✓
+  - pyq/browse SSC CGL 2023 → 10 PYQs ✓
+- Lint: clean (0 errors, 0 warnings)
+- Final inventory: 133 TS/TSX files, 26 views, 19 API routes, 10 stores
+
+Stage Summary:
+- 1 critical bug fixed (RevisionScheduler Brain import).
+- 2 new features added (Exam Pattern Analyzer, PYQ Browser) — now 26 views total (was 24).
+- PDF Lab mock now content-aware (extracts real data from pasted text).
+- Paper Generator test UI enhanced with 3-tier timer urgency + progress bar + question type icons.
+- 2 new API routes (pyq/browse, pyq/similar) — total 19 routes.
+- 1 new store (pyq-store) — total 10 stores.
+- Next cron run can focus on: more mock data variety, AI assistant deep integration, performance optimization, or additional features (e.g. study groups, leaderboard, formula quiz multiplayer, voice notes).

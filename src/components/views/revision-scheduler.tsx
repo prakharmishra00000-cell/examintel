@@ -25,6 +25,7 @@ import {
   Circle,
   CalendarClock,
   Lightbulb,
+  Brain,
 } from "lucide-react";
 import {
   Card,

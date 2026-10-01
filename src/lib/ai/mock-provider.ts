@@ -63,6 +63,9 @@ export class MockProvider implements LLMProvider {
     if (schema.includes("formulasheet") || req.includes("formula lookup")) {
       return mockFormulasLookup(user) as unknown as T;
     }
+    if (schema.includes("pyqset") || schema.includes("pyqlist") || req.includes("pyq browser") || req.includes("similar-question finder")) {
+      return mockPYQs(user) as unknown as T;
+    }
     // generic fallback
     return extractJson<T>(`{"note":"Mock provider active. Configure OPENAI_API_KEY on Vercel for real AI.","prompt":${JSON.stringify(user.slice(0,200))}}`);
   }
@@ -583,21 +586,84 @@ function mockMCQ(query: string): unknown {
   };
 }
 
-function mockPdfAnalysis(_query: string): unknown {
+function mockPdfAnalysis(query: string): unknown {
+  // Try to extract real info from the pasted content. The route sends the content
+  // in the user prompt. Look for keywords to build a grounded extraction.
+  const q = query.toLowerCase();
+
+  // Extract any numbers/ages/dates mentioned in the content
+  const ageMatch = query.match(/(\d{2})\s*[-–]\s*(\d{2})\s*years?/i);
+  const dateMatches = [...query.matchAll(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4})/g)].map(m => m[0]).slice(0, 4);
+  const questionMatch = query.match(/(\d+)\s*questions?/i);
+  const marksMatch = query.match(/(\d+)\s*marks?/i);
+  const durationMatch = query.match(/(\d+)\s*(?:minutes|min|hours?|hrs?)/i);
+  const negMatch = query.match(/[-−](0?\.\d+|\d+)\s*(?:per|marks?|negative)/i);
+
+  // Detect document type from keywords
+  let docType = "Official Notification";
+  let title = "Exam Notification";
+  let organisation = "Exam Conducting Body";
+  let exam = "Sample Exam";
+  if (q.includes("ssc")) { exam = "SSC CGL"; organisation = "Staff Selection Commission"; }
+  else if (q.includes("gate")) { exam = "GATE"; organisation = "IIT/IISc"; docType = "GATE Notification"; title = "GATE Information Brochure"; }
+  else if (q.includes("upsc")) { exam = "UPSC CSE"; organisation = "Union Public Service Commission"; }
+  else if (q.includes("railway") || q.includes("rrb")) { exam = "RRB NTPC"; organisation = "Railway Recruitment Board"; }
+  else if (q.includes("banking") || q.includes("ibps") || q.includes("sbi")) { exam = "Banking PO"; organisation = "IBPS/SBI"; }
+
+  const extracted: { category: string; content: string; sourcePage: number; sourceSection: string }[] = [];
+
+  // Eligibility
+  extracted.push({
+    category: "Eligibility",
+    content: q.includes("graduation") ? "Graduation in any discipline from a recognised university." : "Bachelor's degree (check specific post requirements).",
+    sourcePage: 2, sourceSection: "Eligibility",
+  });
+  // Age
+  if (ageMatch) {
+    extracted.push({ category: "Age Limit", content: `${ageMatch[1]}-${ageMatch[2]} years as on cut-off date (relaxation for reserved categories).`, sourcePage: 2, sourceSection: "Eligibility" });
+  } else {
+    extracted.push({ category: "Age Limit", content: "20-30 years as on cut-off date (relaxation for reserved categories).", sourcePage: 2, sourceSection: "Eligibility" });
+  }
+  // Dates
+  if (dateMatches.length > 0) {
+    extracted.push({ category: "Important Dates", content: `Key dates mentioned: ${dateMatches.join(", ")}. Application window and exam schedule per official notification.`, sourcePage: 1, sourceSection: "Important Dates" });
+  } else {
+    extracted.push({ category: "Important Dates", content: "Application start, last date, and exam date per official notification.", sourcePage: 1, sourceSection: "Important Dates" });
+  }
+  // Exam Pattern
+  const qCount = questionMatch ? questionMatch[1] : "100";
+  const mCount = marksMatch ? marksMatch[1] : "200";
+  const dur = durationMatch ? durationMatch[1] : "60";
+  extracted.push({ category: "Exam Pattern", content: `Tier 1: ${qCount} questions, ${mCount} marks, ${dur} minutes. Computer-based test.`, sourcePage: 5, sourceSection: "Examination Scheme" });
+  // Syllabus
+  const subjects: string[] = [];
+  if (q.includes("quant") || q.includes("aptitude")) subjects.push("Quantitative Aptitude");
+  if (q.includes("reasoning")) subjects.push("General Intelligence & Reasoning");
+  if (q.includes("english")) subjects.push("English Language");
+  if (q.includes("general awareness") || q.includes("ga") || q.includes("gk")) subjects.push("General Awareness");
+  if (subjects.length === 0) subjects.push("Quantitative Aptitude", "Reasoning", "English", "General Awareness");
+  extracted.push({ category: "Syllabus", content: subjects.join(", ") + ".", sourcePage: 6, sourceSection: "Syllabus" });
+  // Marking
+  const neg = negMatch ? negMatch[1] : "0.5";
+  extracted.push({ category: "Marking Scheme", content: `+2 per correct answer, -${neg} per incorrect answer. Unattempted: 0.`, sourcePage: 5, sourceSection: "Examination Scheme" });
+  // Selection process
+  extracted.push({ category: "Selection Process", content: "Tier 1 (qualifying) → Tier 2 (merit) → Document Verification → Final Selection.", sourcePage: 3, sourceSection: "Selection Process" });
+
+  // Word count from content length if available
+  const words = query.split(/\s+/).filter(w => w.length > 2).length;
+  const wordCount = words > 100 ? words : 3200;
+
+  // OCR detection
+  const ocrUsed = /ocr|scanned|image|unreadable/i.test(query);
+
   return {
-    documentOverview: { title: "Sample Exam Notification", organisation: "Exam Conducting Body", exam: "Sample Exam", year: "2024", documentType: "Official Notification", numberOfPages: 12, importantSections: ["Eligibility", "Exam Pattern", "Syllabus", "Important Dates"] },
-    extractedInformation: [
-      { category: "Eligibility", content: "Graduation in any discipline from a recognised university.", sourcePage: 2, sourceSection: "Eligibility" },
-      { category: "Age Limit", content: "20-30 years as on cut-off date.", sourcePage: 2, sourceSection: "Eligibility" },
-      { category: "Important Dates", content: "Application start: 1 Jan; Last date: 31 Jan; Exam: March.", sourcePage: 1, sourceSection: "Important Dates" },
-      { category: "Exam Pattern", content: "Tier 1: 100 questions, 200 marks, 60 minutes.", sourcePage: 5, sourceSection: "Examination Scheme" },
-      { category: "Syllabus", content: "Quantitative Aptitude, Reasoning, English, General Awareness.", sourcePage: 6, sourceSection: "Syllabus" },
-      { category: "Marking Scheme", content: "+2 correct, -0.5 incorrect.", sourcePage: 5, sourceSection: "Examination Scheme" },
-    ],
-    topics: ["Eligibility", "Exam Pattern", "Syllabus", "Quantitative Aptitude", "Reasoning", "English"],
-    wordCount: 3200,
-    ocrUsed: false,
-    sources: [{ type: "UPLOADED_DOCUMENT", label: "Uploaded Document" }],
+    documentOverview: { title, organisation, exam, year: new Date().getFullYear().toString(), documentType: docType, numberOfPages: 12, importantSections: ["Eligibility", "Exam Pattern", "Syllabus", "Important Dates", "Selection Process"] },
+    extractedInformation: extracted,
+    topics: ["Eligibility", "Exam Pattern", "Syllabus", "Selection Process", ...subjects],
+    wordCount,
+    ocrUsed,
+    ocrWarning: ocrUsed ? "Some information was extracted using OCR and may require verification." : undefined,
+    sources: [{ type: "UPLOADED_DOCUMENT", label: "Uploaded Document", detail: `${wordCount} words analysed` }],
     generatedAt: new Date().toISOString(),
   };
 }
@@ -882,4 +948,512 @@ function mockFormulasLookup(query: string): unknown {
       difficulty: f.difficulty,
     })),
   };
+}
+
+// ============================================================
+// PYQ Browser mock — routes on schema hint "PYQSet"/"PYQList"
+// or system/user text containing "PYQ Browser" / "Similar-Question
+// Finder". Detects the exam from the query text and returns 8–10
+// realistic previous-year questions for SSC CGL, GATE CS, or a
+// default mixed-quant set. Years vary across 2020–2024.
+// ============================================================
+type MockPYQ = {
+  id: string;
+  exam: string;
+  year: string;
+  topic: string;
+  subject: string;
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  marks: number;
+  sourceType: string;
+  similarityReason?: string;
+};
+
+function mockPYQs(query: string): unknown {
+  const q = query.toLowerCase();
+  const isSimilar = q.includes("similar-question finder") || q.includes("find similar");
+  const reqExamMatch = query.match(/exam:\s*([^\n]+)/i);
+  const reqYearMatch = query.match(/year:\s*([^\n]+)/i);
+  const reqTopicMatch = query.match(/topic filter:\s*([^\n]+)/i);
+
+  let exam = "SSC CGL";
+  if (reqExamMatch && reqExamMatch[1]) {
+    const v = reqExamMatch[1].trim();
+    if (v.toLowerCase() !== "all") exam = v;
+  } else if (q.includes("ssc cgl")) {
+    exam = "SSC CGL";
+  } else if (q.includes("gate")) {
+    exam = "GATE CS";
+  } else if (q.includes("upsc")) {
+    exam = "UPSC CSE";
+  } else if (q.includes("rrb") || q.includes("railway")) {
+    exam = "RRB JE";
+  } else if (q.includes("banking") || q.includes("ibps") || q.includes("sbi")) {
+    exam = "Banking PO";
+  }
+
+  const year = reqYearMatch && /^\d{4}$/.test(reqYearMatch[1]?.trim() ?? "") ? reqYearMatch[1].trim() : "";
+  const topic = reqTopicMatch && reqTopicMatch[1] ? reqTopicMatch[1].trim() : "";
+
+  const years = year ? Array(10).fill(year) : ["2024", "2023", "2024", "2022", "2023", "2021", "2024", "2020", "2023", "2022"];
+  const baseId = isSimilar ? "sim" : "pyq";
+
+  let pyqs: MockPYQ[] = [];
+
+  if (exam === "SSC CGL") {
+    pyqs = [
+      {
+        id: `${baseId}1`,
+        exam: "SSC CGL",
+        year: years[0],
+        topic: "Percentage",
+        subject: "Quantitative Aptitude",
+        question: "A shopkeeper marks his goods 40% above the cost price and allows a discount of 10%. What is his profit percentage?",
+        options: ["26%", "30%", "32%", "36%"],
+        correctAnswer: "26%",
+        explanation: "If CP = 100, MP = 140. After 10% discount, SP = 126. Profit = 26, so profit % = 26%.",
+        difficulty: "Medium",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}2`,
+        exam: "SSC CGL",
+        year: years[1],
+        topic: "Profit & Loss",
+        subject: "Quantitative Aptitude",
+        question: "If the cost price of 12 articles equals the selling price of 10 articles, the profit percentage is:",
+        options: ["15%", "20%", "25%", "18%"],
+        correctAnswer: "20%",
+        explanation: "Let CP per article = 10. Then SP of 10 = 120, so SP per article = 12. Profit = 2 on CP 10 = 20%.",
+        difficulty: "Easy",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}3`,
+        exam: "SSC CGL",
+        year: years[2],
+        topic: "Ratio & Proportion",
+        subject: "Quantitative Aptitude",
+        question: "If A : B = 2 : 3 and B : C = 4 : 5, then A : C is:",
+        options: ["2 : 5", "8 : 15", "8 : 5", "3 : 5"],
+        correctAnswer: "8 : 15",
+        explanation: "Make B common: A : B = 8 : 12 and B : C = 12 : 15, so A : C = 8 : 15.",
+        difficulty: "Medium",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}4`,
+        exam: "SSC CGL",
+        year: years[3],
+        topic: "Time & Work",
+        subject: "Quantitative Aptitude",
+        question: "A can do a piece of work in 20 days and B in 30 days. Working together, in how many days will they finish it?",
+        options: ["10 days", "12 days", "15 days", "18 days"],
+        correctAnswer: "12 days",
+        explanation: "Combined rate = 1/20 + 1/30 = 5/60 = 1/12. So they finish in 12 days.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}5`,
+        exam: "SSC CGL",
+        year: years[4],
+        topic: "Series",
+        subject: "General Intelligence & Reasoning",
+        question: "Find the next number in the series: 2, 6, 12, 20, 30, ?",
+        options: ["40", "42", "44", "46"],
+        correctAnswer: "42",
+        explanation: "Differences are 4, 6, 8, 10, 12 — increasing by 2 each step. Next term = 30 + 12 = 42.",
+        difficulty: "Medium",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}6`,
+        exam: "SSC CGL",
+        year: years[5],
+        topic: "Coding-Decoding",
+        subject: "General Intelligence & Reasoning",
+        question: "If 'TABLE' is coded as 'UCAMF', then 'CHAIR' is coded as:",
+        options: ["DIBJS", "DIKJR", "DJBKT", "DJCLT"],
+        correctAnswer: "DIBJS",
+        explanation: "Each letter is shifted +1: T→U, A→B, B→C, L→M, E→F. Same rule: C→D, H→I, A→B, I→J, R→S.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}7`,
+        exam: "SSC CGL",
+        year: years[6],
+        topic: "Reading Comprehension",
+        subject: "English Language",
+        question: "Choose the word most nearly OPPOSITE in meaning to 'BENEVOLENT':",
+        options: ["Malevolent", "Generous", "Charitable", "Amiable"],
+        correctAnswer: "Malevolent",
+        explanation: "'Benevolent' means kind and well-meaning; the antonym is 'Malevolent' (wishing harm).",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}8`,
+        exam: "SSC CGL",
+        year: years[7],
+        topic: "Polity",
+        subject: "General Awareness",
+        question: "Which Article of the Indian Constitution deals with the Right to Equality?",
+        options: ["Article 14", "Article 19", "Article 21", "Article 32"],
+        correctAnswer: "Article 14",
+        explanation: "Article 14 guarantees equality before law and equal protection of laws to all persons within Indian territory.",
+        difficulty: "Medium",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}9`,
+        exam: "SSC CGL",
+        year: years[8],
+        topic: "Mensuration",
+        subject: "Quantitative Aptitude",
+        question: "The area of a trapezium whose parallel sides are 12 cm and 18 cm and the distance between them is 10 cm is:",
+        options: ["150 cm²", "140 cm²", "120 cm²", "180 cm²"],
+        correctAnswer: "150 cm²",
+        explanation: "Area = ½ × (sum of parallel sides) × height = ½ × (12 + 18) × 10 = ½ × 30 × 10 = 150 cm².",
+        difficulty: "Hard",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}10`,
+        exam: "SSC CGL",
+        year: years[9],
+        topic: "Modern History",
+        subject: "General Awareness",
+        question: "The Quit India Movement was launched by Mahatma Gandhi in which year?",
+        options: ["1940", "1942", "1945", "1947"],
+        correctAnswer: "1942",
+        explanation: "The Quit India Movement was launched on 8 August 1942 with the slogan 'Do or Die'.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+    ];
+  } else if (exam === "GATE CS") {
+    pyqs = [
+      {
+        id: `${baseId}1`,
+        exam: "GATE CS",
+        year: years[0],
+        topic: "Data Structures",
+        subject: "Computer Science",
+        question: "Which of the following data structures is best suited for implementing a recursive function call mechanism?",
+        options: ["Queue", "Stack", "Linked List", "Binary Tree"],
+        correctAnswer: "Stack",
+        explanation: "Stacks support Last-In-First-Out semantics, naturally matching the call/return order of recursive function invocation.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}2`,
+        exam: "GATE CS",
+        year: years[1],
+        topic: "Algorithms",
+        subject: "Computer Science",
+        question: "The worst-case time complexity of QuickSort is:",
+        options: ["O(n log n)", "O(n²)", "O(n log² n)", "O(n)"],
+        correctAnswer: "O(n²)",
+        explanation: "When the pivot is consistently the smallest or largest element, partitions are unbalanced, leading to O(n²) comparisons.",
+        difficulty: "Medium",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}3`,
+        exam: "GATE CS",
+        year: years[2],
+        topic: "Operating Systems",
+        subject: "Computer Science",
+        question: "Which page replacement algorithm suffers from Belady's anomaly?",
+        options: ["LRU", "Optimal", "FIFO", "LFU"],
+        correctAnswer: "FIFO",
+        explanation: "FIFO can exhibit Belady's anomaly: increasing the number of frames can sometimes increase the number of page faults.",
+        difficulty: "Hard",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}4`,
+        exam: "GATE CS",
+        year: years[3],
+        topic: "DBMS",
+        subject: "Computer Science",
+        question: "Which normal form removes partial dependency on a subset of a candidate key?",
+        options: ["1NF", "2NF", "3NF", "BCNF"],
+        correctAnswer: "2NF",
+        explanation: "2NF requires every non-prime attribute to be fully functionally dependent on the whole candidate key, removing partial dependencies.",
+        difficulty: "Medium",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}5`,
+        exam: "GATE CS",
+        year: years[4],
+        topic: "Computer Networks",
+        subject: "Computer Science",
+        question: "In the OSI model, routing and switching occur at which layer?",
+        options: ["Layer 2", "Layer 3", "Layer 4", "Layer 7"],
+        correctAnswer: "Layer 3",
+        explanation: "Layer 3 (Network Layer) is responsible for logical addressing and routing. Layer 2 (Data Link) handles switching within a LAN.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}6`,
+        exam: "GATE CS",
+        year: years[5],
+        topic: "Theory of Computation",
+        subject: "Computer Science",
+        question: "Which of the following languages is NOT context-free?",
+        options: ["{ aⁿbⁿ | n ≥ 0 }", "{ aⁿbⁿcⁿ | n ≥ 0 }", "{ wwᴿ | w ∈ {a,b}* }", "{ a* }"],
+        correctAnswer: "{ aⁿbⁿcⁿ | n ≥ 0 }",
+        explanation: "A pushdown automaton has a single stack and cannot match three independent counts simultaneously, so aⁿbⁿcⁿ is context-sensitive, not context-free.",
+        difficulty: "Hard",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}7`,
+        exam: "GATE CS",
+        year: years[6],
+        topic: "Discrete Mathematics",
+        subject: "Computer Science",
+        question: "The number of Boolean functions possible with 3 Boolean variables is:",
+        options: ["8", "64", "256", "512"],
+        correctAnswer: "256",
+        explanation: "With 3 variables there are 2³ = 8 input rows, and each row can map to 0 or 1, giving 2⁸ = 256 possible Boolean functions.",
+        difficulty: "Medium",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}8`,
+        exam: "GATE CS",
+        year: years[7],
+        topic: "Digital Logic",
+        subject: "Computer Science",
+        question: "The minimum number of NAND gates required to implement the Boolean function Y = A · B is:",
+        options: ["1", "2", "3", "4"],
+        correctAnswer: "2",
+        explanation: "A NAND of A and B gives (A·B)′. A second NAND acting as an inverter on the output yields A·B, using 2 NAND gates.",
+        difficulty: "Hard",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}9`,
+        exam: "GATE CS",
+        year: years[8],
+        topic: "Compiler Design",
+        subject: "Computer Science",
+        question: "Which of the following phases of a compiler is responsible for detecting 'undefined variable' errors?",
+        options: ["Lexical Analysis", "Syntax Analysis", "Semantic Analysis", "Code Optimization"],
+        correctAnswer: "Semantic Analysis",
+        explanation: "Symbol table lookups and type/scope checks happen during Semantic Analysis — that's where undefined variables are flagged.",
+        difficulty: "Medium",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}10`,
+        exam: "GATE CS",
+        year: years[9],
+        topic: "Algorithms",
+        subject: "Computer Science",
+        question: "The time complexity of finding the n-th Fibonacci number using the simple recursive method (without memoization) is:",
+        options: ["O(n)", "O(n²)", "O(2ⁿ)", "O(log n)"],
+        correctAnswer: "O(2ⁿ)",
+        explanation: "Naive recursion recomputes overlapping subproblems, leading to an exponential recurrence T(n) = T(n-1) + T(n-2) + O(1), bounded by O(2ⁿ).",
+        difficulty: "Medium",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+    ];
+  } else {
+    // Default — mixed quantitative aptitude questions
+    pyqs = [
+      {
+        id: `${baseId}1`,
+        exam,
+        year: years[0],
+        topic: "Percentage",
+        subject: "Quantitative Aptitude",
+        question: "What is 15% of 240?",
+        options: ["30", "32", "36", "40"],
+        correctAnswer: "36",
+        explanation: "10% of 240 = 24; 5% = 12. Sum = 36.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}2`,
+        exam,
+        year: years[1],
+        topic: "Average",
+        subject: "Quantitative Aptitude",
+        question: "The average of 5 consecutive even numbers is 16. The largest of these numbers is:",
+        options: ["18", "20", "22", "24"],
+        correctAnswer: "20",
+        explanation: "Five consecutive even numbers with average 16 are 12, 14, 16, 18, 20. Largest = 20.",
+        difficulty: "Medium",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}3`,
+        exam,
+        year: years[2],
+        topic: "Time, Speed & Distance",
+        subject: "Quantitative Aptitude",
+        question: "A train travels 60 km in 45 minutes. Its speed in km/h is:",
+        options: ["60", "70", "75", "80"],
+        correctAnswer: "80",
+        explanation: "45 min = 0.75 h. Speed = 60 / 0.75 = 80 km/h.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}4`,
+        exam,
+        year: years[3],
+        topic: "Simple Interest",
+        subject: "Quantitative Aptitude",
+        question: "The simple interest on ₹5,000 at 8% per annum for 3 years is:",
+        options: ["₹1,000", "₹1,200", "₹1,400", "₹1,500"],
+        correctAnswer: "₹1,200",
+        explanation: "SI = P × R × T / 100 = 5000 × 8 × 3 / 100 = ₹1,200.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}5`,
+        exam,
+        year: years[4],
+        topic: "Compound Interest",
+        subject: "Quantitative Aptitude",
+        question: "The compound interest on ₹10,000 at 10% per annum for 2 years (compounded annually) is:",
+        options: ["₹2,000", "₹2,100", "₹2,200", "₹2,500"],
+        correctAnswer: "₹2,100",
+        explanation: "A = 10000 × (1.1)² = 10000 × 1.21 = 12,100. CI = 12,100 − 10,000 = ₹2,100.",
+        difficulty: "Medium",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}6`,
+        exam,
+        year: years[5],
+        topic: "Number System",
+        subject: "Quantitative Aptitude",
+        question: "The HCF of 12, 18, and 24 is:",
+        options: ["2", "4", "6", "12"],
+        correctAnswer: "6",
+        explanation: "Factors of 12: {1,2,3,4,6,12}; of 18: {1,2,3,6,9,18}; of 24: {1,2,3,4,6,8,12,24}. The largest common is 6.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}7`,
+        exam,
+        year: years[6],
+        topic: "Mixture & Alligation",
+        subject: "Quantitative Aptitude",
+        question: "Two mixtures of milk and water are in the ratio 4:1 and 3:2. Mixing them in equal quantities gives a new ratio of:",
+        options: ["7:3", "3:1", "5:2", "11:4"],
+        correctAnswer: "7:3",
+        explanation: "Take 5L of each. Mixture 1 (4:1): milk=4, water=1. Mixture 2 (3:2): milk=3, water=2. Combined: milk=7, water=3 → ratio 7:3.",
+        difficulty: "Hard",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}8`,
+        exam,
+        year: years[7],
+        topic: "Probability",
+        subject: "Quantitative Aptitude",
+        question: "A coin is tossed 3 times. The probability of getting at least 2 heads is:",
+        options: ["1/4", "3/8", "1/2", "5/8"],
+        correctAnswer: "1/2",
+        explanation: "Total outcomes = 8. Favourable (≥2 heads): HHT, HTH, THH, HHH = 4 outcomes. Probability = 4/8 = 1/2.",
+        difficulty: "Medium",
+        marks: 2,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}9`,
+        exam,
+        year: years[8],
+        topic: "Ratio & Proportion",
+        subject: "Quantitative Aptitude",
+        question: "If 15 men can complete a work in 24 days, then 18 men can complete the same work in:",
+        options: ["18 days", "20 days", "22 days", "26 days"],
+        correctAnswer: "20 days",
+        explanation: "Work = 15 × 24 = 360 man-days. With 18 men: 360 / 18 = 20 days.",
+        difficulty: "Medium",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+      {
+        id: `${baseId}10`,
+        exam,
+        year: years[9],
+        topic: "Geometry",
+        subject: "Quantitative Aptitude",
+        question: "In a right triangle, the legs are 9 cm and 12 cm. The length of the hypotenuse is:",
+        options: ["13 cm", "14 cm", "15 cm", "17 cm"],
+        correctAnswer: "15 cm",
+        explanation: "By Pythagoras: √(9² + 12²) = √(81 + 144) = √225 = 15 cm.",
+        difficulty: "Easy",
+        marks: 1,
+        sourceType: "SEARCH_SOURCE",
+      },
+    ];
+  }
+
+  // Optional topic filter — keep only matching pyqs; if filter would empty the set, keep all.
+  if (topic && topic.toLowerCase() !== "general") {
+    const t = topic.toLowerCase();
+    const filtered = pyqs.filter(
+      (p) => p.topic.toLowerCase().includes(t) || p.subject.toLowerCase().includes(t)
+    );
+    if (filtered.length >= 3) pyqs = filtered;
+  }
+
+  // For the similar-question finder, return only 3–5 PYQs with reasoning.
+  if (isSimilar) {
+    pyqs = pyqs.slice(0, 5).map((p, i) => ({
+      ...p,
+      id: `${baseId}${i + 1}`,
+      similarityReason:
+        "Tests the same underlying concept as the source question with a structurally similar pattern.",
+    }));
+  }
+
+  return { pyqs };
 }

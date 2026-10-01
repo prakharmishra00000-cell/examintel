@@ -42,6 +42,7 @@ import { ViewTransition } from "@/components/view-transition";
 import { Dashboard } from "@/components/views/dashboard";
 import { ExamResearcher } from "@/components/views/exam-researcher";
 import { ExamComparison } from "@/components/views/exam-comparison";
+import { ExamPatternAnalyzer } from "@/components/views/exam-pattern-analyzer";
 import { DependencyMapper } from "@/components/views/dependency-mapper";
 import { QuestionExplainer } from "@/components/views/question-explainer";
 import { QuestionEvolution } from "@/components/views/question-evolution";
@@ -61,6 +62,7 @@ import { FormulaQuiz } from "@/components/views/formula-quiz";
 import { TopicMastery } from "@/components/views/topic-mastery";
 import { RevisionScheduler } from "@/components/views/revision-scheduler";
 import { Analytics } from "@/components/views/analytics";
+import { PYQBrowser } from "@/components/views/pyq-browser";
 import { ApiKeysView } from "@/components/views/api-keys";
 
 interface NavItem {
@@ -91,6 +93,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "exam-researcher", label: "Exam Researcher", icon: Search, desc: "Research any exam" },
       { key: "exam-comparison", label: "Compare Exams", icon: Scale, desc: "Find common syllabus" },
+      { key: "exam-pattern-analyzer", label: "Pattern Analyzer", icon: BarChart3, desc: "Compare exam patterns" },
       { key: "dependency-mapper", label: "Dependency Map", icon: Network, desc: "Prerequisite graph" },
       { key: "question-explainer", label: "Question AI", icon: HelpCircle, desc: "5-level explanation" },
       { key: "question-evolution", label: "Question Lab", icon: Repeat2, desc: "Evolve a question" },
@@ -104,6 +107,7 @@ const NAV_GROUPS: NavGroup[] = [
       { key: "paper-generator", label: "Paper Generator", icon: FileStack, desc: "Personalized papers" },
       { key: "pdf-lab", label: "PDF Lab", icon: FileText, desc: "Analyse official PDFs" },
       { key: "mcq-generator", label: "MCQ Generator", icon: ListChecks, desc: "Grounded practice" },
+      { key: "pyq-browser", label: "PYQ Browser", icon: FileText, desc: "Previous-year questions" },
       { key: "flashcards", label: "Flashcards", icon: Layers, desc: "Spaced repetition" },
       { key: "formula-sheet", label: "Formula Sheet", icon: Sigma, desc: "Reference library" },
       { key: "formula-quiz", label: "Formula Quiz", icon: Brain, desc: "Test formula recall" },
@@ -312,6 +316,8 @@ export function AppShell() {
         return <ExamResearcher />;
       case "exam-comparison":
         return <ExamComparison />;
+      case "exam-pattern-analyzer":
+        return <ExamPatternAnalyzer />;
       case "dependency-mapper":
         return <DependencyMapper />;
       case "question-explainer":
@@ -350,6 +356,8 @@ export function AppShell() {
         return <FormulaSheet />;
       case "formula-quiz":
         return <FormulaQuiz />;
+      case "pyq-browser":
+        return <PYQBrowser />;
       case "api-keys":
         return <ApiKeysView />;
       default:
@@ -436,7 +444,7 @@ export function AppShell() {
       {/* Mobile bottom nav (compact) */}
       <nav className="lg:hidden sticky bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="flex items-center overflow-x-auto px-2 py-1.5 gap-1 no-scrollbar">
-          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "revision-scheduler"].includes(n.key)).slice(0, 6).map((item) => {
+          {NAV.filter((n) => !["my-research", "api-keys", "study-timer", "progress-journal", "flashcards", "exam-calendar", "achievements", "formula-sheet", "formula-quiz", "topic-mastery", "analytics", "revision-scheduler", "exam-pattern-analyzer", "pyq-browser"].includes(n.key)).slice(0, 6).map((item) => {
             const Icon = item.icon;
             const active = currentView === item.key;
             return (

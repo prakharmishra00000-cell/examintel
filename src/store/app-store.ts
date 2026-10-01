@@ -14,6 +14,7 @@ export type ViewKey =
   | "dashboard"
   | "exam-researcher"
   | "exam-comparison"
+  | "exam-pattern-analyzer"
   | "dependency-mapper"
   | "question-explainer"
   | "question-evolution"
@@ -33,6 +34,7 @@ export type ViewKey =
   | "topic-mastery"
   | "analytics"
   | "revision-scheduler"
+  | "pyq-browser"
   | "api-keys";
 
 export interface AIStatus {

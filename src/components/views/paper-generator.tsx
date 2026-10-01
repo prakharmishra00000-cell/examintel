@@ -791,14 +791,24 @@ export function PaperGenerator() {
                 </div>
                 <div
                   className={cn(
-                    "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm font-mono font-semibold tabular-nums",
+                    "relative flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm font-mono font-semibold tabular-nums overflow-hidden",
                     remainingSeconds <= 60
                       ? "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                      : "border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                      : remainingSeconds <= 300
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      : "border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400",
+                    remainingSeconds <= 30 && remainingSeconds > 0 && "animate-pulse"
                   )}
                   aria-label="Time remaining"
                 >
-                  <Clock className="h-3.5 w-3.5" />
+                  {/* time elapsed progress bar */}
+                  {paper && (
+                    <div
+                      className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-1000"
+                      style={{ width: `${Math.min(100, ((paper.durationMinutes * 60 - remainingSeconds) / (paper.durationMinutes * 60)) * 100)}%` }}
+                    />
+                  )}
+                  <Clock className={cn("h-3.5 w-3.5", remainingSeconds <= 30 && remainingSeconds > 0 && "animate-pulse")} />
                   {formatClock(remainingSeconds)}
                 </div>
               </div>
@@ -866,10 +876,18 @@ export function PaperGenerator() {
                 <Badge variant="outline" className={cn("text-xs", DIFFICULTY_BADGE[currentQ.difficulty])}>
                   {currentQ.difficulty}
                 </Badge>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs gap-1">
+                  <span className="text-violet-500">
+                    {currentQ.questionType === "MCQ" && "○"}
+                    {currentQ.questionType === "Multiple Correct" && "☑"}
+                    {currentQ.questionType === "Assertion & Reason" && "⇄"}
+                    {currentQ.questionType === "Match the Following" && "⇋"}
+                    {currentQ.questionType === "Statement-based" && "≡"}
+                    {currentQ.questionType === "True/False" && "✓"}
+                  </span>
                   {currentQ.topic}
                 </Badge>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs bg-muted/50">
                   {currentQ.questionType}
                 </Badge>
                 <span className="ml-auto text-xs text-muted-foreground">

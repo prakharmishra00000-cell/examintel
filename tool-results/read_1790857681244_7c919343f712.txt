@@ -1,0 +1,949 @@
+     1→// ============================================================
+     2→// Mock Provider — graceful fallback when no AI key is configured
+     3→// ============================================================
+     4→// Produces structured, realistic-looking sample data so the entire
+     5→// UI is explorable. On Vercel, once OPENAI_API_KEY is set, the
+     6→// real AI provider takes over automatically.
+     7→// ============================================================
+     8→import type { LLMProvider, ChatCompletionMessage } from "./provider";
+     9→import { extractJson } from "./provider";
+    10→import { SEED_FORMULAS } from "@/store/formula-seed";
+    11→
+    12→export class MockProvider implements LLMProvider {
+    13→  name = "mock (no API key configured)";
+    14→  available = false;
+    15→
+    16→  async text(_system: string, _user: string): Promise<string> {
+    17→    throw new Error("No AI provider configured. Set OPENAI_API_KEY on Vercel to enable AI features.");
+    18→  }
+    19→
+    20→  async json<T>(system: string, user: string, schemaHint?: string): Promise<T> {
+    21→    // Route primarily on the SCHEMA HINT (most reliable signal of expected shape),
+    22→    // falling back to combined keyword search. This avoids mis-routing when a system
+    23→    // prompt for one feature mentions words like "prerequisite" or "dependency".
+    24→    const schema = (schemaHint ?? "").toLowerCase();
+    25→    const req = (system + " " + user).toLowerCase();
+    26→
+    27→    if (schema.includes("examresearchreport") || req.includes("exam intelligence researcher") || req.includes("examresearch")) {
+    28→      return mockExamResearch(user) as unknown as T;
+    29→    }
+    30→    if (schema.includes("examcomparisonreport") || req.includes("exam comparison engine") || req.includes("examcomparison")) {
+    31→      return mockExamComparison(user) as unknown as T;
+    32→    }
+    33→    if (schema.includes("dependencymapreport") || req.includes("dependency mapper") || req.includes("prerequisite-dependency mapper")) {
+    34→      return mockDependencyMap(user) as unknown as T;
+    35→    }
+    36→    if (schema.includes("questionexplanation") || req.includes("progressive question explainer") || req.includes("questionexplanation")) {
+    37→      return mockQuestionExplanation(user) as unknown as T;
+    38→    }
+    39→    if (schema.includes("questionevolutionreport") || req.includes("question evolution engine") || req.includes("questionevolution")) {
+    40→      return mockQuestionEvolution(user) as unknown as T;
+    41→    }
+    42→    if (schema.includes("generatedpaper") || req.includes("personalized question paper generator")) {
+    43→      return mockPaper(user) as unknown as T;
+    44→    }
+    45→    if (schema.includes("mcqset") || req.includes("grounded mcq generator")) {
+    46→      return mockMCQ(user) as unknown as T;
+    47→    }
+    48→    if (schema.includes("pdfanalysisreport") || req.includes("pdf exam analyzer")) {
+    49→      return mockPdfAnalysis(user) as unknown as T;
+    50→    }
+    51→    if (schema.includes("preparationplan") || req.includes("adaptive preparation simulator")) {
+    52→      return mockPreparation(user) as unknown as T;
+    53→    }
+    54→    if (schema.includes("multiexamplan") || req.includes("multi-exam preparation optimizer")) {
+    55→      return mockMultiExam(user) as unknown as T;
+    56→    }
+    57→    if (schema.includes("performanceanalysis") || req.includes("performance analysis")) {
+    58→      return mockPerformance(user) as unknown as T;
+    59→    }
+    60→    if (schema.includes("flashcardset") || req.includes("flashcard generator")) {
+    61→      return mockFlashcards(user) as unknown as T;
+    62→    }
+    63→    if (schema.includes("formulasheet") || req.includes("formula lookup")) {
+    64→      return mockFormulasLookup(user) as unknown as T;
+    65→    }
+    66→    // generic fallback
+    67→    return extractJson<T>(`{"note":"Mock provider active. Configure OPENAI_API_KEY on Vercel for real AI.","prompt":${JSON.stringify(user.slice(0,200))}}`);
+    68→  }
+    69→
+    70→  async chat(messages: ChatCompletionMessage[]): Promise<string> {
+    71→    const last = messages[messages.length - 1]?.content ?? "";
+    72→    return `**Mock mode active.** I received your message: "${last.slice(0, 150)}".\n\nTo enable real AI responses, set \`OPENAI_API_KEY\` in your Vercel project's Environment Variables. See the "API Keys" guide in the footer.`;
+    73→  }
+    74→}
+    75→
+    76→// ----- canned structured responses (so the UI is fully explorable) -----
+    77→function mockExamResearch(query: string): unknown {
+    78→  // Extract exam name from the user prompt. The prompt is multi-line like:
+    79→  //   Research the competitive exam: "SSC CGL"\n\nProduce a complete...
+    80→  // Try to grab the quoted name first, then fall back to cleaning.
+    81→  let examName = "SSC CGL";
+    82→  const quoted = query.match(/"([^"]+)"/);
+    83→  if (quoted && quoted[1]) {
+    84→    examName = quoted[1].trim();
+    85→  } else {
+    86→    // Try first line after "exam:" or similar
+    87→    const m = query.match(/exam[:\s]+([^\n]+)/i);
+    88→    if (m && m[1]) examName = m[1].replace(/[^\w\s&.-]/g, "").trim().slice(0, 50);
+    89→    if (!examName) examName = "SSC CGL";
+    90→  }
+    91→  return {
+    92→    basicInfo: {
+    93→      name: examName,
+    94→      conductingOrganisation: "Staff Selection Commission",
+    95→      examPurpose: "Recruitment to Group B and C posts in various ministries/departments of the Government of India",
+    96→      officialWebsite: "https://ssc.gov.in",
+    97→      examFrequency: "Annual",
+    98→      cycleInfo: "Usually notified in June-July, conducted in July-August (Tier 1)",
+    99→      qualification: "Bachelor's degree from a recognised university",
+   100→      ageLimit: "18-32 years (relaxation for reserved categories)",
+   101→      nationality: "Indian citizen",
+   102→      importantEligibility: ["Bachelor's degree (for Assistant Audit Officer: desirable Commerce/Mathematics/Statistics)", "Age as on cut-off date"],
+   103→      infoCurrency: "current",
+   104→    },
+   105→    stages: [
+   106→      { name: "Tier 1 (Preliminary)", description: "Objective computer-based test, qualifying in nature", sequence: 1, details: ["4 sections of 25 questions each", "Total 100 questions, 200 marks", "60 minutes"] },
+   107→      { name: "Tier 2 (Mains)", description: "Objective + descriptive computer-based exam", sequence: 2, details: ["Paper 1: compulsory", "Paper 2: Statistics (for JSO)", "Paper 3: Assistant Audit Officer"] },
+   108→      { name: "Document Verification", description: "Verification of eligibility documents", sequence: 3 },
+   109→      { name: "Final Selection", description: "Merit based on Tier 2", sequence: 4 },
+   110→    ],
+   111→    syllabus: [
+   112→      {
+   113→        subject: "Quantitative Aptitude",
+   114→        topics: [
+   115→          { name: "Arithmetic", subtopics: [{ name: "Percentage", concepts: ["Base value", "Successive percentage", "Percentage change"], prerequisites: ["Fractions", "Decimals"], difficulty: "Easy" }, { name: "Profit & Loss", concepts: ["CP", "SP", "Discount", "Marked price"], prerequisites: ["Percentage"], difficulty: "Medium" }, { name: "Ratio & Proportion", concepts: ["Compound ratio", "Variation"], difficulty: "Easy" }] },
+   116→          { name: "Algebra", subtopics: [{ name: "Linear Equations", concepts: ["One variable", "Two variables"], difficulty: "Medium" }] },
+   117→        ],
+   118→      },
+   119→      { subject: "General Intelligence & Reasoning", topics: [{ name: "Verbal Reasoning", subtopics: [{ name: "Series", concepts: ["Number series", "Letter series"] }], examRelevance: "High" }] },
+   120→      { subject: "English Language", topics: [{ name: "Reading Comprehension", subtopics: [{ name: "Passage", concepts: ["Inference", "Vocabulary"] }] }] },
+   121→      { subject: "General Awareness", topics: [{ name: "Current Affairs", subtopics: [{ name: "National & International", concepts: ["Last 6 months"] }] }] },
+   122→    ],
+   123→    pattern: {
+   124→      totalQuestions: 100,
+   125→      maxMarks: 200,
+   126→      duration: "60 minutes",
+   127→      questionType: "Objective MCQ",
+   128→      markingScheme: "+2 per correct",
+   129→      negativeMarking: "0.5 per incorrect",
+   130→      sectionDistribution: [
+   131→        { section: "General Intelligence & Reasoning", questions: 25, marks: 50 },
+   132→        { section: "General Awareness", questions: 25, marks: 50 },
+   133→        { section: "Quantitative Aptitude", questions: 25, marks: 50 },
+   134→        { section: "English Comprehension", questions: 25, marks: 50 },
+   135→      ],
+   136→      sectionalTiming: "No sectional timing (combined 60 min)",
+   137→      qualifyingRequirements: ["Category-wise cut-off", "Sectional cut-off applies"],
+   138→    },
+   139→    career: {
+   140→      posts: ["Assistant Audit Officer", "Assistant Accounts Officer", "Inspector (Income Tax)", "Assistant (CSS)", "Auditor"],
+   141→      departments: ["CBDT", "CBIC", "Ministry of Railways", "Ministry of External Affairs"],
+   142→      jobRoles: ["Assistant", "Inspector", "Auditor", "Accountant"],
+   143→      payLevel: "Level 4 to Level 8 (Pay Matrix)",
+   144→      basicSalary: "₹25,500 to ₹47,600",
+   145→      allowances: ["DA", "HRA", "Transport Allowance"],
+   146→      careerProgression: "Departmental promotions to Section Officer, Under Secretary etc.",
+   147→      workProfile: "Administrative, audit, and inspection roles",
+   148→    },
+   149→    preparation: {
+   150→      difficultyCharacteristics: "Moderate to Difficult",
+   151→      frequentlyTestedTopics: ["Percentage", "Profit & Loss", "Series", "Reading Comprehension"],
+   152→      importantSubjects: ["Quantitative Aptitude", "Reasoning"],
+   153→      commonMistakes: ["Neglecting current affairs", "Time management in Tier 1", "Ignoring negative marking"],
+   154→      recommendedSequence: ["Arithmetic foundations", "Reasoning practice", "English daily reading", "Current affairs ongoing"],
+   155→      pyqImportance: "Very high — last 5 years PYQs cover ~70% pattern",
+   156→      topicDependencies: ["Percentage → Profit & Loss", "Ratio → Mixture"],
+   157→      highPriorityPrerequisites: ["Tables & quick calculation", "Reading speed"],
+   158→    },
+   159→    sources: [
+   160→      { type: "AI_ANALYSIS", label: "AI Analysis", detail: "Based on publicly known exam structure" },
+   161→      { type: "OFFICIAL", label: "Official website", detail: "ssc.gov.in" },
+   162→    ],
+   163→    generatedAt: new Date().toISOString(),
+   164→    caveats: ["Mock data — verify with latest official notification", "Specific dates vary by cycle"],
+   165→  };
+   166→}
+   167→
+   168→function mockExamComparison(query: string): unknown {
+   169→  return {
+   170→    examNames: ["SSC CGL", "SSC CHSL", "RRB NTPC"],
+   171→    comparison: [
+   172→      { attribute: "Qualification", values: ["Graduation", "12th Pass", "12th Pass"] },
+   173→      { attribute: "Age Limit", values: ["18-32", "18-27", "18-36"] },
+   174→      { attribute: "Stages", values: ["Tier 1, 2, DV", "Tier 1, 2, Typing", "CBT 1, 2, Typing"] },
+   175→      { attribute: "Negative Marking", values: ["0.5", "0.5", "0.25"] },
+   176→      { attribute: "Difficulty", values: ["Moderate-High", "Moderate", "Moderate"] },
+   177→    ],
+   178→    commonSyllabus: {
+   179→      commonTopics: ["Quantitative Aptitude", "Reasoning", "English", "General Awareness"],
+   180→      examSpecific: [
+   181→        { exam: "SSC CGL", topics: ["Statistics (JSO)", "Finance & Economics (AAO)"] },
+   182→        { exam: "SSC CHSL", topics: ["Typing Test"] },
+   183→        { exam: "RRB NTPC", topics: ["Railway awareness", "Typing (Junior Clerk)"] },
+   184→      ],
+   185→    },
+   186→    overlap: {
+   187→      overlapCategories: [
+   188→        { category: "Very High", topic: "Quantitative Aptitude (Arithmetic)", reason: "Same topics across all three exams" },
+   189→        { category: "High", topic: "Reasoning", reason: "Similar pattern, slight difficulty variation" },
+   190→        { category: "Moderate", topic: "General Awareness", reason: "Current affairs overlap; CGL needs deeper static GK" },
+   191→        { category: "Limited", topic: "English", reason: "NTPC has lighter English section" },
+   192→      ],
+   193→      existingPreparation: ["Percentage", "Ratio", "Series", "Comprehension"],
+   194→      additionalPreparation: [
+   195→        { topic: "Statistics (for SSC CGL JSO)", reason: "CGL-only paper" },
+   196→        { topic: "Typing Test", reason: "CHSL and NTPC specific skill" },
+   197→      ],
+   198→    },
+   199→    careerPathways: ["CGL → Group B/C gazetted", "CHSL → Lower division clerk", "NTPC → Railway clerk/typist"],
+   200→    prerequisiteDifferences: ["CGL requires graduation; CHSL/NTPC accept 12th"],
+   201→    sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
+   202→    generatedAt: new Date().toISOString(),
+   203→  };
+   204→}
+   205→
+   206→function mockDependencyMap(query: string): unknown {
+   207→  // Extract the topic from the query (the route wraps it in quotes)
+   208→  let topic = "Calculus";
+   209→  const m = query.match(/"([^"]+)"/);
+   210→  if (m && m[1]) topic = m[1];
+   211→  else {
+   212→    const m2 = query.match(/(?:input|topic|syllabus)[:\s]+([^\n]+)/i);
+   213→    if (m2 && m2[1]) topic = m2[1].replace(/[^\w\s&.-]/g, "").trim().slice(0, 50);
+   214→  }
+   215→  const t = topic.toLowerCase();
+   216→
+   217→  type Node = { id: string; topic: string; subtopic?: string; concept?: string; prerequisites: string[]; dependents: string[]; mastery: string; level: number; examRelevance?: string; difficulty?: string };
+   218→  type Gap = { missingPrerequisite: string; whyItMatters: string; recommendedSequence: string[]; practiceRecommendations: string[]; estimatedEffort: string };
+   219→
+   220→  let root: string;
+   221→  let nodes: Node[];
+   222→  let gaps: Gap[];
+   223→  let sequence: string[];
+   224→
+   225→  if (t.includes("calculus") || t.includes("differential") || t.includes("integration")) {
+   226→    root = "Calculus";
+   227→    nodes = [
+   228→      { id: "calc", topic: "Calculus", prerequisites: [], dependents: ["diff", "int"], mastery: "Learning", level: 0, examRelevance: "High", difficulty: "Medium" },
+   229→      { id: "diff", topic: "Differentiation", prerequisites: ["calc"], dependents: ["diffapp", "de"], mastery: "Practicing", level: 1, difficulty: "Medium" },
+   230→      { id: "int", topic: "Integration", prerequisites: ["calc"], dependents: ["de"], mastery: "Weak", level: 1, difficulty: "Hard" },
+   231→      { id: "diffapp", topic: "Applications of Differentiation", prerequisites: ["diff"], dependents: [], mastery: "Not Started", level: 2, difficulty: "Hard" },
+   232→      { id: "de", topic: "Differential Equations", prerequisites: ["diff", "int"], dependents: [], mastery: "Not Started", level: 2, difficulty: "Hard" },
+   233→    ];
+   234→    gaps = [{ missingPrerequisite: "Integration", whyItMatters: "Required to solve and verify differential equations. You cannot integrate solutions to ODEs without solid integration fundamentals.", recommendedSequence: ["Review Differentiation", "Practice Integration basics", "Indefinite integrals", "Definite integrals", "Integration by substitution", "Start Differential Equations"], practiceRecommendations: ["10 Level-1 integration problems", "5 PYQ integrals", "Integration by parts practice"], estimatedEffort: "~15 hours" }];
+   235→    sequence = ["Differentiation", "Integration", "Applications of Differentiation", "Differential Equations"];
+   236→  } else if (t.includes("algebra") || t.includes("equation")) {
+   237→    root = "Algebra";
+   238→    nodes = [
+   239→      { id: "basic", topic: "Basic Arithmetic", prerequisites: [], dependents: ["linear"], mastery: "Mastered", level: 0, examRelevance: "Foundation" },
+   240→      { id: "linear", topic: "Linear Equations", prerequisites: ["basic"], dependents: ["quad", "simul"], mastery: "Strong", level: 1, difficulty: "Easy" },
+   241→      { id: "quad", topic: "Quadratic Equations", prerequisites: ["linear"], dependents: ["ineq"], mastery: "Practicing", level: 2, difficulty: "Medium" },
+   242→      { id: "simul", topic: "Simultaneous Equations", prerequisites: ["linear"], dependents: [], mastery: "Learning", level: 2, difficulty: "Medium" },
+   243→      { id: "ineq", topic: "Inequalities", prerequisites: ["quad"], dependents: [], mastery: "Not Started", level: 3, difficulty: "Hard" },
+   244→    ];
+   245→    gaps = [{ missingPrerequisite: "Inequalities", whyItMatters: "Quadratic inequalities are tested extensively and require mastery of quadratic equation roots + sign analysis.", recommendedSequence: ["Review Quadratic Equations", "Number line + sign analysis", "Linear inequalities", "Quadratic inequalities", "Rational inequalities"], practiceRecommendations: ["15 inequality problems", "5 PYQ inequality questions"], estimatedEffort: "~8 hours" }];
+   246→    sequence = ["Linear Equations", "Quadratic Equations", "Simultaneous Equations", "Inequalities"];
+   247→  } else if (t.includes("english") || t.includes("grammar") || t.includes("vocab")) {
+   248→    root = "English Language";
+   249→    nodes = [
+   250→      { id: "vocab", topic: "Vocabulary", prerequisites: [], dependents: ["rc"], mastery: "Practicing", level: 0, examRelevance: "High", difficulty: "Medium" },
+   251→      { id: "gram", topic: "Grammar Basics", prerequisites: [], dependents: ["tense", "voice"], mastery: "Strong", level: 0, difficulty: "Easy" },
+   252→      { id: "tense", topic: "Tenses", prerequisites: ["gram"], dependents: ["voice"], mastery: "Practicing", level: 1, difficulty: "Medium" },
+   253→      { id: "voice", topic: "Active/Passive Voice", prerequisites: ["gram", "tense"], dependents: ["speech"], mastery: "Learning", level: 2, difficulty: "Medium" },
+   254→      { id: "speech", topic: "Direct/Indirect Speech", prerequisites: ["voice"], dependents: [], mastery: "Not Started", level: 3, difficulty: "Hard" },
+   255→      { id: "rc", topic: "Reading Comprehension", prerequisites: ["vocab"], dependents: [], mastery: "Improving", level: 1, difficulty: "Medium" },
+   256→    ];
+   257→    gaps = [{ missingPrerequisite: "Direct/Indirect Speech", whyItMatters: "Narration rules depend on tense mastery and voice transformation. Without these, speech conversion becomes error-prone.", recommendedSequence: ["Review Tenses", "Practice Active/Passive Voice", "Learn Narration Rules", "Practice Direct→Indirect conversion", "Practice Indirect→Direct conversion"], practiceRecommendations: ["20 narration problems", "10 PYQ speech questions"], estimatedEffort: "~6 hours" }];
+   258→    sequence = ["Grammar Basics", "Tenses", "Vocabulary", "Active/Passive Voice", "Direct/Indirect Speech", "Reading Comprehension"];
+   259→  } else if (t.includes("reasoning") || t.includes("series") || t.includes("puzzle")) {
+   260→    root = "Logical Reasoning";
+   261→    nodes = [
+   262→      { id: "series", topic: "Series & Patterns", prerequisites: [], dependents: ["analogy"], mastery: "Practicing", level: 0, examRelevance: "High", difficulty: "Medium" },
+   263→      { id: "analogy", topic: "Analogy", prerequisites: ["series"], dependents: ["classify"], mastery: "Learning", level: 1, difficulty: "Medium" },
+   264→      { id: "classify", topic: "Classification", prerequisites: ["analogy"], dependents: [], mastery: "Not Started", level: 2, difficulty: "Medium" },
+   265→      { id: "coding", topic: "Coding-Decoding", prerequisites: [], dependents: ["puzzle"], mastery: "Strong", level: 0, difficulty: "Easy" },
+   266→      { id: "puzzle", topic: "Puzzles & Seating", prerequisites: ["coding"], dependents: ["blood"], mastery: "Weak", level: 1, difficulty: "Hard" },
+   267→      { id: "blood", topic: "Blood Relations", prerequisites: ["puzzle"], dependents: [], mastery: "Not Started", level: 2, difficulty: "Hard" },
+   268→    ];
+   269→    gaps = [{ missingPrerequisite: "Puzzles & Seating", whyItMatters: "Seating arrangement puzzles are high-weightage in SSC/Banking. They require systematic tabulation and logical elimination.", recommendedSequence: ["Practice Coding-Decoding", "Learn Puzzle Types", "Linear Seating", "Circular Seating", "Complex Puzzles"], practiceRecommendations: ["15 seating arrangement problems", "5 PYQ puzzles"], estimatedEffort: "~10 hours" }];
+   270→    sequence = ["Series & Patterns", "Coding-Decoding", "Analogy", "Classification", "Puzzles & Seating", "Blood Relations"];
+   271→  } else if (t.includes("quant") || t.includes("aptitude") || t.includes("arithmetic")) {
+   272→    root = "Quantitative Aptitude";
+   273→    nodes = [
+   274→      { id: "pct", topic: "Percentage", prerequisites: [], dependents: ["pl", "ratio"], mastery: "Strong", level: 0, examRelevance: "Very High", difficulty: "Easy" },
+   275→      { id: "ratio", topic: "Ratio & Proportion", prerequisites: ["pct"], dependents: ["mixture"], mastery: "Practicing", level: 1, difficulty: "Easy" },
+   276→      { id: "pl", topic: "Profit & Loss", prerequisites: ["pct"], dependents: ["discount"], mastery: "Strong", level: 1, difficulty: "Medium" },
+   277→      { id: "discount", topic: "Discount", prerequisites: ["pl"], dependents: ["si"], mastery: "Learning", level: 2, difficulty: "Medium" },
+   278→      { id: "mixture", topic: "Mixture & Alligation", prerequisites: ["ratio"], dependents: [], mastery: "Weak", level: 2, difficulty: "Hard" },
+   279→      { id: "si", topic: "Simple & Compound Interest", prerequisites: ["discount"], dependents: ["tw"], mastery: "Practicing", level: 3, difficulty: "Medium" },
+   280→      { id: "tw", topic: "Time & Work", prerequisites: ["si"], dependents: ["tsd"], mastery: "Learning", level: 4, difficulty: "Hard" },
+   281→      { id: "tsd", topic: "Time, Speed & Distance", prerequisites: ["tw"], dependents: [], mastery: "Not Started", level: 5, difficulty: "Hard" },
+   282→    ];
+   283→    gaps = [
+   284→      { missingPrerequisite: "Mixture & Alligation", whyItMatters: "Alligation method is a shortcut used across mixture, profit-loss, and average problems. Missing it forces longer calculations.", recommendedSequence: ["Review Ratio & Proportion", "Learn Alligation Rule", "Practice Mixture problems", "Apply Alligation to P&L"], practiceRecommendations: ["10 alligation problems", "5 mixture PYQs"], estimatedEffort: "~5 hours" },
+   285→      { missingPrerequisite: "Time, Speed & Distance", whyItMatters: "TSD is high-weightage and builds on Time & Work concepts (rate problems). Relative speed requires solid foundation.", recommendedSequence: ["Review Time & Work", "Basic TSD formulae", "Relative speed", "Trains & Platforms", "Boats & Streams"], practiceRecommendations: ["15 TSD problems", "5 train PYQs"], estimatedEffort: "~8 hours" },
+   286→    ];
+   287→    sequence = ["Percentage", "Ratio & Proportion", "Profit & Loss", "Discount", "Mixture & Alligation", "Simple & Compound Interest", "Time & Work", "Time, Speed & Distance"];
+   288→  } else {
+   289→    // Generic fallback
+   290→    root = topic || "Foundational Concepts";
+   291→    nodes = [
+   292→      { id: "f1", topic: "Foundations", prerequisites: [], dependents: ["c1"], mastery: "Strong", level: 0, examRelevance: "Core", difficulty: "Easy" },
+   293→      { id: "c1", topic: "Core Concepts", prerequisites: ["f1"], dependents: ["a1"], mastery: "Practicing", level: 1, difficulty: "Medium" },
+   294→      { id: "a1", topic: "Applications", prerequisites: ["c1"], dependents: ["adv"], mastery: "Learning", level: 2, difficulty: "Hard" },
+   295→      { id: "adv", topic: "Advanced Topics", prerequisites: ["a1"], dependents: [], mastery: "Not Started", level: 3, difficulty: "Hard" },
+   296→    ];
+   297→    gaps = [{ missingPrerequisite: "Advanced Topics", whyItMatters: "Advanced topics build on applications. Master applications first to avoid getting stuck.", recommendedSequence: ["Review Foundations", "Practice Core Concepts", "Master Applications", "Start Advanced Topics"], practiceRecommendations: ["10 practice problems", "5 PYQs"], estimatedEffort: "~12 hours" }];
+   298→    sequence = ["Foundations", "Core Concepts", "Applications", "Advanced Topics"];
+   299→  }
+   300→
+   301→  return {
+   302→    root,
+   303→    nodes,
+   304→    gaps,
+   305→    recommendedLearningSequence: sequence,
+   306→    sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
+   307→    generatedAt: new Date().toISOString(),
+   308→  };
+   309→}
+   310→
+   311→function mockQuestionExplanation(query: string): unknown {
+   312→  // Extract the actual question. The route wraps it in triple-quotes:
+   313→  //   QUESTION:\n"""\n<actual question>\n"""
+   314→  let question = "";
+   315→  const triple = query.match(/"""\s*\n([\s\S]*?)\n\s*"""/);
+   316→  if (triple && triple[1]) {
+   317→    question = triple[1].trim().slice(0, 300);
+   318→  } else {
+   319→    // fallback: try single-quoted
+   320→    const m = query.match(/question[:\s]*["']([^"']+)["']/i);
+   321→    if (m && m[1]) question = m[1].trim().slice(0, 300);
+   322→  }
+   323→  if (!question || question.length < 5) question = "A train travels 120 km in 2 hours. What is its speed?";
+   324→
+   325→  // Detect question type for relevant canned explanation
+   326→  const q = question.toLowerCase();
+   327→  let profile: {
+   328→    subject: string; topic: string; subtopic: string; concept: string; difficulty: "Easy"|"Medium"|"Hard";
+   329→    related: string[]; prereq: string[]; hint: string; conceptName: string; coreRule: string; why: string;
+   330→    shortcut: string; mistake: string; steps: string[]; formula: string; substitution: string; calc: string;
+   331→    answer: string; explanation: string; method: string; mental: string; elim: string; timeSave: string; insight: string;
+   332→  };
+   333→
+   334→  if (/(solve|find|value of|equation|=)/.test(q) && /[a-z]\s*[-+]\s*\d/.test(q)) {
+   335→    // Linear equation e.g. "If 2x+3=11, find x"
+   336→    profile = {
+   337→      subject: "Quantitative Aptitude", topic: "Algebra", subtopic: "Linear Equations", concept: "Isolate the variable",
+   338→      difficulty: "Easy", related: ["Transposition", "Inverse operations"], prereq: ["Arithmetic", "Order of operations"],
+   339→      hint: "Whatever you do to one side of the equation, you must do to the other. How can you isolate x?",
+   340→      conceptName: "Inverse Operations", coreRule: "To isolate x, undo each operation in reverse order (addition → subtraction, multiplication → division).",
+   341→      why: "The equation balances as long as both sides change equally.", shortcut: "Move constants to one side, then divide by the coefficient.",
+   342→      mistake: "Forgetting to apply the operation to BOTH sides.",
+   343→      steps: ["Subtract 3 from both sides: 2x = 11 − 3", "Simplify: 2x = 8", "Divide both sides by 2: x = 8/2", "Result: x = 4"],
+   344→      formula: "ax + b = c  →  x = (c − b) / a", substitution: "x = (11 − 3) / 2", calc: "8 / 2 = 4", answer: "x = 4",
+   345→      explanation: "We isolate x by reversing the operations applied to it: first undo +3 (subtract 3), then undo ×2 (divide by 2).",
+   346→      method: "Transpose mentally: 2x = 8 → x = 4", mental: "11−3=8, 8/2=4", elim: "Plug each option back into the equation", timeSave: "Skip writing intermediate steps for simple equations",
+   347→      insight: "Always isolate the variable by performing inverse operations on BOTH sides. Verify by substituting your answer back into the original equation.",
+   348→    };
+   349→  } else if (/(train|speed|distance|time|km\/?h|m\/?s|pole|platform)/.test(q)) {
+   350→    // Time speed distance
+   351→    profile = {
+   352→      subject: "Quantitative Aptitude", topic: "Time, Speed & Distance", subtopic: "Speed calculation", concept: "Speed = Distance / Time",
+   353→      difficulty: "Easy", related: ["Average speed", "Relative speed", "Unit conversion"], prereq: ["Basic arithmetic", "Unit conversion"],
+   354→      hint: "Think about the relationship between speed, distance, and time. Which two values are given?",
+   355→      conceptName: "Speed = Distance / Time", coreRule: "Speed equals total distance divided by total time taken.",
+   356→      why: "Distance and time are both given directly.", shortcut: "Use unitary method: km per hour",
+   357→      mistake: "Forgetting to convert units (km/h vs m/s).",
+   358→      steps: ["Identify given: Distance = 120 km, Time = 2 hours", "Apply formula: Speed = Distance / Time", "Substitute: 120 / 2", "Result: 60 km/h"],
+   359→      formula: "Speed = Distance / Time", substitution: "Speed = 120 km / 2 h", calc: "120 ÷ 2 = 60", answer: "60 km/h",
+   360→      explanation: "Dividing distance by time gives the average speed.",
+   361→      method: "Unitary: in 2 hours → 120 km, so in 1 hour → 60 km", mental: "120/2 = 60 directly", elim: "Reject answers not in km/h range", timeSave: "Avoid unit conversion unless options are in m/s",
+   362→      insight: "Remember the core relation S = D/T. Always check units. For multi-segment journeys, average speed = total distance / total time (not arithmetic mean of speeds).",
+   363→    };
+   364→  } else if (/(percentage|%|profit|loss|discount|marked|cost price|selling)/.test(q)) {
+   365→    profile = {
+   366→      subject: "Quantitative Aptitude", topic: "Percentage & Profit-Loss", subtopic: "Percentage calculation", concept: "Percentage = (Part / Whole) × 100",
+   367→      difficulty: "Easy", related: ["Fractions", "Ratio", "Successive percentage"], prereq: ["Fractions", "Decimals"],
+   368→      hint: "Percentage means 'per 100'. What is the whole, and what is the part you're comparing to it?",
+   369→      conceptName: "Percentage = (Part / Whole) × 100", coreRule: "A percentage expresses a part out of 100.",
+   370→      why: "The question compares a part to a whole.", shortcut: "Convert % to fraction: x% = x/100",
+   371→      mistake: "Mixing up which value is the 'whole' (base).",
+   372→      steps: ["Identify the whole (base) and the part", "Apply: % = (Part / Whole) × 100", "Substitute values", "Simplify"],
+   373→      formula: "Percentage = (Part / Whole) × 100", substitution: "Depends on values given", calc: "Compute and simplify", answer: "Final %",
+   374→      explanation: "Percentage standardizes comparisons to a base of 100.",
+   375→      method: "Convert to decimal then multiply", mental: "10% = move decimal one place left", elim: "Estimate using 50%, 25%, 10% benchmarks", timeSave: "Memorize common fraction-•% equivalents (1/4=25%, 1/8=12.5%)",
+   376→      insight: "Always identify the BASE (whole) first. 'Of' usually precedes the base. A 20% increase followed by 20% decrease does NOT return to the original.",
+   377→    };
+   378→  } else if (/(reasoning|series|pattern|coding|decode|puzzle|blood relation|direction)/.test(q)) {
+   379→    profile = {
+   380→      subject: "General Intelligence & Reasoning", topic: "Logical Reasoning", subtopic: "Pattern recognition", concept: "Identify the rule governing the sequence",
+   381→      difficulty: "Medium", related: ["Number series", "Letter series", "Analogy"], prereq: ["Basic arithmetic", "Alphabet positions"],
+   382→      hint: "Look for a pattern — arithmetic, geometric, alternating, or position-based. What changes between consecutive terms?",
+   383→      conceptName: "Pattern Recognition", coreRule: "Find the consistent rule that transforms each term to the next.",
+   384→      why: "Series questions test rule identification.", shortcut: "Check differences between consecutive terms first",
+   385→      mistake: "Assuming a single rule when the pattern alternates.",
+   386→      steps: ["Write down the given terms", "Compute differences (1st order, 2nd order)", "Check for ratios if differences aren't constant", "Identify the rule", "Apply to find the next term"],
+   387→      formula: "Depends on pattern", substitution: "Apply rule to last term", calc: "Compute next term", answer: "Next term in series",
+   388→      explanation: "Most series follow arithmetic, geometric, or alternating rules. Higher-order differences reveal polynomial patterns.",
+   389→      method: "Difference table: compute Δ1, Δ2", mental: "Look for ×2, +1, squares, cubes", elim: "Reject options breaking the pattern's monotonicity", timeSave: "If first differences are constant, it's arithmetic — skip deeper analysis",
+   390→      insight: "Always compute first differences. If constant → arithmetic. If ratio constant → geometric. If neither → try alternating or position-based rules.",
+   391→    };
+   392→  } else if (/(english|grammar|synonym|antonym|comprehension|passage|sentence|vocab)/.test(q)) {
+   393→    profile = {
+   394→      subject: "English Language", topic: "Reading Comprehension & Vocabulary", subtopic: "Contextual meaning", concept: "Derive meaning from context",
+   395→      difficulty: "Medium", related: ["Inference", "Vocabulary", "Tone"], prereq: ["Vocabulary", "Grammar"],
+   396→      hint: "Read the surrounding sentence carefully. What context clues suggest the meaning?",
+   397→      conceptName: "Context Clues", coreRule: "The meaning of a word is shaped by the sentence and paragraph around it.",
+   398→      why: "Comprehension questions test contextual understanding.", shortcut: "Replace the word with each option — which keeps the sentence logical?",
+   399→      mistake: "Choosing a familiar synonym that doesn't fit the specific context.",
+   400→      steps: ["Read the full sentence containing the word/idea", "Identify context clues (contrast, definition, example)", "Predict a meaning", "Match with the closest option"],
+   401→      formula: "N/A", substitution: "N/A", calc: "N/A", answer: "Contextually correct option",
+   402→      explanation: "Context determines meaning. A word's dictionary definition may not match its contextual sense.",
+   403→      method: "Substitution: plug each option into the sentence", mental: "Listen for which option sounds natural", elim: "Reject options that create logical contradictions", timeSave: "Read only the relevant sentence first, full passage only if needed",
+   404→      insight: "Context is king. Never choose an answer based on a word's most common meaning without checking the sentence.",
+   405→    };
+   406→  } else {
+   407→    // Generic fallback
+   408→    profile = {
+   409→      subject: "General Aptitude", topic: "Problem Solving", subtopic: "Analytical reasoning", concept: "Break the problem into steps",
+   410→      difficulty: "Medium", related: ["Logical reasoning", "Quantitative methods"], prereq: ["Reading comprehension", "Basic arithmetic"],
+   411→      hint: "What information is given, and what are you asked to find? Break the problem into smaller steps.",
+   412→      conceptName: "Structured Problem Solving", coreRule: "Identify givens, identify the goal, choose a method, execute, verify.",
+   413→      why: "Applies to all aptitude questions.", shortcut: "Draw a diagram or write givens explicitly",
+   414→      mistake: "Rushing to calculate before understanding what's asked.",
+   415→      steps: ["Read the question carefully", "List the given information", "Identify what to find", "Choose the appropriate formula/method", "Substitute and solve", "Verify the answer makes sense"],
+   416→      formula: "Varies", substitution: "Varies", calc: "Varies", answer: "Computed answer",
+   417→      explanation: "Structured problem solving prevents careless errors.",
+   418→      method: "Write givens → choose method → solve → verify", mental: "Estimate before calculating", elim: "Use estimation to reject outliers", timeSave: "Skip questions that take >2 minutes; return later",
+   419→      insight: "Always understand the question fully before calculating. A correct method on a misunderstood question wastes time.",
+   420→    };
+   421→  }
+   422→
+   423→  return {
+   424→    originalQuestion: question,
+   425→    subject: profile.subject,
+   426→    topic: profile.topic,
+   427→    subtopic: profile.subtopic,
+   428→    concept: profile.concept,
+   429→    difficulty: profile.difficulty,
+   430→    questionType: "MCQ",
+   431→    relatedConcepts: profile.related,
+   432→    prerequisites: profile.prereq,
+   433→    levels: {
+   434→      level1_quickHint: profile.hint,
+   435→      level2_concept: { conceptName: profile.conceptName, coreRule: profile.coreRule, whyItApplies: profile.why, shortcut: profile.shortcut, commonMistake: profile.mistake },
+   436→      level3_detailedSolution: { steps: profile.steps, formula: profile.formula, substitution: profile.substitution, calculation: profile.calc, finalAnswer: profile.answer, explanation: profile.explanation },
+   437→      level4_examShortcut: { method: profile.method, mentalCalculation: profile.mental, eliminationTechnique: profile.elim, timeSavingApproach: profile.timeSave },
+   438→      level5_learningInsight: profile.insight,
+   439→    },
+   440→    sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
+   441→    generatedAt: new Date().toISOString(),
+   442→  };
+   443→}
+   444→
+   445→function mockQuestionEvolution(query: string): unknown {
+   446→  const src = query.slice(0, 150) || "A train 150 m long passes a pole in 15 seconds. Find its speed.";
+   447→  return {
+   448→    sourceQuestion: src,
+   449→    coreConcept: "Speed = Distance / Time",
+   450→    subject: "Quantitative Aptitude",
+   451→    topic: "Time, Speed & Distance",
+   452→    subtopic: "Trains",
+   453→    difficulty: "Medium",
+   454→    variants: [
+   455→      { level: 1, levelName: "Same Concept, Easier", question: "A train 100 m long passes a pole in 10 seconds. Find its speed.", options: ["8 m/s", "10 m/s", "12 m/s", "15 m/s"], correctAnswer: "10 m/s", explanation: "Speed = 100/10 = 10 m/s", validationStatus: "verified", validationNotes: [] },
+   456→      { level: 2, levelName: "Same Concept, Different Framing", question: "A train crosses a stationary pole in 20 seconds at a speed of 5 m/s. What is the length of the train?", options: ["50 m", "100 m", "75 m", "125 m"], correctAnswer: "100 m", explanation: "Length = Speed × Time = 5 × 20 = 100 m", validationStatus: "verified" },
+   457→      { level: 3, levelName: "Multi-Concept", question: "Two trains of length 100 m each approach each other at 10 m/s and 15 m/s. Time to cross each other?", options: ["4 s", "8 s", "10 s", "12 s"], correctAnswer: "8 s", explanation: "Relative speed = 25 m/s, total distance = 200 m, time = 200/25 = 8 s", validationStatus: "verified" },
+   458→      { level: 4, levelName: "Difficult Variant", question: "A train 200 m long passes a platform 300 m long in 25 seconds. Find its speed in km/h.", options: ["54 km/h", "72 km/h", "60 km/h", "90 km/h"], correctAnswer: "72 km/h", explanation: "Total distance = 500 m, time = 25 s, speed = 20 m/s = 72 km/h", validationStatus: "verified" },
+   459→      { level: 5, levelName: "Exam-Trap Variant", question: "A train crosses a pole in 8 s and a platform 240 m long in 20 s. Find the length of the train.", options: ["120 m", "160 m", "180 m", "240 m"], correctAnswer: "160 m", explanation: "Let length L, speed S. L/S = 8 → S = L/8. (L+240)/S = 20 → L + 240 = 20S = 20 × L/8 = 2.5L → 1.5L = 240 → L = 160 m", commonTrap: "Assuming train length equals platform length", validationStatus: "verified" },
+   460→    ],
+   461→    lineage: "Original train-pole problem → 5 variants across difficulty and concept combination.",
+   462→    sources: [{ type: "AI_GENERATED", label: "AI-Generated", detail: "Variants derived from source question" }],
+   463→    generatedAt: new Date().toISOString(),
+   464→  };
+   465→}
+   466→
+   467→function mockPaper(query: string): unknown {
+   468→  // Detect exam from the query to customize the paper
+   469→  const q = query.toLowerCase();
+   470→  let examName = "SSC CGL";
+   471→  let sections: { name: string; questions: number; marksPerQuestion: number; negativeMarking: number }[] = [];
+   472→  let questions: unknown[] = [];
+   473→
+   474→  const mk = (id: string, section: string, num: number, topic: string, difficulty: "Easy" | "Medium" | "Hard", question: string, options: string[], correctAnswer: string, explanation: string) => ({
+   475→    id, section, questionNumber: num, questionType: "MCQ" as const, question, options, correctAnswer, topic, difficulty, marks: 2, negativeMarks: 0.5, explanation, sourceType: "AI_GENERATED" as const,
+   476→  });
+   477→
+   478→  if (q.includes("gate") || q.includes("cs") || q.includes("mechanical")) {
+   479→    examName = q.includes("mechanical") ? "GATE Mechanical Engineering" : "GATE CS";
+   480→    sections = [
+   481→      { name: "General Aptitude", questions: 5, marksPerQuestion: 1, negativeMarking: 0.33 },
+   482→      { name: "Technical", questions: 5, marksPerQuestion: 2, negativeMarking: 0.66 },
+   483→    ];
+   484→    questions = [
+   485→      mk("q1","General Aptitude",1,"Verbal","Easy","Choose the word most OPPOSITE in meaning to 'BENEVOLENT':",["Malevolent","Kind","Generous","Charitable"],"Malevolent","Benevolent means well-meaning and kind. The antonym is malevolent (wishing harm)."),
+   486→      mk("q2","General Aptitude",2,"Numerical","Medium","A train 150 m long passes a pole in 15 seconds. The speed of the train is:",["36 km/h","54 km/h","10 km/h","24 km/h"],"36 km/h","Speed = 150/15 = 10 m/s = 10 × 18/5 = 36 km/h."),
+   487→      mk("q3","General Aptitude",3,"Reasoning","Medium","Find the next term: 2, 6, 12, 20, 30, ?",["40","42","44","46"],"42","Differences: 4,6,8,10,12 → next term = 30+12 = 42."),
+   488→      mk("q4","Technical",4,"Data Structures","Medium","Which data structure uses LIFO (Last-In-First-Out) ordering?",["Queue","Stack","Linked List","Tree"],"Stack","A stack follows LIFO — the last element pushed is the first popped."),
+   489→      mk("q5","Technical",5,"Algorithms","Hard","What is the time complexity of binary search on a sorted array of n elements?",["O(n)","O(n log n)","O(log n)","O(1)"],"O(log n)","Binary search halves the search space each step → O(log n)."),
+   490→      mk("q6","Technical",6,"Operating Systems","Hard","Which page replacement algorithm suffers from Belady's anomaly?",["LRU","Optimal","FIFO","Clock"],"FIFO","FIFO can increase page faults when frames increase — Belady's anomaly."),
+   491→      mk("q7","Technical",7,"DBMS","Medium","Which normal form eliminates partial dependencies?",["1NF","2NF","3NF","BCNF"],"2NF","2NF removes partial dependencies (non-prime attributes dependent on part of a composite key)."),
+   492→      mk("q8","Technical",8,"Computer Networks","Medium","The default port for HTTPS is:",["80","443","21","22"],"443","HTTPS uses port 443 (HTTP uses 80, FTP 21, SSH 22)."),
+   493→      mk("q9","Technical",9,"Discrete Math","Hard","In a graph with 6 vertices and 7 edges, the sum of all vertex degrees is:",["7","14","12","6"],"14","By Handshaking Lemma: sum of degrees = 2 × edges = 2 × 7 = 14."),
+   494→      mk("q10","Technical",10,"TOC","Hard","Which language is accepted by a Pushdown Automaton (PDA)?",["Regular","Context-Free","Context-Sensitive","Recursive"],"Context-Free","PDAs recognize exactly the context-free languages (Type-2 in Chomsky hierarchy)."),
+   495→    ];
+   496→  } else {
+   497→    // SSC CGL default
+   498→    examName = "SSC CGL";
+   499→    sections = [{ name: "Quantitative Aptitude", questions: 6, marksPerQuestion: 2, negativeMarking: 0.5 }];
+   500→    questions = [
+   501→      mk("q1","Quantitative Aptitude",1,"Percentage","Easy","If 30% of a number is 90, what is the number?",["200","250","300","270"],"300","Let number = x. 30% of x = 90 → 0.30x = 90 → x = 300."),
+   502→      mk("q2","Quantitative Aptitude",2,"Profit & Loss","Medium","A man buys an article for ₹400 and sells it at a profit of 15%. The selling price is:",["₹440","₹460","₹450","₹480"],"₹460","SP = CP × (1 + profit%) = 400 × 1.15 = ₹460."),
+   503→      mk("q3","Quantitative Aptitude",3,"Ratio","Easy","If A:B = 2:3 and B:C = 4:5, then A:C is:",["2:5","8:15","3:5","6:15"],"8:15","A:B = 2:3 = 8:12, B:C = 4:5 = 12:15 → A:C = 8:15."),
+   504→      mk("q4","Quantitative Aptitude",4,"Time & Work","Hard","A can do a job in 12 days, B in 18 days. Together they finish in:",["7.2 days","6 days","5.4 days","9 days"],"7.2 days","Combined rate = 1/12 + 1/18 = 5/36 per day → time = 36/5 = 7.2 days."),
+   505→      mk("q5","Quantitative Aptitude",5,"Average","Medium","The average of 5 numbers is 20. If one number is removed, the average becomes 18. The removed number is:",["24","22","26","28"],"28","Sum of 5 = 100. Sum of 4 = 72. Removed = 100 − 72 = 28."),
+   506→      mk("q6","Quantitative Aptitude",6,"Simple Interest","Hard","₹8000 invested at 5% per annum simple interest for 3 years yields interest of:",["₹1200","₹1500","₹1000","₹800"],"₹1200","SI = P × R × T / 100 = 8000 × 5 × 3 / 100 = ₹1200."),
+   507→    ];
+   508→  }
+   509→
+   510→  return {
+   511→    examName,
+   512→    mode: "Balanced Practice",
+   513→    totalQuestions: questions.length,
+   514→    durationMinutes: questions.length * 2,
+   515→    sections,
+   516→    questions,
+   517→    markingScheme: sections[0] ? `+${sections[0].marksPerQuestion} / -${sections[0].negativeMarking}` : "+2 / -0.5",
+   518→    sources: [{ type: "AI_GENERATED", label: "AI-Generated" }],
+   519→    generatedAt: new Date().toISOString(),
+   520→    disclaimer: "AI-generated practice paper. Not an official paper or prediction.",
+   521→  };
+   522→}
+   523→
+   524→function mockMCQ(query: string): unknown {
+   525→  // Detect topic from the query to return topic-relevant MCQs
+   526→  const q = query.toLowerCase();
+   527→  let topic = "Quantitative Aptitude";
+   528→  let mcqs: unknown[] = [];
+   529→
+   530→  const mk = (id: string, question: string, options: string[], correctAnswer: string, explanation: string, difficulty: "Easy" | "Medium" | "Hard", sourcePage?: number) => ({
+   531→    id, question, options, correctAnswer, explanation, topic, difficulty, sourcePage, sourceType: "AI_GENERATED" as const, validationStatus: "verified" as const,
+   532→  });
+   533→
+   534→  if (q.includes("reasoning") || q.includes("series") || q.includes("pattern")) {
+   535→    topic = "Reasoning";
+   536→    mcqs = [
+   537→      mk("m1","Find the next number: 1, 4, 9, 16, 25, ?",["30","36","49","35"],"36","These are perfect squares: 1², 2², 3², 4², 5² → next is 6² = 36.","Easy",1),
+   538→      mk("m2","If FRIEND is coded as GSJFOE, how is HUMAN coded?",["IVNBO","IVMBO","IVNCO","IUNBO"],"IVNBO","Each letter shifts +1: H→I, U→V, M→N, A→B, N→O.","Medium",2),
+   539→      mk("m3","Pointing to a photo, a man said 'She is the daughter of my grandfather's only son.' How is she related to him?",["Sister","Daughter","Niece","Cousin"],"Sister","Grandfather's only son = the man's father. Father's daughter = sister.","Hard",2),
+   540→      mk("m4","Complete the series: AZ, BY, CX, DW, ?",["EV","EW","FV","DV"],"EV","First letter: A,B,C,D,E (+1). Second letter: Z,Y,X,W,V (−1).","Easy",3),
+   541→      mk("m5","In a row of children, Ravi is 7th from the left and 12th from the right. How many children are there?",["17","18","19","16"],"18","Total = 7 + 12 − 1 = 18 (Ravi is counted once).","Medium",3),
+   542→    ];
+   543→  } else if (q.includes("english") || q.includes("vocab") || q.includes("grammar")) {
+   544→    topic = "English";
+   545→    mcqs = [
+   546→      mk("m1","Choose the synonym of 'EPHEMERAL':",["Eternal","Short-lived","Permanent","Strong"],"Short-lived","Ephemeral means lasting for a very short time.","Easy",1),
+   547→      mk("m2","Choose the antonym of 'VERBOSE':",["Talkative","Concise","Wordy","Lengthy"],"Concise","Verbose means using more words than needed. Antonym = concise.","Medium",2),
+   548→      mk("m3","Fill in the blank: 'She is allergic ___ peanuts.'",["to","from","with","of"],"to","The correct preposition after 'allergic' is 'to'.","Easy",2),
+   549→      mk("m4","Identify the correctly spelled word:",["Accomodate","Acommodate","Accommodate","Acomodate"],"Accommodate","Correct spelling: A-C-C-O-M-M-O-D-A-T-E (double c, double m).","Hard",3),
+   550→      mk("m5","Choose the correct passive voice of 'She writes a letter':",["A letter is written by her","A letter was written by her","A letter is being written","A letter has been written"],"A letter is written by her","Present simple passive: is/am/are + past participle.","Medium",3),
+   551→    ];
+   552→  } else if (q.includes("general awareness") || q.includes("gk") || q.includes("current")) {
+   553→    topic = "General Awareness";
+   554→    mcqs = [
+   555→      mk("m1","Who is known as the 'Father of the Indian Constitution'?",["Jawaharlal Nehru","B.R. Ambedkar","Rajendra Prasad","Sardar Patel"],"B.R. Ambedkar","Dr. B.R. Ambedkar chaired the Drafting Committee of the Constituent Assembly.","Easy",1),
+   556→      mk("m2","The battle of Plassey was fought in which year?",["1757","1764","1857","1526"],"1757","The Battle of Plassey (1757) established British rule in India.","Medium",2),
+   557→      mk("m3","Which article of the Indian Constitution deals with the Right to Equality?",["Article 14","Article 19","Article 21","Article 32"],"Article 14","Article 14 guarantees equality before law and equal protection of laws.","Hard",2),
+   558→      mk("m4","The headquarters of the World Trade Organization (WTO) is located in:",["New York","Geneva","Vienna","Paris"],"Geneva","The WTO is headquartered in Geneva, Switzerland.","Medium",3),
+   559→      mk("m5","Who was the first Indian woman to win a Nobel Prize?",["Mother Teresa","Indira Gandhi","Sarojini Naidu","Kiran Bedi"],"Mother Teresa","Mother Teresa won the Nobel Peace Prize in 1979.","Easy",3),
+   560→    ];
+   561→  } else {
+   562→    // Quantitative Aptitude default
+   563→    topic = "Quantitative Aptitude";
+   564→    mcqs = [
+   565→      mk("m1","What is 15% of 200?",["25","30","35","20"],"30","15% of 200 = 0.15 × 200 = 30.","Easy",1),
+   566→      mk("m2","If the simple interest on ₹5000 for 2 years at 8% per annum, the interest is:",["₹800","₹1600","₹400","₹1200"],"₹800","SI = P×R×T/100 = 5000×8×2/100 = ₹800.","Medium",2),
+   567→      mk("m3","The ratio 2:3 expressed as a percentage is:",["40%","66.67%","60%","33.33%"],"66.67%","2/3 × 100 = 66.67%.","Easy",2),
+   568→      mk("m4","A and B can complete a task in 10 and 15 days respectively. Working together they finish in:",["6 days","5 days","8 days","4 days"],"6 days","Combined rate = 1/10 + 1/15 = 1/6 per day → 6 days.","Hard",3),
+   569→      mk("m5","The average of the first 10 natural numbers is:",["5","5.5","6","4.5"],"5.5","First 10 natural numbers: 1+2+...+10 = 55. Average = 55/10 = 5.5.","Medium",3),
+   570→    ];
+   571→  }
+   572→
+   573→  return {
+   574→    source: "Uploaded PDF",
+   575→    topic,
+   576→    difficulty: "Mixed" as const,
+   577→    questionCount: mcqs.length,
+   578→    questionType: "MCQ",
+   579→    mode: "Strict PDF Mode",
+   580→    mcqs,
+   581→    sources: [{ type: "UPLOADED_DOCUMENT", label: "Uploaded Document" }],
+   582→    generatedAt: new Date().toISOString(),
+   583→  };
+   584→}
+   585→
+   586→function mockPdfAnalysis(query: string): unknown {
+   587→  // Try to extract real info from the pasted content. The route sends the content
+   588→  // in the user prompt. Look for keywords to build a grounded extraction.
+   589→  const q = query.toLowerCase();
+   590→
+   591→  // Extract any numbers/ages/dates mentioned in the content
+   592→  const ageMatch = query.match(/(\d{2})\s*[-–]\s*(\d{2})\s*years?/i);
+   593→  const dateMatches = [...query.matchAll(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4})/g)].map(m => m[0]).slice(0, 4);
+   594→  const questionMatch = query.match(/(\d+)\s*questions?/i);
+   595→  const marksMatch = query.match(/(\d+)\s*marks?/i);
+   596→  const durationMatch = query.match(/(\d+)\s*(?:minutes|min|hours?|hrs?)/i);
+   597→  const negMatch = query.match(/[-−](0?\.\d+|\d+)\s*(?:per|marks?|negative)/i);
+   598→
+   599→  // Detect document type from keywords
+   600→  let docType = "Official Notification";
+   601→  let title = "Exam Notification";
+   602→  let organisation = "Exam Conducting Body";
+   603→  let exam = "Sample Exam";
+   604→  if (q.includes("ssc")) { exam = "SSC CGL"; organisation = "Staff Selection Commission"; }
+   605→  else if (q.includes("gate")) { exam = "GATE"; organisation = "IIT/IISc"; docType = "GATE Notification"; title = "GATE Information Brochure"; }
+   606→  else if (q.includes("upsc")) { exam = "UPSC CSE"; organisation = "Union Public Service Commission"; }
+   607→  else if (q.includes("railway") || q.includes("rrb")) { exam = "RRB NTPC"; organisation = "Railway Recruitment Board"; }
+   608→  else if (q.includes("banking") || q.includes("ibps") || q.includes("sbi")) { exam = "Banking PO"; organisation = "IBPS/SBI"; }
+   609→
+   610→  const extracted: { category: string; content: string; sourcePage: number; sourceSection: string }[] = [];
+   611→
+   612→  // Eligibility
+   613→  extracted.push({
+   614→    category: "Eligibility",
+   615→    content: q.includes("graduation") ? "Graduation in any discipline from a recognised university." : "Bachelor's degree (check specific post requirements).",
+   616→    sourcePage: 2, sourceSection: "Eligibility",
+   617→  });
+   618→  // Age
+   619→  if (ageMatch) {
+   620→    extracted.push({ category: "Age Limit", content: `${ageMatch[1]}-${ageMatch[2]} years as on cut-off date (relaxation for reserved categories).`, sourcePage: 2, sourceSection: "Eligibility" });
+   621→  } else {
+   622→    extracted.push({ category: "Age Limit", content: "20-30 years as on cut-off date (relaxation for reserved categories).", sourcePage: 2, sourceSection: "Eligibility" });
+   623→  }
+   624→  // Dates
+   625→  if (dateMatches.length > 0) {
+   626→    extracted.push({ category: "Important Dates", content: `Key dates mentioned: ${dateMatches.join(", ")}. Application window and exam schedule per official notification.`, sourcePage: 1, sourceSection: "Important Dates" });
+   627→  } else {
+   628→    extracted.push({ category: "Important Dates", content: "Application start, last date, and exam date per official notification.", sourcePage: 1, sourceSection: "Important Dates" });
+   629→  }
+   630→  // Exam Pattern
+   631→  const qCount = questionMatch ? questionMatch[1] : "100";
+   632→  const mCount = marksMatch ? marksMatch[1] : "200";
+   633→  const dur = durationMatch ? durationMatch[1] : "60";
+   634→  extracted.push({ category: "Exam Pattern", content: `Tier 1: ${qCount} questions, ${mCount} marks, ${dur} minutes. Computer-based test.`, sourcePage: 5, sourceSection: "Examination Scheme" });
+   635→  // Syllabus
+   636→  const subjects: string[] = [];
+   637→  if (q.includes("quant") || q.includes("aptitude")) subjects.push("Quantitative Aptitude");
+   638→  if (q.includes("reasoning")) subjects.push("General Intelligence & Reasoning");
+   639→  if (q.includes("english")) subjects.push("English Language");
+   640→  if (q.includes("general awareness") || q.includes("ga") || q.includes("gk")) subjects.push("General Awareness");
+   641→  if (subjects.length === 0) subjects.push("Quantitative Aptitude", "Reasoning", "English", "General Awareness");
+   642→  extracted.push({ category: "Syllabus", content: subjects.join(", ") + ".", sourcePage: 6, sourceSection: "Syllabus" });
+   643→  // Marking
+   644→  const neg = negMatch ? negMatch[1] : "0.5";
+   645→  extracted.push({ category: "Marking Scheme", content: `+2 per correct answer, -${neg} per incorrect answer. Unattempted: 0.`, sourcePage: 5, sourceSection: "Examination Scheme" });
+   646→  // Selection process
+   647→  extracted.push({ category: "Selection Process", content: "Tier 1 (qualifying) → Tier 2 (merit) → Document Verification → Final Selection.", sourcePage: 3, sourceSection: "Selection Process" });
+   648→
+   649→  // Word count from content length if available
+   650→  const words = query.split(/\s+/).filter(w => w.length > 2).length;
+   651→  const wordCount = words > 100 ? words : 3200;
+   652→
+   653→  // OCR detection
+   654→  const ocrUsed = /ocr|scanned|image|unreadable/i.test(query);
+   655→
+   656→  return {
+   657→    documentOverview: { title, organisation, exam, year: new Date().getFullYear().toString(), documentType: docType, numberOfPages: 12, importantSections: ["Eligibility", "Exam Pattern", "Syllabus", "Important Dates", "Selection Process"] },
+   658→    extractedInformation: extracted,
+   659→    topics: ["Eligibility", "Exam Pattern", "Syllabus", "Selection Process", ...subjects],
+   660→    wordCount,
+   661→    ocrUsed,
+   662→    ocrWarning: ocrUsed ? "Some information was extracted using OCR and may require verification." : undefined,
+   663→    sources: [{ type: "UPLOADED_DOCUMENT", label: "Uploaded Document", detail: `${wordCount} words analysed` }],
+   664→    generatedAt: new Date().toISOString(),
+   665→  };
+   666→}
+   667→
+   668→function mockPreparation(_query: string): unknown {
+   669→  return {
+   670→    targetExam: "SSC CGL",
+   671→    examDate: "2025-06-15",
+   672→    currentLevel: "Intermediate",
+   673→    availableHoursPerDay: 4,
+   674→    daysPerWeek: 6,
+   675→    targetScore: "180/200 (Tier 1)",
+   676→    totalDays: 120,
+   677→    phases: [
+   678→      { phase: 1, name: "Foundation", goal: "Concept building", duration: "Weeks 1-4", tasks: ["Arithmetic basics", "Reasoning patterns", "English grammar"] },
+   679→      { phase: 2, name: "Topic Completion", goal: "Complete syllabus", duration: "Weeks 5-8", tasks: ["Advanced arithmetic", "All reasoning types", "Reading comprehension"] },
+   680→      { phase: 3, name: "Practice", goal: "Topic-wise + PYQs", duration: "Weeks 9-12", tasks: ["Sectional tests", "PYQ sets", "Speed practice"] },
+   681→      { phase: 4, name: "Revision", goal: "Spaced revision", duration: "Weeks 13-14", tasks: ["Weak topics", "Formula revision", "Current affairs"] },
+   682→      { phase: 5, name: "Mock Tests", goal: "Full-length simulations", duration: "Weeks 15-16", tasks: ["Daily full mocks", "Analysis", "Targeted repractice"] },
+   683→      { phase: 6, name: "Final Revision", goal: "High-priority + weak areas", duration: "Week 17", tasks: ["Top 20 topics", "Last 3 years PYQs", "Exam strategy"] },
+   684→    ],
+   685→    dailyPlans: [
+   686→      { day: 1, date: "Day 1", sessions: [{ subject: "Quant", topic: "Percentage", durationHours: 2, activity: "Concept + practice" }, { subject: "Reasoning", topic: "Series", durationHours: 1, activity: "Practice set" }, { subject: "English", topic: "Vocab", durationHours: 1, activity: "Daily 30 words" }], totalHours: 4 },
+   687→      { day: 2, date: "Day 2", sessions: [{ subject: "Quant", topic: "Profit & Loss", durationHours: 2, activity: "Concept + practice" }, { subject: "Reasoning", topic: "Coding-Decoding", durationHours: 1, activity: "Practice set" }, { subject: "GA", topic: "Current Affairs", durationHours: 1, activity: "Last 6 months" }], totalHours: 4 },
+   688→      { day: 3, date: "Day 3", sessions: [{ subject: "Quant", topic: "Ratio", durationHours: 2, activity: "Practice" }, { subject: "English", topic: "RC", durationHours: 1, activity: "2 passages" }, { subject: "Reasoning", topic: "Puzzles", durationHours: 1, activity: "Practice" }], totalHours: 4 },
+   689→    ],
+   690→    weakSubjects: ["General Awareness", "Advanced Maths"],
+   691→    strongSubjects: ["Arithmetic", "Reasoning"],
+   692→    revisionSchedule: ["Saturday: weekly revision", "Sunday: full mock"],
+   693→    mockTestSchedule: ["From week 13: daily full mock", "Last week: 2 mocks/day"],
+   694→    adaptiveNotes: ["If a topic is consistently weak, allocate 1 extra hour for 3 days", "After each mock, spend 1.5 hours on analysis"],
+   695→    sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
+   696→    generatedAt: new Date().toISOString(),
+   697→  };
+   698→}
+   699→
+   700→function mockMultiExam(_query: string): unknown {
+   701→  return {
+   702→    exams: [
+   703→      { name: "SSC CGL", priority: "Primary", date: "2025-06-15", targetScore: "180/200" },
+   704→      { name: "Banking PO", priority: "Secondary", date: "2025-07-20", targetScore: "Cut-off clearing" },
+   705→      { name: "Railway NTPC", priority: "Backup", date: "2025-09-01", targetScore: "Qualifying" },
+   706→    ],
+   707→    availableHours: 5,
+   708→    knowledgeMap: {
+   709→      common: ["Quantitative Aptitude", "Reasoning", "English", "General Awareness"],
+   710→      examSpecific: [
+   711→        { exam: "SSC CGL", priority: "Primary", topics: ["Static GK", "Advanced Maths", "Statistics (JSO)"] },
+   712→        { exam: "Banking PO", priority: "Secondary", topics: ["Banking Awareness", "Descriptive English", "Computer Awareness"] },
+   713→        { exam: "Railway NTPC", priority: "Backup", topics: ["Railway Awareness", "Typing"] },
+   714→      ],
+   715→    },
+   716→    combinedStrategy: {
+   717→      commonPreparation: ["Percentage", "Ratio", "Series", "Comprehension", "Current Affairs"],
+   718→      examSpecificPreparation: [{ exam: "CGL", topics: ["Statistics", "Static GK"] }, { exam: "Banking", topics: ["Banking Awareness", "Computer"] }, { exam: "Railway", topics: ["Railway GK", "Typing"] }],
+   719→      priority: ["Shared foundations first", "Then CGL-specific", "Banking maintenance", "Railway mock-only before exam"],
+   720→      dependencies: ["Percentage before Profit & Loss", "Tables before quick arithmetic"],
+   721→      scheduling: ["Morning: Quant (common)", "Afternoon: Reasoning (common)", "Evening: Exam-specific"],
+   722→      revision: ["Weekend shared revision", "Topic-level spaced repetition"],
+   723→      mockTesting: ["CGL mocks closer to June", "Banking mocks in July", "Railway mocks in August"],
+   724→    },
+   725→    conflicts: [
+   726→      { type: "Different patterns", description: "CGL 100q/60min vs Banking 100q/60min vs NTPC variable", reason: "Speed requirements differ" },
+   727→      { type: "Different marking", description: "CGL -0.5, Banking -0.25, NTPC -0.33", reason: "Different risk tolerance per exam" },
+   728→      { type: "Different awareness", description: "CGL static GK, Banking banking-awareness, Railway rail-awareness", reason: "Requires separate prep" },
+   729→    ],
+   730→    weeklySchedule: [
+   731→      { day: "Monday", sessions: ["Quant (common): 2h", "Reasoning: 1.5h", "English: 1.5h"] },
+   732→      { day: "Tuesday", sessions: ["Quant (CGL-adv): 1.5h", "Banking Awareness: 1.5h", "Reasoning: 2h"] },
+   733→      { day: "Wednesday", sessions: ["Quant (common): 2h", "English: 1.5h", "Static GK: 1.5h"] },
+   734→      { day: "Thursday", sessions: ["Quant (Banking): 1.5h", "Computer Awareness: 1.5h", "Reasoning: 2h"] },
+   735→      { day: "Friday", sessions: ["Quant (common): 2h", "Current Affairs: 1.5h", "Railway GK: 1.5h"] },
+   736→      { day: "Saturday", sessions: ["Weekly revision: 2.5h", "Sectional test: 2.5h"] },
+   737→      { day: "Sunday", sessions: ["Full mock (rotating): 2h", "Analysis: 1.5h", "Weak topic: 1.5h"] },
+   738→    ],
+   739→    sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
+   740→    generatedAt: new Date().toISOString(),
+   741→  };
+   742→}
+   743→
+   744→function mockPerformance(_query: string): unknown {
+   745→  return {
+   746→    score: 142,
+   747→    maxMarks: 200,
+   748→    accuracy: 76,
+   749→    correct: 78,
+   750→    incorrect: 14,
+   751→    unattempted: 8,
+   752→    timeUsed: "55 min",
+   753→    avgTimePerQuestion: "33 sec",
+   754→    topicWise: [
+   755→      { topic: "Percentage", correct: 8, total: 10, accuracy: 80 },
+   756→      { topic: "Profit & Loss", correct: 6, total: 10, accuracy: 60 },
+   757→      { topic: "Ratio", correct: 9, total: 10, accuracy: 90 },
+   758→      { topic: "Series", correct: 7, total: 10, accuracy: 70 },
+   759→      { topic: "RC", correct: 8, total: 10, accuracy: 80 },
+   760→    ],
+   761→    difficultyWise: [
+   762→      { difficulty: "Easy", correct: 28, total: 30, accuracy: 93 },
+   763→      { difficulty: "Medium", correct: 35, total: 45, accuracy: 78 },
+   764→      { difficulty: "Hard", correct: 15, total: 25, accuracy: 60 },
+   765→    ],
+   766→    questionTypeWise: [{ type: "MCQ", correct: 78, total: 100, accuracy: 78 }],
+   767→    negativeMarkImpact: -7,
+   768→    strengths: ["Ratio", "Percentage", "Reading Comprehension"],
+   769→    weakAreas: ["Profit & Loss", "Hard difficulty questions"],
+   770→    conceptualErrors: ["Misapplied successive percentage formula", "Confused CP and SP in 2 questions"],
+   771→    calculationErrors: ["2 arithmetic slips in Profit & Loss"],
+   772→    questionSelectionErrors: ["Spent 4 min on 1 hard question — should have skipped"],
+   773→    recommendedPractice: ["Revise Profit & Loss → 15 Level-2 variants → 5 PYQs → mixed test"],
+   774→    generatedAt: new Date().toISOString(),
+   775→  };
+   776→}
+   777→
+   778→function mockFlashcards(query: string): unknown {
+   779→  // Detect the topic from the user prompt so the canned cards feel relevant.
+   780→  // The prompt includes lines like "- Topic: SSC CGL" or "- Topic: Calculus".
+   781→  const lower = query.toLowerCase();
+   782→  const topicMatch = query.match(/topic:\s*([^\n]+)/i);
+   783→  let topic = topicMatch?.[1]?.trim() ?? "";
+   784→
+   785→  type RawCard = {
+   786→    front: string;
+   787→    back: string;
+   788→    topic: string;
+   789→    difficulty: "Easy" | "Medium" | "Hard";
+   790→  };
+   791→
+   792→  let cards: RawCard[] = [];
+   793→
+   794→  if (lower.includes("ssc cgl") || lower.includes("general awareness")) {
+   795→    topic = topic || "SSC CGL — General Awareness";
+   796→    cards = [
+   797→      { front: "Who appoints the Chief Election Commissioner of India?", back: "The President of India appoints the Chief Election Commissioner on the advice of the Union Council.", topic: "Polity", difficulty: "Easy" },
+   798→      { front: "Which Article of the Indian Constitution deals with the Right to Equality?", back: "Articles 14–18 — Article 14 guarantees equality before law and equal protection of laws.", topic: "Polity", difficulty: "Medium" },
+   799→      { front: "The Quit India Movement was launched in which year?", back: "1942 — launched by Gandhi on 8 August with the slogan 'Do or Die'.", topic: "Modern History", difficulty: "Easy" },
+   800→      { front: "Which river is known as the 'Sorrow of Bihar'?", back: "The Kosi river, due to frequent flooding that causes widespread damage in Bihar.", topic: "Geography", difficulty: "Medium" },
+   801→      { front: "Who is known as the 'Missile Man of India'?", back: "Dr. A.P.J. Abdul Kalam — for his work on India's missile and nuclear programmes.", topic: "General Knowledge", difficulty: "Easy" },
+   802→      { front: "The Tropic of Cancer passes through how many Indian states?", back: "8 states — Gujarat, Rajasthan, MP, Chhattisgarh, Jharkhand, WB, Tripura, Mizoram.", topic: "Geography", difficulty: "Hard" },
+   803→      { front: "Which vitamin is produced when human skin is exposed to sunlight?", back: "Vitamin D (cholecalciferol) — synthesised in the skin from UV exposure.", topic: "Science", difficulty: "Medium" },
+   804→      { front: "Who founded the Mauryan Empire?", back: "Chandragupta Maurya in 322 BCE, with guidance from his mentor Chanakya (Kautilya).", topic: "Ancient History", difficulty: "Medium" },
+   805→      { front: "What is the currency of Japan?", back: "The Japanese Yen (¥) — the official currency issued by the Bank of Japan.", topic: "General Knowledge", difficulty: "Easy" },
+   806→      { front: "Which gas is most abundant in Earth's atmosphere?", back: "Nitrogen — about 78% of the atmosphere by volume, followed by oxygen at ~21%.", topic: "Science", difficulty: "Easy" },
+   807→    ];
+   808→  } else if (lower.includes("calculus") || lower.includes("derivative") || lower.includes("integral")) {
+   809→    topic = topic || "Calculus";
+   810→    cards = [
+   811→      { front: "What is the derivative of sin(x) with respect to x?", back: "cos(x) — i.e. d/dx[sin x] = cos x.", topic: "Differentiation", difficulty: "Easy" },
+   812→      { front: "State the power rule for differentiation.", back: "d/dx[x^n] = n·x^(n−1) for any real n.", topic: "Differentiation", difficulty: "Easy" },
+   813→      { front: "What is ∫ 1/x dx?", back: "ln|x| + C — the natural log of the absolute value, plus the constant of integration.", topic: "Integration", difficulty: "Medium" },
+   814→      { front: "State the chain rule for differentiation.", back: "d/dx[f(g(x))] = f'(g(x)) · g'(x) — the outer derivative times the inner derivative.", topic: "Differentiation", difficulty: "Medium" },
+   815→      { front: "What is the derivative of e^x?", back: "e^x — the exponential function is its own derivative.", topic: "Differentiation", difficulty: "Easy" },
+   816→      { front: "Evaluate ∫ 0 to 1 of x dx.", back: "1/2 — using ∫x dx = x²/2, evaluated as (1²/2) − (0²/2) = 1/2.", topic: "Integration", difficulty: "Medium" },
+   817→      { front: "What is L'Hôpital's Rule used for?", back: "To evaluate limits of indeterminate forms 0/0 or ∞/∞ by differentiating numerator and denominator separately.", topic: "Limits", difficulty: "Hard" },
+   818→      { front: "What does the Fundamental Theorem of Calculus connect?", back: "It connects differentiation and integration: ∫ₐᵇ f(x) dx = F(b) − F(a) where F' = f.", topic: "Integration", difficulty: "Hard" },
+   819→      { front: "What is the derivative of ln(x)?", back: "1/x for x > 0.", topic: "Differentiation", difficulty: "Easy" },
+   820→      { front: "Find d/dx[tan(x)].", back: "sec²(x).", topic: "Differentiation", difficulty: "Medium" },
+   821→    ];
+   822→  } else if (lower.includes("vocab") || lower.includes("english")) {
+   823→    topic = topic || "English Vocabulary";
+   824→    cards = [
+   825→      { front: "What does 'ephemeral' mean?", back: "Lasting for a very short time; transitory. e.g. ephemeral fame.", topic: "Vocabulary", difficulty: "Easy" },
+   826→      { front: "Synonym of 'benevolent'?", back: "Kind, generous, charitable — wishing well to others.", topic: "Synonyms", difficulty: "Easy" },
+   827→      { front: "Antonym of 'meticulous'?", back: "Careless, sloppy, negligent — the opposite of careful attention to detail.", topic: "Antonyms", difficulty: "Medium" },
+   828→      { front: "What does 'ubiquitous' mean?", back: "Present, appearing, or found everywhere. e.g. smartphones are ubiquitous today.", topic: "Vocabulary", difficulty: "Medium" },
+   829→      { front: "Idiom meaning of 'bite the bullet'?", back: "To endure a painful or difficult situation with courage, without complaining.", topic: "Idioms", difficulty: "Medium" },
+   830→      { front: "What does 'pragmatic' mean?", back: "Dealing with things sensibly and realistically, based on practical rather than theoretical considerations.", topic: "Vocabulary", difficulty: "Hard" },
+   831→      { front: "Synonym of 'augment'?", back: "Increase, enlarge, supplement — to make something greater in size or amount.", topic: "Synonyms", difficulty: "Easy" },
+   832→      { front: "What does 'candid' mean?", back: "Truthful and straightforward; frank and unreserved in speech.", topic: "Vocabulary", difficulty: "Easy" },
+   833→    ];
+   834→  } else if (lower.includes("reasoning") || lower.includes("pattern")) {
+   835→    topic = topic || "Reasoning — Patterns";
+   836→    cards = [
+   837→      { front: "Find the next number: 2, 6, 12, 20, 30, ?", back: "42 — differences are 4, 6, 8, 10, 12; second difference is constant 2.", topic: "Number Series", difficulty: "Medium" },
+   838→      { front: "If CAT = 24, DOG = 26, what is FOX?", back: "44 — sum of letter positions: F(6)+O(15)+X(24) = 45; or by reverse pattern, 44.", topic: "Coding-Decoding", difficulty: "Hard" },
+   839→      { front: "Odd one out: 3, 5, 7, 9, 11, 13", back: "9 — it is the only composite number; the rest are primes.", topic: "Odd One Out", difficulty: "Easy" },
+   840→      { front: "Complete the analogy: Book : Author :: Painting : ?", back: "Painter — the creator-to-creation relationship.", topic: "Analogy", difficulty: "Easy" },
+   841→      { front: "Next in series: A, C, F, J, O, ?", back: "U — gaps are +2, +3, +4, +5, +6 → O(15) + 6 = U(21).", topic: "Letter Series", difficulty: "Medium" },
+   842→      { front: "If 'TABLE' is coded as 'UCAMF', what is 'CHAIR'?", back: "DIBJS — each letter shifted +1 forward in the alphabet.", topic: "Coding-Decoding", difficulty: "Medium" },
+   843→      { front: "Which number does not belong: 4, 9, 16, 23, 25, 36?", back: "23 — it is the only prime; the rest are perfect squares.", topic: "Odd One Out", difficulty: "Medium" },
+   844→      { front: "Direction: A walks 3 km North, turns East, walks 4 km. Distance from start?", back: "5 km — forms a 3-4-5 right triangle (Pythagoras).", topic: "Direction Sense", difficulty: "Hard" },
+   845→    ];
+   846→  } else if (lower.includes("quant") || lower.includes("formula") || lower.includes("aptitude")) {
+   847→    topic = topic || "Quantitative Aptitude — Formulas";
+   848→    cards = [
+   849→      { front: "Formula for compound interest (amount) when compounded annually?", back: "A = P(1 + r/100)^n, where P = principal, r = rate %, n = years.", topic: "Interest", difficulty: "Medium" },
+   850→      { front: "Formula for speed when distance and time are known?", back: "Speed = Distance / Time. SI unit: m/s; commonly km/h.", topic: "Time-Speed-Distance", difficulty: "Easy" },
+   851→      { front: "Profit % formula?", back: "Profit % = (Profit / Cost Price) × 100, where Profit = SP − CP.", topic: "Profit & Loss", difficulty: "Easy" },
+   852→      { front: "Formula for average of n numbers?", back: "Average = (Sum of all values) / (Number of values).", topic: "Average", difficulty: "Easy" },
+   853→      { front: "Time taken by two pipes together to fill a tank?", back: "If pipes fill in a and b hours alone: T = (a·b)/(a+b) hours.", topic: "Pipes & Cisterns", difficulty: "Medium" },
+   854→      { front: "Quadratic formula to solve ax² + bx + c = 0?", back: "x = [−b ± √(b² − 4ac)] / 2a, where the discriminant Δ = b² − 4ac.", topic: "Algebra", difficulty: "Medium" },
+   855→      { front: "Formula for area of a trapezium?", back: "A = ½ × (sum of parallel sides) × height = ½(a + b)·h.", topic: "Mensuration", difficulty: "Medium" },
+   856→      { front: "If x men finish a job in d days, how many days for (x+k) men?", back: "Days = (x·d)/(x+k) — inverse proportion (assuming equal efficiency).", topic: "Time & Work", difficulty: "Hard" },
+   857→    ];
+   858→  } else {
+   859→    topic = topic || "General Aptitude";
+   860→    cards = [
+   861→      { front: "What is 15% of 240?", back: "36 — calculate 10% = 24, then 5% = 12; 24 + 12 = 36.", topic: "Percentage", difficulty: "Easy" },
+   862→      { front: "If the ratio of A:B is 3:4 and A is 27, what is B?", back: "36 — common multiplier is 9 (27/3); B = 4 × 9 = 36.", topic: "Ratio", difficulty: "Easy" },
+   863→      { front: "Average of 5, 10, 15, 20, 25?", back: "15 — sum = 75, divided by 5 = 15.", topic: "Average", difficulty: "Easy" },
+   864→      { front: "A train travels 60 km in 45 minutes. What is its speed in km/h?", back: "80 km/h — 45 min = 0.75 h; speed = 60 / 0.75 = 80.", topic: "Speed", difficulty: "Medium" },
+   865→      { front: "What is the SI unit of force?", back: "The newton (N) — 1 N = 1 kg·m/s².", topic: "Physics", difficulty: "Easy" },
+   866→      { front: "What is HCF of 12, 18, 24?", back: "6 — the largest number that divides all three without remainder.", topic: "Number System", difficulty: "Medium" },
+   867→      { front: "Find the missing term: 1, 4, 9, 16, ?, 36", back: "25 — perfect squares of 1, 2, 3, 4, 5, 6.", topic: "Series", difficulty: "Easy" },
+   868→      { front: "If a:b = 2:3 and b:c = 4:5, find a:c.", back: "8:15 — combine by making b common (12): a:b:c = 8:12:15.", topic: "Ratio", difficulty: "Hard" },
+   869→    ];
+   870→  }
+   871→
+   872→  const today = new Date().toISOString();
+   873→  const out = cards.slice(0, 10).map((c, i) => ({
+   874→    id: `fc${i + 1}`,
+   875→    front: c.front,
+   876→    back: c.back,
+   877→    topic: c.topic,
+   878→    difficulty: c.difficulty,
+   879→    easeFactor: 2.5,
+   880→    interval: 1,
+   881→    repetitions: 0,
+   882→    nextReview: today,
+   883→    mastery: "New" as const,
+   884→  }));
+   885→
+   886→  const sourceMatch = query.match(/source label:\s*([^\n]+)/i);
+   887→  const source = sourceMatch?.[1]?.trim() || "Custom topic";
+   888→
+   889→  return {
+   890→    id: `fs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+   891→    source,
+   892→    topic,
+   893→    cards: out,
+   894→    sources: [{ type: "AI_GENERATED", label: "ExamIntel Flashcard Generator" }],
+   895→    generatedAt: today,
+   896→  };
+   897→}
+   898→
+   899→// ============================================================
+   900→// Formula Sheet lookup — searches the built-in SEED_FORMULAS by
+   901→// keyword (name / topic / subject match). Returns 3–5 matches, or
+   902→// all formulas when no keyword in the query matches anything.
+   903→// ============================================================
+   904→function mockFormulasLookup(query: string): unknown {
+   905→  const lower = query.toLowerCase();
+   906→
+   907→  // Tokenize the query into candidate keywords (drop short / stop words).
+   908→  const stop = new Set([
+   909→    "the", "a", "an", "of", "for", "and", "or", "to", "in", "is", "are",
+   910→    "what", "whats", "formula", "formulas", "formulae", "lookup", "search",
+   911→    "find", "me", "please", "give", "show", "list", "all", "with",
+   912→  ]);
+   913→  const tokens = lower
+   914→    .split(/[^a-z0-9&+-]+/i)
+   915→    .map((t) => t.trim())
+   916→    .filter((t) => t.length > 1 && !stop.has(t));
+   917→
+   918→  const matched = SEED_FORMULAS.filter((f) => {
+   919→    const hay = `${f.subject} ${f.topic} ${f.name} ${f.description}`.toLowerCase();
+   920→    return tokens.some((tok) => hay.includes(tok));
+   921→  });
+   922→
+   923→  // De-dup by id (in case the same formula matches multiple tokens).
+   924→  const seen = new Set<string>();
+   925→  const unique = matched.filter((f) =>
+   926→    seen.has(f.id) ? false : (seen.add(f.id), true)
+   927→  );
+   928→
+   929→  // 3–5 matches when possible; if fewer keywords match, fall back to all.
+   930→  let result = unique;
+   931→  if (unique.length < 3) {
+   932→    result = SEED_FORMULAS.slice();
+   933→  }
+   934→  const capped = result.slice(0, 5);
+   935→
+   936→  return {
+   937→    formulas: capped.map((f) => ({
+   938→      id: f.id,
+   939→      subject: f.subject,
+   940→      topic: f.topic,
+   941→      name: f.name,
+   942→      formula: f.formula,
+   943→      description: f.description,
+   944→      example: f.example,
+   945→      difficulty: f.difficulty,
+   946→    })),
+   947→  };
+   948→}
+   949→
