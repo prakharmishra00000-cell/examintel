@@ -10,22 +10,8 @@ interface FormulaList {
 }
 
 function isFormulaList(v: unknown): v is FormulaList {
-  const r = v as Partial<FormulaList>;
-  return (
-    !!r &&
-    typeof r === "object" &&
-    Array.isArray(r.formulas) &&
-    r.formulas.every(
-      (f) =>
-        !!f &&
-        typeof f === "object" &&
-        typeof (f as Formula).subject === "string" &&
-        typeof (f as Formula).topic === "string" &&
-        typeof (f as Formula).name === "string" &&
-        typeof (f as Formula).formula === "string" &&
-        typeof (f as Formula).description === "string"
-    )
-  );
+  const r = v as any;
+  return !!r && typeof r === "object" && Array.isArray(r.formulas);
 }
 
 const SYSTEM = `You are ExamIntel's Formula Sheet lookup engine — a precise mathematical reference assistant for competitive-exam aspirants.

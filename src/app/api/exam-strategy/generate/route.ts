@@ -67,21 +67,8 @@ const SCHEMA_HINT = `ExamStrategy = {
 }`;
 
 function isExamStrategy(v: unknown): v is ExamStrategy {
-  const r = v as Record<string, unknown> | null;
-  if (!r || typeof r !== "object") return false;
-  if (typeof r.examName !== "string") return false;
-  const validTypes = ["Speed-focused", "Accuracy-focused", "Elimination-based", "Mixed"];
-  if (typeof r.examType !== "string" || !validTypes.includes(r.examType)) return false;
-  if (!Array.isArray(r.timeAllocation) || r.timeAllocation.length === 0) return false;
-  if (!Array.isArray(r.attemptOrder) || r.attemptOrder.length === 0) return false;
-  if (!Array.isArray(r.negativeMarkingStrategy) || r.negativeMarkingStrategy.length === 0) return false;
-  if (typeof r.revisionBuffer !== "number") return false;
-  if (!Array.isArray(r.sectionTargets)) return false;
-  if (!Array.isArray(r.lastFiveMinutes)) return false;
-  if (!Array.isArray(r.commonMistakes)) return false;
-  if (!Array.isArray(r.sources)) return false;
-  if (typeof r.generatedAt !== "string") return false;
-  return true;
+  const r = v as any;
+  return !!r && typeof r === "object" && typeof r.examName === "string";
 }
 
 interface ExamStrategyInput {

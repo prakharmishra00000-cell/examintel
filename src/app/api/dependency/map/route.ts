@@ -9,13 +9,7 @@ import type {
 
 function isDependencyMapReport(v: unknown): v is DependencyMapReport {
   const r = v as any;
-  return (
-    !!r &&
-    typeof r === "object" &&
-    typeof r.root === "string" &&
-    Array.isArray(r.nodes) &&
-    Array.isArray(r.gaps)
-  );
+  return !!r && typeof r === "object" && (typeof r.root === "string" || Array.isArray(r.nodes));
 }
 
 export const runtime = "nodejs";

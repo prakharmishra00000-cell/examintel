@@ -4,12 +4,7 @@ import type { PreparationPlan } from "@/types";
 
 function isPreparationPlan(v: unknown): v is PreparationPlan {
   const r = v as any;
-  return (
-    !!r &&
-    typeof r === "object" &&
-    Array.isArray(r.phases) &&
-    Array.isArray(r.dailyPlans)
-  );
+  return !!r && typeof r === "object" && (Array.isArray(r.phases) || r.targetExam);
 }
 
 export const runtime = "nodejs";

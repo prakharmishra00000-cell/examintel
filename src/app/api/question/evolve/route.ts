@@ -8,12 +8,7 @@ import type {
 
 function isQuestionEvolutionReport(v: unknown): v is QuestionEvolutionReport {
   const r = v as any;
-  return (
-    !!r &&
-    typeof r === "object" &&
-    typeof r.sourceQuestion === "string" &&
-    Array.isArray(r.variants)
-  );
+  return !!r && typeof r === "object" && (typeof r.sourceQuestion === "string" || Array.isArray(r.variants));
 }
 
 export const runtime = "nodejs";

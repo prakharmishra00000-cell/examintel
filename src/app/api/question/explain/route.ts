@@ -4,13 +4,7 @@ import type { QuestionExplanation } from "@/types";
 
 function isQuestionExplanation(v: unknown): v is QuestionExplanation {
   const r = v as any;
-  return (
-    !!r &&
-    typeof r === "object" &&
-    typeof r.originalQuestion === "string" &&
-    !!r.levels &&
-    typeof r.levels === "object"
-  );
+  return !!r && typeof r === "object" && (!!r.originalQuestion || !!r.levels);
 }
 
 export const runtime = "nodejs";

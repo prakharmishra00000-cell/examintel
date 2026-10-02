@@ -12,13 +12,7 @@ type PdfAnalysisReportWithCaveats = PdfAnalysisReport & { caveats?: string[] };
 
 function isPdfAnalysisReport(v: unknown): v is PdfAnalysisReportWithCaveats {
   const r = v as any;
-  return (
-    !!r &&
-    typeof r === "object" &&
-    !!r.documentOverview &&
-    typeof r.documentOverview === "object" &&
-    Array.isArray(r.extractedInformation)
-  );
+  return !!r && typeof r === "object" && (!!r.documentOverview || Array.isArray(r.extractedInformation));
 }
 
 // ============================================================

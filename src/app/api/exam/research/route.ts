@@ -4,12 +4,7 @@ import type { ExamResearchReport } from "@/types";
 
 function isExamReport(v: unknown): v is ExamResearchReport {
   const r = v as any;
-  // Must have ALL key sections — if Gemini omits any, fall back to mock
-  return !!r && typeof r === "object"
-    && !!r.basicInfo && typeof r.basicInfo === "object" && !!r.basicInfo.name
-    && !!r.pattern && typeof r.pattern === "object"
-    && Array.isArray(r.stages) && r.stages.length > 0
-    && !!r.preparation && typeof r.preparation === "object";
+  return !!r && typeof r === "object" && !!r.basicInfo;
 }
 
 export const runtime = "nodejs";

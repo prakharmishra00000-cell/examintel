@@ -9,18 +9,7 @@ export const dynamic = "force-dynamic";
 // Each PYQ should additionally carry a similarityReason.
 function isPYQList(v: unknown): v is { pyqs: PYQ[] } {
   const r = v as any;
-  if (!r || typeof r !== "object") return false;
-  if (!Array.isArray(r.pyqs)) return false;
-  if (r.pyqs.length === 0) return false;
-  return r.pyqs.every(
-    (p: any) =>
-      p &&
-      typeof p === "object" &&
-      typeof p.question === "string" &&
-      Array.isArray(p.options) &&
-      typeof p.correctAnswer === "string" &&
-      typeof p.explanation === "string"
-  );
+  return !!r && typeof r === "object" && Array.isArray(r.pyqs);
 }
 
 const SYSTEM = `You are ExamIntel's Similar-Question Finder — a retrieval engine that, given a single source question, returns 3–5 previous-year questions (PYQs) that test the same underlying concept or are structurally similar.

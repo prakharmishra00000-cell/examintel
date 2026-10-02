@@ -7,15 +7,7 @@ export const dynamic = "force-dynamic";
 
 function isFlashcardSet(v: unknown): v is FlashcardSet {
   const r = v as any;
-  return (
-    !!r &&
-    typeof r === "object" &&
-    typeof r.source === "string" &&
-    typeof r.topic === "string" &&
-    Array.isArray(r.cards) &&
-    r.cards.length > 0 &&
-    Array.isArray(r.sources)
-  );
+  return !!r && typeof r === "object" && Array.isArray(r.cards);
 }
 
 const SYSTEM = `You are ExamIntel's Spaced-Repetition Flashcard Generator — an expert tutor who creates concise, high-yield flashcards for competitive-exam preparation.

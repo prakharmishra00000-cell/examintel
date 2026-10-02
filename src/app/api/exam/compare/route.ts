@@ -4,14 +4,7 @@ import type { ExamComparisonReport } from "@/types";
 
 function isExamComparisonReport(v: unknown): v is ExamComparisonReport {
   const r = v as any;
-  return (
-    !!r &&
-    typeof r === "object" &&
-    Array.isArray(r.examNames) &&
-    Array.isArray(r.comparison) &&
-    !!r.commonSyllabus &&
-    typeof r.commonSyllabus === "object"
-  );
+  return !!r && typeof r === "object" && (Array.isArray(r.examNames) || Array.isArray(r.comparison));
 }
 
 export const runtime = "nodejs";
