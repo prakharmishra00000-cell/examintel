@@ -11,7 +11,7 @@ export async function jsonWithFallback<T>(
   validate: (v: unknown) => v is T
 ): Promise<T> {
   const llm = await getLLM();
-  const hasKey = !!process.env.OPENAI_API_KEY;
+  const hasKey = !!process.env.GEMINI_API_KEY || !!process.env.OPENAI_API_KEY;
 
   try {
     const result = await llm.json<T>(system, user, schemaHint);

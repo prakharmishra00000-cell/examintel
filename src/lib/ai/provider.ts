@@ -102,14 +102,15 @@ export function extractJson<T>(raw: string): T {
 }
 
 // Provider that tries the real provider and falls back to Mock on failure.
-// IMPORTANT: When OPENAI_API_KEY is set (production/Vercel), the fallback is
-// DISABLED — errors propagate so the user sees real AI failures (not mock data).
-// The mock fallback only kicks in during local/sandbox development without a key.
+// IMPORTANT: When GEMINI_API_KEY or OPENAI_API_KEY is set (production/Vercel),
+// the fallback is DISABLED — errors propagate so the user sees real AI
+// failures (not mock data). The mock fallback only kicks in during local/
+// sandbox development without a key.
 class FallbackProvider implements LLMProvider {
   constructor(private primary: LLMProvider, private fallback: LLMProvider) {}
   private get useFallback() {
     // Only use mock fallback when no real API key is configured
-    return !process.env.OPENAI_API_KEY;
+    return !process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY;
   }
   get name() {
     return this.primary.available ? this.primary.name : this.fallback.name;
@@ -157,12 +158,15 @@ export async function getLLM(): Promise<LLMProvider> {
   if (_cached) return _cached;
   const { MockProvider } = await import("./mock-provider");
   const mock = new MockProvider();
+  const hasGemini = !!process.env.GEMINI_API_KEY;
   const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasRealKey = hasGemini || hasOpenAI;
   // SKIP_ZAI=1 forces mock mode (useful for QA / cron runs where the sandbox
   // z-ai SDK's large JSON responses cause OOM crashes).
   const skipZai = process.env.SKIP_ZAI === "1" || process.env.USE_MOCK_AI === "1";
   let primary: LLMProvider;
-  if (hasOpenAI) {
+  if (hasRealKey) {
+    // Gemini or OpenAI — real AI, no mock
     const mod = await import("./openai-provider");
     primary = new mod.OpenAIProvider();
   } else if (skipZai) {
@@ -177,8 +181,8 @@ export async function getLLM(): Promise<LLMProvider> {
       primary = mock;
     }
   }
-  // On Vercel without an OpenAI key, the z-ai-web-dev-sdk won't function — go straight to mock.
-  if (!hasOpenAI && process.env.VERCEL) {
+  // On Vercel without any API key, the z-ai-web-dev-sdk won't function — go straight to mock.
+  if (!hasRealKey && process.env.VERCEL) {
     primary = mock;
   }
   _cached = new FallbackProvider(primary, mock);

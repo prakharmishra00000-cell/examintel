@@ -206,7 +206,7 @@ function AiStatusPill() {
           ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
           : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
       )}
-      title={ok ? `AI: ${aiStatus?.provider}` : "Demo mode — set OPENAI_API_KEY on Vercel for live AI"}
+      title={ok ? `AI: ${aiStatus?.provider}` : "Demo mode — set GEMINI_API_KEY on Vercel for live AI"}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", ok ? "bg-emerald-500" : "bg-amber-500")} />
       {ok ? "AI Live" : "Demo Mode"}

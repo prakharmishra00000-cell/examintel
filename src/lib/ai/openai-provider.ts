@@ -1,26 +1,49 @@
 // ============================================================
-// OpenAI-compatible Provider — for Vercel deployment
+// LLM Provider — Gemini (default) + OpenAI-compatible
 // ============================================================
-// Works with OpenAI, OpenRouter, Together, Groq, etc.
-// Set these env vars on Vercel:
-//   OPENAI_API_KEY     (required)
-//   OPENAI_BASE_URL    (optional, e.g. https://openrouter.ai/api/v1)
-//   OPENAI_MODEL       (optional, default gpt-4o-mini)
+// Set ONE of these env vars on Vercel:
+//
+//   GEMINI_API_KEY   ← recommended (Google AI Studio)
+//     Get it from: https://aistudio.google.com/apikey
+//     Default model: gemini-2.0-flash
+//     Default endpoint: https://generativelanguage.googleapis.com/v1beta/openai
+//
+//   OPENAI_API_KEY   ← optional (if you prefer OpenAI)
+//     Default model: gpt-4o-mini
+//     Default endpoint: https://api.openai.com/v1
+//
+//   OPENAI_BASE_URL  ← optional (for OpenRouter/Groq/Together etc.)
+//   OPENAI_MODEL     ← optional (override default model)
+//
+// When EITHER key is set, ALL AI features use real AI (no mock data).
+// Users visiting the live URL get real AI — no setup needed on their end.
 // ============================================================
 import type { LLMProvider, ChatCompletionMessage } from "./provider";
 import { extractJson } from "./provider";
 
 export class OpenAIProvider implements LLMProvider {
-  name = "openai-compatible";
+  name = "gemini";
   available = true;
 
-  private get key() {
+  private get geminiKey() {
+    return process.env.GEMINI_API_KEY ?? "";
+  }
+  private get openaiKey() {
     return process.env.OPENAI_API_KEY ?? "";
   }
+  private get key() {
+    return this.geminiKey || this.openaiKey;
+  }
   private get baseUrl() {
+    if (this.geminiKey) {
+      return process.env.OPENAI_BASE_URL ?? "https://generativelanguage.googleapis.com/v1beta/openai";
+    }
     return process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
   }
   private get model() {
+    if (this.geminiKey) {
+      return process.env.OPENAI_MODEL ?? "gemini-2.0-flash";
+    }
     return process.env.OPENAI_MODEL ?? "gpt-4o-mini";
   }
 
@@ -40,7 +63,7 @@ export class OpenAIProvider implements LLMProvider {
     });
     if (!res.ok) {
       const t = await res.text();
-      throw new Error(`OpenAI API error ${res.status}: ${t.slice(0, 300)}`);
+      throw new Error(`AI API error ${res.status}: ${t.slice(0, 300)}`);
     }
     const data = await res.json();
     return data.choices?.[0]?.message?.content ?? "";
