@@ -102,15 +102,22 @@ export function extractJson<T>(raw: string): T {
 }
 
 // Provider that tries the real provider and falls back to Mock on failure.
-// IMPORTANT: When GEMINI_API_KEY or OPENAI_API_KEY is set (production/Vercel),
-// the fallback is DISABLED — errors propagate so the user sees real AI
-// failures (not mock data). The mock fallback only kicks in during local/
-// sandbox development without a key.
+// When GEMINI_API_KEY or OPENAI_API_KEY is set:
+//   - 401/403 (invalid key) → error propagates (user must fix key)
+//   - 429/503 (quota/server) → mock fallback (UI keeps working, real AI resumes later)
+//   - Other errors → mock fallback
 class FallbackProvider implements LLMProvider {
   constructor(private primary: LLMProvider, private fallback: LLMProvider) {}
-  private get useFallback() {
-    // Only use mock fallback when no real API key is configured
-    return !process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY;
+  private get hasKey() {
+    return !!process.env.GEMINI_API_KEY || !!process.env.OPENAI_API_KEY;
+  }
+  // Allow fallback for rate limits/quota even with a key set
+  private shouldFallbackOnError(e: unknown): boolean {
+    const msg = (e as Error)?.message ?? "";
+    // 401/403 = invalid key — NEVER fall back, user must fix
+    if (/error 40[13]|401|403|invalid.*key|unauthorized/i.test(msg)) return false;
+    // Everything else (429, 503, JSON parse, etc.) → fall back to mock
+    return true;
   }
   get name() {
     return this.primary.available ? this.primary.name : this.fallback.name;
@@ -124,30 +131,27 @@ class FallbackProvider implements LLMProvider {
         return await this.primary.json<T>(system, user, schemaHint);
       }
     } catch (e) {
-      if (!this.useFallback) throw e;
-      console.error("[AI] primary provider failed, falling back to mock:", (e as Error)?.message);
+      if (!this.shouldFallbackOnError(e)) throw e;
+      console.error("[AI] primary provider failed, falling back to mock:", (e as Error)?.message?.slice(0, 100));
     }
-    if (!this.useFallback) throw new Error("AI provider unavailable and no fallback configured");
     return this.fallback.json<T>(system, user, schemaHint);
   }
   async text(system: string, user: string): Promise<string> {
     try {
       if (this.primary.available) return await this.primary.text(system, user);
     } catch (e) {
-      if (!this.useFallback) throw e;
-      console.error("[AI] primary provider failed, falling back to mock:", (e as Error)?.message);
+      if (!this.shouldFallbackOnError(e)) throw e;
+      console.error("[AI] primary provider failed, falling back to mock:", (e as Error)?.message?.slice(0, 100));
     }
-    if (!this.useFallback) throw new Error("AI provider unavailable and no fallback configured");
     return this.fallback.text(system, user);
   }
   async chat(messages: ChatCompletionMessage[]): Promise<string> {
     try {
       if (this.primary.available) return await this.primary.chat(messages);
     } catch (e) {
-      if (!this.useFallback) throw e;
-      console.error("[AI] primary chat failed, falling back to mock:", (e as Error)?.message);
+      if (!this.shouldFallbackOnError(e)) throw e;
+      console.error("[AI] primary chat failed, falling back to mock:", (e as Error)?.message?.slice(0, 100));
     }
-    if (!this.useFallback) throw new Error("AI provider unavailable and no fallback configured");
     return this.fallback.chat(messages);
   }
 }

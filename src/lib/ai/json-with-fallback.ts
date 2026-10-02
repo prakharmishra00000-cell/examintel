@@ -2,7 +2,8 @@
 // When GEMINI_API_KEY or OPENAI_API_KEY is set: real AI is used.
 // If the AI returns valid JSON that passes validation → returned directly.
 // If the AI returns invalid/partial JSON → mock fallback (so UI always works).
-// If the AI API itself fails (401/503/etc.) → error propagates (no mock).
+// If quota exceeded (429) → mock fallback (UI keeps working, real AI resumes when quota resets).
+// If auth error (401/403) → error propagates (user needs to fix their key).
 import { getLLM } from "./provider";
 import { MockProvider } from "./mock-provider";
 
@@ -27,13 +28,17 @@ export async function jsonWithFallback<T>(
     console.error("[AI] response failed validation, using mock fallback");
   } catch (e) {
     const msg = (e as Error)?.message ?? "";
-    // If it's an API-level error (auth, rate limit, server error), propagate it
-    // so the user knows the AI service is having issues.
-    if (hasKey && /error 4\d\d|error 5\d\d|401|403|429|503|UNAVAILABLE|quota/i.test(msg)) {
+    // 401/403 = invalid key — user must fix this, propagate the error
+    if (hasKey && /error 40[13]|401|403|invalid.*key|unauthorized/i.test(msg)) {
       throw e;
     }
-    // For other errors (JSON parsing, etc.), fall back to mock
-    console.error("[AI] call failed, using mock fallback:", msg);
+    // 429 (quota/rate limit) or 503 (server overload) — fall back to mock
+    // so the UI keeps working. Real AI resumes when quota resets.
+    if (/error 4\d\d|error 5\d\d|429|503|quota|UNAVAILABLE|rate.limit/i.test(msg)) {
+      console.error("[AI] quota/rate limit hit, using mock fallback temporarily:", msg.slice(0, 100));
+    } else {
+      console.error("[AI] call failed, using mock fallback:", msg.slice(0, 100));
+    }
   }
   // Mock fallback — ensures the UI always shows structured data
   const mock = new MockProvider();
