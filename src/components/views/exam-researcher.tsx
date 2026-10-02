@@ -198,6 +198,9 @@ function InfoRow({
 }
 
 function StagesTimeline({ stages }: { stages: ExamStage[] }) {
+  if (!stages || !Array.isArray(stages) || stages.length === 0) {
+    return <p className="text-sm text-muted-foreground">Stage information is not available for this exam.</p>;
+  }
   const sorted = [...stages].sort((a, b) => a.sequence - b.sequence);
   return (
     <div className="relative">
@@ -304,6 +307,9 @@ function SubjectAccordion({ topics }: { topics: SyllabusTopic[] }) {
 }
 
 function SyllabusSection({ syllabus }: { syllabus: ExamResearchReport["syllabus"] }) {
+  if (!syllabus || !Array.isArray(syllabus) || syllabus.length === 0) {
+    return <p className="text-sm text-muted-foreground">Syllabus information is not available for this exam.</p>;
+  }
   return (
     <div className="space-y-4">
       {syllabus.map((sub, i) => (
@@ -327,10 +333,13 @@ function SyllabusSection({ syllabus }: { syllabus: ExamResearchReport["syllabus"
 }
 
 function PatternSection({ pattern }: { pattern: ExamResearchReport["pattern"] }) {
+  if (!pattern) {
+    return <p className="text-sm text-muted-foreground">Exam pattern information is not available for this exam.</p>;
+  }
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatPill icon={Target} label="Questions" value={String(pattern.totalQuestions)} />
+        <StatPill icon={Target} label="Questions" value={String(pattern.totalQuestions ?? "N/A")} />
         <StatPill icon={Award} label="Max Marks" value={String(pattern.maxMarks)} />
         <StatPill icon={Clock} label="Duration" value={pattern.duration} />
         <StatPill icon={ClipboardList} label="Question Type" value={pattern.questionType} />
@@ -458,11 +467,18 @@ function CareerSection({ career }: { career: NonNullable<ExamResearchReport["car
 }
 
 function PreparationSection({ prep }: { prep: ExamResearchReport["preparation"] }) {
+  if (!prep) {
+    return (
+      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">
+        Preparation information is not available for this exam. Try researching again or use the Preparation Simulator for a detailed study plan.
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-sm">
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Difficulty Characteristics</p>
-        <p>{prep.difficultyCharacteristics}</p>
+        <p>{prep.difficultyCharacteristics ?? "Not available"}</p>
       </div>
 
       {prep.frequentlyTestedTopics && prep.frequentlyTestedTopics.length > 0 && (
