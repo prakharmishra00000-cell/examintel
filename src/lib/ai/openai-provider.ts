@@ -5,7 +5,7 @@
 //
 //   GEMINI_API_KEY   ← recommended (Google AI Studio)
 //     Get it from: https://aistudio.google.com/apikey
-//     Default model: gemini-2.0-flash
+//     Default model: gemini-3.8-flash
 //     Default endpoint: https://generativelanguage.googleapis.com/v1beta/openai
 //
 //   OPENAI_API_KEY   ← optional (if you prefer OpenAI)
@@ -42,7 +42,7 @@ export class OpenAIProvider implements LLMProvider {
   }
   private get model() {
     if (this.geminiKey) {
-      return process.env.OPENAI_MODEL ?? "gemini-2.0-flash";
+      return process.env.OPENAI_MODEL ?? "gemini-3.8-flash";
     }
     return process.env.OPENAI_MODEL ?? "gpt-4o-mini";
   }
