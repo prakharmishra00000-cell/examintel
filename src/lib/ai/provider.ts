@@ -110,7 +110,7 @@ export function extractJson<T>(raw: string): T {
 class FallbackProvider implements LLMProvider {
   constructor(private primary: LLMProvider, private fallback: LLMProvider) {}
   private get hasKey() {
-    return !!process.env.GEMINI_API_KEY || !!process.env.OPENAI_API_KEY;
+    return !!(process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_2 || process.env.GEMINI_API_KEY_3 || process.env.OPENAI_API_KEY);
   }
   // When key is set: fall back for rate limits and validation errors, NOT for auth errors
   private shouldFallbackOnError(e: unknown): boolean {
@@ -164,7 +164,7 @@ export async function getLLM(): Promise<LLMProvider> {
   if (_cached) return _cached;
   const { MockProvider } = await import("./mock-provider");
   const mock = new MockProvider();
-  const hasGemini = !!process.env.GEMINI_API_KEY;
+  const hasGemini = !!(process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_2 || process.env.GEMINI_API_KEY_3);
   const hasOpenAI = !!process.env.OPENAI_API_KEY;
   const hasRealKey = hasGemini || hasOpenAI;
   // SKIP_ZAI=1 forces mock mode (useful for QA / cron runs where the sandbox
