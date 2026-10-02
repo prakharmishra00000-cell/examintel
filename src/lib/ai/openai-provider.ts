@@ -103,11 +103,15 @@ export class OpenAIProvider implements LLMProvider {
       throw new Error("No API key configured. Set GEMINI_API_KEY on Vercel.");
     }
 
+    // Clear exhausted keys on every new request — quotas may have reset
+    this.exhaustedKeys.clear();
+
     let lastError: Error | null = null;
 
-    // Try each key in order (skip exhausted ones)
+    // Try each key in order
     for (let i = 0; i < allKeys.length; i++) {
-      if (this.exhaustedKeys.has(i)) continue; // skip exhausted keys
+      // Skip keys that fail during THIS request (429 on this call)
+      if (this.exhaustedKeys.has(i)) continue;
 
       try {
         return await this.callWithKey(allKeys[i], i, messages);
