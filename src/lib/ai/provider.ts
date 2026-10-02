@@ -112,15 +112,13 @@ class FallbackProvider implements LLMProvider {
   private get hasKey() {
     return !!process.env.GEMINI_API_KEY || !!process.env.OPENAI_API_KEY;
   }
-  // When key is set: only fall back for validation/parse errors, NOT API errors
-  // (API errors are retried by the provider itself; if retries fail, propagate)
+  // When key is set: fall back for rate limits and validation errors, NOT for auth errors
   private shouldFallbackOnError(e: unknown): boolean {
     const msg = (e as Error)?.message ?? "";
-    // 401/403 = invalid key → NEVER fall back
+    // 401/403 = invalid key → NEVER fall back, user must fix
     if (/error 40[13]|401|403|invalid.*key|unauthorized/i.test(msg)) return false;
-    // 429/503 = rate limit/server → NEVER fall back (provider already retried)
-    if (/error 429|error 503|429|503|quota|UNAVAILABLE|rate.limit/i.test(msg)) return false;
-    // JSON parse / validation errors → fall back to mock
+    // Everything else (429, 503, JSON parse, validation) → fall back to mock
+    // so the UI never breaks. Real AI resumes when the issue resolves.
     return true;
   }
   get name() {
