@@ -35,7 +35,7 @@ export class OpenAIProvider implements LLMProvider {
         model: this.model,
         messages,
         temperature: 0.4,
-        max_tokens: 4000,
+        max_tokens: 8000,
       }),
     });
     if (!res.ok) {
