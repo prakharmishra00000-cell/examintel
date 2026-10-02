@@ -103,20 +103,24 @@ export function extractJson<T>(raw: string): T {
 
 // Provider that tries the real provider and falls back to Mock on failure.
 // When GEMINI_API_KEY or OPENAI_API_KEY is set:
+//   - The real provider (Gemini/OpenAI) is used with automatic retry on 429/503
 //   - 401/403 (invalid key) → error propagates (user must fix key)
-//   - 429/503 (quota/server) → mock fallback (UI keeps working, real AI resumes later)
+//   - Validation failures → mock fallback (keeps UI working)
 //   - Other errors → mock fallback
 class FallbackProvider implements LLMProvider {
   constructor(private primary: LLMProvider, private fallback: LLMProvider) {}
   private get hasKey() {
     return !!process.env.GEMINI_API_KEY || !!process.env.OPENAI_API_KEY;
   }
-  // Allow fallback for rate limits/quota even with a key set
+  // When key is set: only fall back for validation/parse errors, NOT API errors
+  // (API errors are retried by the provider itself; if retries fail, propagate)
   private shouldFallbackOnError(e: unknown): boolean {
     const msg = (e as Error)?.message ?? "";
-    // 401/403 = invalid key — NEVER fall back, user must fix
+    // 401/403 = invalid key → NEVER fall back
     if (/error 40[13]|401|403|invalid.*key|unauthorized/i.test(msg)) return false;
-    // Everything else (429, 503, JSON parse, etc.) → fall back to mock
+    // 429/503 = rate limit/server → NEVER fall back (provider already retried)
+    if (/error 429|error 503|429|503|quota|UNAVAILABLE|rate.limit/i.test(msg)) return false;
+    // JSON parse / validation errors → fall back to mock
     return true;
   }
   get name() {
