@@ -81,93 +81,200 @@ export class MockProvider implements LLMProvider {
 
 // ----- canned structured responses (so the UI is fully explorable) -----
 function mockExamResearch(query: string): unknown {
-  // Extract exam name from the user prompt. The prompt is multi-line like:
-  //   Research the competitive exam: "SSC CGL"\n\nProduce a complete...
-  // Try to grab the quoted name first, then fall back to cleaning.
   let examName = "SSC CGL";
   const quoted = query.match(/"([^"]+)"/);
-  if (quoted && quoted[1]) {
-    examName = quoted[1].trim();
-  } else {
-    // Try first line after "exam:" or similar
+  if (quoted && quoted[1]) examName = quoted[1].trim();
+  else {
     const m = query.match(/exam[:\s]+([^\n]+)/i);
     if (m && m[1]) examName = m[1].replace(/[^\w\s&.-]/g, "").trim().slice(0, 50);
     if (!examName) examName = "SSC CGL";
   }
+
+  const q = examName.toLowerCase();
+  let profile: {
+    org: string; purpose: string; website: string; freq: string; cycle: string;
+    qual: string; age: string; nat: string; elig: string[];
+    stages: { name: string; desc: string; seq: number; details?: string[] }[];
+    syllabus: { subject: string; topics: { name: string; subtopics: { name: string; concepts: string[] }[] }[] }[];
+    pattern: { totalQ: number; maxM: number; dur: string; qType: string; markScheme: string; negMark: string; sections: { section: string; questions: number; marks: number }[]; secTiming: string; qualReq: string[] };
+    prepDiff: string; prepTopics: string[]; prepSubj: string[]; prepMistakes: string[]; prepSeq: string[]; prepPyq: string; prepDeps: string[]; prepPrereq: string[];
+    career?: { posts: string[]; depts: string[]; roles: string[]; pay: string; salary?: string; prog: string; profile: string };
+    caveats: string[];
+  };
+
+  if (q.includes("gate")) {
+    profile = {
+      org: "Indian Institute of Technology (IIT) & IISc", purpose: "Admission to M.Tech/M.E. programs and recruitment to PSUs",
+      website: "https://gate.iitk.ac.in", freq: "Annual", cycle: "Conducted in February",
+      qual: "Bachelor's/Master's in Engineering/Technology/Architecture", age: "No age limit", nat: "Indian citizen (foreign nationals can also apply)",
+      elig: ["B.E./B.Tech/B.Arch (4 years after 10+2)", "M.Sc/M.A/MCA equivalent", "No age limit"],
+      stages: [
+        { name: "Single CBT", desc: "Computer Based Test — 65 questions, 100 marks, 3 hours", seq: 1, details: ["General Aptitude: 15 marks", "Engineering Mathematics: 13-15 marks", "Subject questions: 70-72 marks"] },
+        { name: "Result & Counseling", desc: "Score used for M.Tech admission (COAP) and PSU recruitment", seq: 2 },
+      ],
+      syllabus: [
+        { subject: "General Aptitude", topics: [{ name: "Verbal Ability", subtopics: [{ name: "Grammar", concepts: ["Sentence completion", "Verbal analogies", "Word groups"] }] }, { name: "Numerical Ability", subtopics: [{ name: "Quantitative", concepts: ["Data interpretation", "Numerical computation"] }] }] },
+        { subject: "Engineering Mathematics", topics: [{ name: "Linear Algebra", subtopics: [{ name: "Matrix algebra", concepts: ["Eigenvalues", "Vectors"] }] }, { name: "Calculus", subtopics: [{ name: "Differential", concepts: ["Maxima minima", "Mean value theorem"] }] }] },
+        { subject: "Technical Subject", topics: [{ name: "Core Technical", subtopics: [{ name: "Subject-specific", concepts: ["As per syllabus"] }] }] },
+      ],
+      pattern: { totalQ: 65, maxM: 100, dur: "180 minutes (3 hours)", qType: "MCQ + NAT + MSQ", markScheme: "+1 or +2 per question (1-mark and 2-mark questions)", negMark: "1/3 for 1-mark, 2/3 for 2-mark", sections: [{ section: "General Aptitude", questions: 10, marks: 15 }, { section: "Engineering Math + Technical", questions: 55, marks: 85 }], secTiming: "No sectional timing", qualReq: ["Qualifying marks vary by category"] },
+      prepDiff: "Moderate to Difficult (technical depth + aptitude)", prepTopics: ["Engineering Mathematics", "General Aptitude", "Core Technical"], prepSubj: ["Technical subject", "Engineering Mathematics"], prepMistakes: ["Ignoring General Aptitude (easy 15 marks)", "Not practicing numerical answer types", "Weak fundamentals in core subject"], prepSeq: ["Strengthen fundamentals", "Engineering Mathematics", "Core technical syllabus", "PYQ practice", "Mock tests"], prepPyq: "Very high — last 10 years PYQs essential", prepDeps: ["Math → Technical subjects", "Aptitude is independent"], prepPrereq: ["Basic engineering fundamentals", "Mathematics through college"],
+      career: { posts: ["M.Tech at IITs/NITs", "PSU jobs (IOCL, NTPC, BHEL, etc.)", "Research at DRDO/ISRO"], depts: ["IITs", "NITs", "PSUs"], roles: ["Postgraduate student", "Engineer trainee at PSU"], pay: "Level 7-10 (PSU) or stipend during M.Tech", salary: "₹44,900-₹1,42,400 (PSU)", prog: "M.Tech → PhD → Research/Industry", profile: "Higher education or PSU employment" },
+      caveats: ["Mock data — verify with latest GATE notification", "Exact dates vary by year"],
+    };
+  } else if (q.includes("cat") && !q.includes("cgl")) {
+    profile = {
+      org: "Indian Institutes of Management (IIMs)", purpose: "Admission to MBA/PGDM programs at IIMs and 1200+ B-schools",
+      website: "https://iimcat.ac.in", freq: "Annual", cycle: "Notification in July, exam in November",
+      qual: "Bachelor's degree with 50% marks (45% for SC/ST/PwD)", age: "No age limit", nat: "Indian citizen",
+      elig: ["Bachelor's degree (3+ years) with 50% (45% SC/ST/PwD)", "Final year students eligible", "No age limit"],
+      stages: [
+        { name: "CAT Exam (CBT)", desc: "Computer Based Test — 66 questions, 198 marks, 2 hours", seq: 1, details: ["VARC: 24 questions, 40 min", "DILR: 20 questions, 40 min", "QA: 22 questions, 40 min"] },
+        { name: "Shortlisting (IIMs)", desc: "IIMs shortlist based on CAT score + profile", seq: 2, details: ["Academic profile", "Work experience", "Diversity factors"] },
+        { name: "WAT-PI (Written Ability Test + Personal Interview)", desc: "Final selection round at each IIM", seq: 3 },
+      ],
+      syllabus: [
+        { subject: "Verbal Ability & Reading Comprehension (VARC)", topics: [{ name: "Reading Comprehension", subtopics: [{ name: "Passages", concepts: ["Inference", "Main idea", "Tone"] }] }, { name: "Verbal Ability", subtopics: [{ name: "Para Jumbles", concepts: ["Sentence arrangement"] }, { name: "Summary", concepts: ["Paragraph summary"] }] }] },
+        { subject: "Data Interpretation & Logical Reasoning (DILR)", topics: [{ name: "Data Interpretation", subtopics: [{ name: "Tables/Charts", concepts: ["Bar charts", "Pie charts", "Line graphs"] }] }, { name: "Logical Reasoning", subtopics: [{ name: "Puzzles", concepts: ["Seating arrangement", "Venn diagrams", "Games"] }] }] },
+        { subject: "Quantitative Ability (QA)", topics: [{ name: "Arithmetic", subtopics: [{ name: "Percentages", concepts: ["Successive percentage", "Profit & Loss"] }, { name: "Time & Work", concepts: ["Work rate", "Pipes & Cisterns"] }] }, { name: "Algebra", subtopics: [{ name: "Equations", concepts: ["Linear", "Quadratic"] }] }, { name: "Geometry", subtopics: [{ name: "Mensuration", concepts: ["Triangles", "Circles"] }] }] },
+      ],
+      pattern: { totalQ: 66, maxM: 198, dur: "120 minutes (2 hours)", qType: "MCQ + TITA (Type In The Answer)", markScheme: "+3 per correct (MCQ)", negMark: "-1 per wrong (MCQ), no negative for TITA", sections: [{ section: "VARC", questions: 24, marks: 72 }, { section: "DILR", questions: 20, marks: 60 }, { section: "QA", questions: 22, marks: 66 }], secTiming: "Sectional timing: 40 minutes per section", qualReq: ["50% in graduation (45% SC/ST/PwD)"] },
+      prepDiff: "Difficult (speed + accuracy + strategy)", prepTopics: ["Reading Comprehension", "Arithmetic", "DI sets", "Logical Reasoning puzzles"], prepSubj: ["VARC", "DILR", "QA"], prepMistakes: ["Ignoring RC practice", "Poor time management across sections", "Not practicing TITA questions"], prepSeq: ["Build fundamentals in QA", "RC daily practice", "DI/LR set practice", "Full mock tests", "Analysis & targeted practice"], prepPyq: "Very high — CAT PYQs essential for pattern understanding", prepDeps: ["Arithmetic → Algebra → Geometry", "RC speed → accuracy"], prepPrereq: ["Basic math through class 10", "English reading habit"],
+      career: { posts: ["MBA at IIMs", "MBA at FMS, MDI, SPJIMR, etc."], depts: ["IIM Ahmedabad", "IIM Bangalore", "IIM Calcutta", "Other B-schools"], roles: ["MBA student → Management consultant", "Investment banker", "Product manager"], pay: "Variable (₹15-30 LPA avg at top IIMs)", salary: "₹15,00,000-₹30,00,000 (avg CTC at top IIMs)", prog: "MBA → Summer internship → PPO → Final placement", profile: "Management career across industries" },
+      caveats: ["Mock data — verify with latest CAT notification", "Exam pattern may change"],
+    };
+  } else if (q.includes("upsc") || q.includes("cse")) {
+    profile = {
+      org: "Union Public Service Commission (UPSC)", purpose: "Recruitment to Indian Administrative Service (IAS), Indian Police Service (IPS), Indian Foreign Service (IFS) and other Group A/B services",
+      website: "https://upsc.gov.in", freq: "Annual", cycle: "Prelims in May-June, Mains in September, Interview in Jan-April",
+      qual: "Bachelor's degree from a recognised university", age: "21-32 years (relaxation for reserved categories)", nat: "Indian citizen",
+      elig: ["Bachelor's degree (any discipline)", "Age 21-32 (relaxation: SC/ST +5, OBC +3)", "Number of attempts: 6 (general), 9 (OBC), unlimited (SC/ST)"],
+      stages: [
+        { name: "Preliminary Examination", desc: "Two objective papers (GS + CSAT), qualifying in nature", seq: 1, details: ["GS Paper 1: 100 questions, 200 marks, 2 hours", "CSAT Paper 2: 80 questions, 200 marks, 2 hours (33% qualifying)"] },
+        { name: "Mains Examination", desc: "9 descriptive papers (1 essay, 4 GS, 2 optional, 2 language qualifying)", seq: 2, details: ["Essay: 250 marks", "GS Papers 1-4: 1000 marks", "Optional Paper 1 & 2: 500 marks", "Language papers (qualifying)"] },
+        { name: "Personality Test (Interview)", desc: "275 marks — personality assessment by UPSC board", seq: 3 },
+      ],
+      syllabus: [
+        { subject: "General Studies", topics: [{ name: "History (Ancient, Medieval, Modern)", subtopics: [{ name: "Modern History", concepts: ["Freedom struggle", "Gandhian era", "Post-independence"] }] }, { name: "Geography", subtopics: [{ name: "Physical Geography", concepts: ["Geomorphology", "Climatology"] }] }, { name: "Polity", subtopics: [{ name: "Indian Constitution", concepts: ["Fundamental rights", "DPSP", "Parliament"] }] }, { name: "Economy", subtopics: [{ name: "Macroeconomics", concepts: ["GDP", "Inflation", "Banking"] }] }] },
+        { subject: "CSAT", topics: [{ name: "Comprehension", subtopics: [{ name: "RC passages", concepts: ["Inference", "Logic"] }] }, { name: "Quantitative Aptitude", subtopics: [{ name: "Basic math", concepts: ["Percentages", "Ratio"] }] }] },
+        { subject: "Optional Subject", topics: [{ name: "As per choice", subtopics: [{ name: "Subject-specific", concepts: ["Depends on optional chosen"] }] }] },
+      ],
+      pattern: { totalQ: 100, maxM: 200, dur: "2 hours per paper (Prelims)", qType: "Objective MCQ (Prelims) + Descriptive (Mains)", markScheme: "+2 per correct (GS), +2.5 (CSAT)", negMark: "-0.66 per wrong (GS), -0.83 (CSAT)", sections: [{ section: "GS Paper 1", questions: 100, marks: 200 }, { section: "CSAT Paper 2", questions: 80, marks: 200 }], secTiming: "2 hours per paper", qualReq: ["33% in CSAT", "Cut-off varies by category"] },
+      prepDiff: "Very Difficult (vast syllabus + 3 stages + 1-2 year preparation)", prepTopics: ["Modern History", "Polity", "Geography", "Current Affairs", "Economy"], prepSubj: ["General Studies", "Optional subject", "Ethics (GS4)"], prepMistakes: ["Not enough answer writing practice", "Ignoring CSAT (can be tricky)", "Reading too many books without revision", "Poor optional choice"], prepSeq: ["NCERT basics (6-12)", "Standard books (Laxmikanth, Spectrum)", "Current affairs daily", "Answer writing daily", "Optional subject", "Mock tests"], prepPyq: "Extremely important — last 10 years PYQs for Prelims and Mains", prepDeps: ["NCERT → Standard books → Current affairs", "Prelims → Mains (different preparation)"], prepPrereq: ["Good reading habit", "Basic awareness of current events"],
+      career: { posts: ["IAS (District Collector/DM)", "IPS (SP/DCP)", "IFS (Diplomat)", "IRS (Tax)", "Other Group A services"], depts: ["Ministry of Home Affairs", "Ministry of External Affairs", "CBDT", "CBIC"], roles: ["Sub-divisional Magistrate", "Superintendent of Police", "Assistant Commissioner"], pay: "Level 10 (₹56,100-₹1,77,500 starting)", salary: "₹56,100 basic (starting)", prog: "Entry → Senior scale → Junior Administrative Grade → Senior Administrative Grade", profile: "Administrative, law enforcement, diplomatic, or revenue services" },
+      caveats: ["Mock data — verify with latest UPSC notification", "Pattern may change", "Optional subjects have different syllabi"],
+    };
+  } else if (q.includes("rrb") || q.includes("railway")) {
+    profile = {
+      org: "Railway Recruitment Board (RRB)", purpose: "Recruitment to various Group C/D posts in Indian Railways",
+      website: "https://rrbcdg.gov.in", freq: "As per notification", cycle: "Varies by post",
+      qual: "Diploma/Degree in Engineering (JE) or 10+2 (NTPC)", age: "18-36 years (varies by post)", nat: "Indian citizen",
+      elig: ["Diploma/Degree in relevant engineering (JE)", "10+2 for NTPC", "Age 18-36 (relaxation for reserved)"],
+      stages: [
+        { name: "CBT 1", desc: "Computer Based Test — 100 questions, 100 marks, 90 min", seq: 1 },
+        { name: "CBT 2", desc: "Computer Based Test — subject-specific, 120 questions, 90 min", seq: 2 },
+        { name: "Typing Test/Skill Test", desc: "For applicable posts", seq: 3 },
+        { name: "Document Verification", desc: "Final verification", seq: 4 },
+      ],
+      syllabus: [
+        { subject: "Mathematics", topics: [{ name: "Arithmetic", subtopics: [{ name: "Percentage", concepts: ["Base", "Change"] }] }] },
+        { subject: "General Intelligence & Reasoning", topics: [{ name: "Reasoning", subtopics: [{ name: "Series", concepts: ["Number", "Letter"] }] }] },
+        { subject: "General Awareness", topics: [{ name: "Current Affairs", subtopics: [{ name: "Recent", concepts: ["Last 6 months"] }] }] },
+        { subject: "Railway Awareness", topics: [{ name: "Railway specific", subtopics: [{ name: "Railway GK", concepts: ["History", "Zones"] }] }] },
+      ],
+      pattern: { totalQ: 100, maxM: 100, dur: "90 minutes", qType: "Objective MCQ", markScheme: "+1 per correct", negMark: "-0.25 per wrong", sections: [{ section: "Math", questions: 30, marks: 30 }, { section: "Reasoning", questions: 25, marks: 25 }, { section: "GA", questions: 25, marks: 25 }, { section: "Science", questions: 20, marks: 20 }], secTiming: "No sectional timing", qualReq: ["Category-wise cut-off"] },
+      prepDiff: "Moderate (speed-focused)", prepTopics: ["Mathematics", "Reasoning", "General Awareness", "Railway GK"], prepSubj: ["Mathematics", "Reasoning"], prepMistakes: ["Ignoring railway-specific GK", "Slow calculation speed"], prepSeq: ["Arithmetic basics", "Reasoning patterns", "GA daily", "Railway GK", "Mock tests"], prepPyq: "Important — RRB PYQs show pattern", prepDeps: ["Basic math → Arithmetic"], prepPrereq: ["Basic 10+2 level math"],
+      caveats: ["Mock data — verify with latest RRB notification"],
+    };
+  } else if (q.includes("bank") || q.includes("ibps") || q.includes("sbi") || q.includes("po")) {
+    profile = {
+      org: "Institute of Banking Personnel Selection (IBPS) / State Bank of India (SBI)", purpose: "Recruitment to Probationary Officer (PO) and Clerk posts in Public Sector Banks",
+      website: "https://ibps.in", freq: "Annual", cycle: "Prelims in Oct, Mains in Nov, Interview in Jan-Feb",
+      qual: "Bachelor's degree in any discipline", age: "20-30 years", nat: "Indian citizen",
+      elig: ["Graduation (any discipline)", "Age 20-30 (relaxation for reserved)"],
+      stages: [
+        { name: "Preliminary Exam", desc: "3 sections, 100 questions, 100 marks, 20 min each", seq: 1, details: ["English: 30 Q, 20 min", "Quant: 35 Q, 20 min", "Reasoning: 35 Q, 20 min"] },
+        { name: "Mains Exam", desc: "Objective + Descriptive, 155+2 questions, 200+50 marks, 3 hours", seq: 2 },
+        { name: "Interview (PO only)", desc: "100 marks — personality assessment", seq: 3 },
+      ],
+      syllabus: [
+        { subject: "Quantitative Aptitude", topics: [{ name: "Simplification", subtopics: [{ name: "BODMAS", concepts: ["Quick calculation"] }] }, { name: "Data Interpretation", subtopics: [{ name: "Tables/Graphs", concepts: ["Bar", "Pie", "Line"] }] }] },
+        { subject: "Reasoning Ability", topics: [{ name: "Puzzles", subtopics: [{ name: "Seating", concepts: ["Linear", "Circular"] }] }, { name: "Syllogism", subtopics: [{ name: "Logical", concepts: ["Statements", "Conclusions"] }] }] },
+        { subject: "English Language", topics: [{ name: "Reading Comprehension", subtopics: [{ name: "Passages", concepts: ["Inference"] }] }] },
+        { subject: "Banking Awareness", topics: [{ name: "Banking", subtopics: [{ name: "Current affairs", concepts: ["Banking news"] }] }] },
+      ],
+      pattern: { totalQ: 100, maxM: 100, dur: "60 minutes (Prelims)", qType: "Objective MCQ", markScheme: "+1 per correct", negMark: "-0.25 per wrong", sections: [{ section: "English", questions: 30, marks: 30 }, { section: "Quant", questions: 35, marks: 35 }, { section: "Reasoning", questions: 35, marks: 35 }], secTiming: "20 min per section", qualReq: ["Category-wise cut-off"] },
+      prepDiff: "Moderate-High (speed + accuracy critical)", prepTopics: ["Simplification", "Puzzles", "DI", "Reading Comprehension", "Banking Awareness"], prepSubj: ["Quantitative Aptitude", "Reasoning"], prepMistakes: ["Slow calculation speed", "Ignoring banking awareness", "Not practicing sectional tests"], prepSeq: ["Simplification practice daily", "Puzzle sets", "English RC daily", "Banking GK", "Mock tests"], prepPyq: "Important — last 5 years", prepDeps: ["Speed → Accuracy"], prepPrereq: ["Basic math", "English reading"],
+      career: { posts: ["Probationary Officer (PO)", "Clerk", "Specialist Officer (SO)"], depts: ["Public sector banks", "SBI"], roles: ["PO → Assistant Manager → Branch Manager"], pay: "Level 8-10 starting", salary: "₹48,480 (starting in-hand, PO)", prog: "PO → Scale I → II → III → IV → V", profile: "Banking operations and management" },
+      caveats: ["Mock data — verify with latest IBPS/SBI notification"],
+    };
+  } else {
+    // Default: SSC CGL
+    profile = {
+      org: "Staff Selection Commission (SSC)", purpose: "Recruitment to Group B and C posts in various ministries/departments of the Government of India",
+      website: "https://ssc.gov.in", freq: "Annual", cycle: "Notified in June-July, Tier 1 in July-August",
+      qual: "Bachelor's degree from a recognised university", age: "18-32 years (relaxation for reserved)", nat: "Indian citizen",
+      elig: ["Bachelor's degree", "Age 18-32 (relaxation for reserved categories)"],
+      stages: [
+        { name: "Tier 1 (Preliminary)", desc: "Objective CBT, 100 questions, 200 marks, 60 min", seq: 1 },
+        { name: "Tier 2 (Mains)", desc: "Objective CBT, 135 questions, 400 marks", seq: 2 },
+        { name: "Document Verification", desc: "Eligibility verification", seq: 3 },
+        { name: "Final Selection", desc: "Merit based on Tier 2", seq: 4 },
+      ],
+      syllabus: [
+        { subject: "Quantitative Aptitude", topics: [{ name: "Arithmetic", subtopics: [{ name: "Percentage", concepts: ["Base value", "Successive percentage"] }, { name: "Profit & Loss", concepts: ["CP", "SP", "Discount"] }] }, { name: "Advanced Maths", subtopics: [{ name: "Geometry", concepts: ["Triangles", "Circles"] }] }] },
+        { subject: "General Intelligence & Reasoning", topics: [{ name: "Verbal Reasoning", subtopics: [{ name: "Series", concepts: ["Number", "Letter"] }] }] },
+        { subject: "English Language", topics: [{ name: "Comprehension", subtopics: [{ name: "RC", concepts: ["Inference"] }] }] },
+        { subject: "General Awareness", topics: [{ name: "Current Affairs", subtopics: [{ name: "Recent", concepts: ["Last 6 months"] }] }] },
+      ],
+      pattern: { totalQ: 100, maxM: 200, dur: "60 minutes", qType: "Objective MCQ", markScheme: "+2 per correct", negMark: "-0.5 per wrong", sections: [{ section: "Reasoning", questions: 25, marks: 50 }, { section: "GA", questions: 25, marks: 50 }, { section: "Quant", questions: 25, marks: 50 }, { section: "English", questions: 25, marks: 50 }], secTiming: "No sectional timing", qualReq: ["Category cut-off"] },
+      prepDiff: "Moderate to Difficult", prepTopics: ["Percentage", "Ratio", "Series", "Comprehension"], prepSubj: ["Quantitative Aptitude", "Reasoning"], prepMistakes: ["Neglecting current affairs", "Poor time management"], prepSeq: ["Arithmetic basics", "Reasoning", "English", "GA", "Mock tests"], prepPyq: "Very high — last 5 years", prepDeps: ["Percentage → Profit & Loss"], prepPrereq: ["Tables & quick calculation"],
+      career: { posts: ["Inspector (Income Tax)", "Assistant (CSS)", "Auditor", "Assistant Audit Officer"], depts: ["CBDT", "CBIC", "Ministry of Railways"], roles: ["Inspector", "Assistant", "Auditor"], pay: "Level 4-8", salary: "₹25,500-₹47,600", prog: "Departmental promotions", profile: "Administrative, audit, inspection" },
+      caveats: ["Mock data — verify with latest SSC notification"],
+    };
+  }
+
   return {
     basicInfo: {
       name: examName,
-      conductingOrganisation: "Staff Selection Commission",
-      examPurpose: "Recruitment to Group B and C posts in various ministries/departments of the Government of India",
-      officialWebsite: "https://ssc.gov.in",
-      examFrequency: "Annual",
-      cycleInfo: "Usually notified in June-July, conducted in July-August (Tier 1)",
-      qualification: "Bachelor's degree from a recognised university",
-      ageLimit: "18-32 years (relaxation for reserved categories)",
-      nationality: "Indian citizen",
-      importantEligibility: ["Bachelor's degree (for Assistant Audit Officer: desirable Commerce/Mathematics/Statistics)", "Age as on cut-off date"],
+      conductingOrganisation: profile.org,
+      examPurpose: profile.purpose,
+      officialWebsite: profile.website,
+      examFrequency: profile.freq,
+      cycleInfo: profile.cycle,
+      qualification: profile.qual,
+      ageLimit: profile.age,
+      nationality: profile.nat,
+      importantEligibility: profile.elig,
       infoCurrency: "current",
     },
-    stages: [
-      { name: "Tier 1 (Preliminary)", description: "Objective computer-based test, qualifying in nature", sequence: 1, details: ["4 sections of 25 questions each", "Total 100 questions, 200 marks", "60 minutes"] },
-      { name: "Tier 2 (Mains)", description: "Objective + descriptive computer-based exam", sequence: 2, details: ["Paper 1: compulsory", "Paper 2: Statistics (for JSO)", "Paper 3: Assistant Audit Officer"] },
-      { name: "Document Verification", description: "Verification of eligibility documents", sequence: 3 },
-      { name: "Final Selection", description: "Merit based on Tier 2", sequence: 4 },
-    ],
-    syllabus: [
-      {
-        subject: "Quantitative Aptitude",
-        topics: [
-          { name: "Arithmetic", subtopics: [{ name: "Percentage", concepts: ["Base value", "Successive percentage", "Percentage change"], prerequisites: ["Fractions", "Decimals"], difficulty: "Easy" }, { name: "Profit & Loss", concepts: ["CP", "SP", "Discount", "Marked price"], prerequisites: ["Percentage"], difficulty: "Medium" }, { name: "Ratio & Proportion", concepts: ["Compound ratio", "Variation"], difficulty: "Easy" }] },
-          { name: "Algebra", subtopics: [{ name: "Linear Equations", concepts: ["One variable", "Two variables"], difficulty: "Medium" }] },
-        ],
-      },
-      { subject: "General Intelligence & Reasoning", topics: [{ name: "Verbal Reasoning", subtopics: [{ name: "Series", concepts: ["Number series", "Letter series"] }], examRelevance: "High" }] },
-      { subject: "English Language", topics: [{ name: "Reading Comprehension", subtopics: [{ name: "Passage", concepts: ["Inference", "Vocabulary"] }] }] },
-      { subject: "General Awareness", topics: [{ name: "Current Affairs", subtopics: [{ name: "National & International", concepts: ["Last 6 months"] }] }] },
-    ],
+    stages: profile.stages,
+    syllabus: profile.syllabus,
     pattern: {
-      totalQuestions: 100,
-      maxMarks: 200,
-      duration: "60 minutes",
-      questionType: "Objective MCQ",
-      markingScheme: "+2 per correct",
-      negativeMarking: "0.5 per incorrect",
-      sectionDistribution: [
-        { section: "General Intelligence & Reasoning", questions: 25, marks: 50 },
-        { section: "General Awareness", questions: 25, marks: 50 },
-        { section: "Quantitative Aptitude", questions: 25, marks: 50 },
-        { section: "English Comprehension", questions: 25, marks: 50 },
-      ],
-      sectionalTiming: "No sectional timing (combined 60 min)",
-      qualifyingRequirements: ["Category-wise cut-off", "Sectional cut-off applies"],
+      totalQuestions: profile.pattern.totalQ,
+      maxMarks: profile.pattern.maxM,
+      duration: profile.pattern.dur,
+      questionType: profile.pattern.qType,
+      markingScheme: profile.pattern.markScheme,
+      negativeMarking: profile.pattern.negMark,
+      sectionDistribution: profile.pattern.sections,
+      sectionalTiming: profile.pattern.secTiming,
+      qualifyingRequirements: profile.pattern.qualReq,
     },
-    career: {
-      posts: ["Assistant Audit Officer", "Assistant Accounts Officer", "Inspector (Income Tax)", "Assistant (CSS)", "Auditor"],
-      departments: ["CBDT", "CBIC", "Ministry of Railways", "Ministry of External Affairs"],
-      jobRoles: ["Assistant", "Inspector", "Auditor", "Accountant"],
-      payLevel: "Level 4 to Level 8 (Pay Matrix)",
-      basicSalary: "₹25,500 to ₹47,600",
-      allowances: ["DA", "HRA", "Transport Allowance"],
-      careerProgression: "Departmental promotions to Section Officer, Under Secretary etc.",
-      workProfile: "Administrative, audit, and inspection roles",
-    },
+    career: profile.career,
     preparation: {
-      difficultyCharacteristics: "Moderate to Difficult",
-      frequentlyTestedTopics: ["Percentage", "Profit & Loss", "Series", "Reading Comprehension"],
-      importantSubjects: ["Quantitative Aptitude", "Reasoning"],
-      commonMistakes: ["Neglecting current affairs", "Time management in Tier 1", "Ignoring negative marking"],
-      recommendedSequence: ["Arithmetic foundations", "Reasoning practice", "English daily reading", "Current affairs ongoing"],
-      pyqImportance: "Very high — last 5 years PYQs cover ~70% pattern",
-      topicDependencies: ["Percentage → Profit & Loss", "Ratio → Mixture"],
-      highPriorityPrerequisites: ["Tables & quick calculation", "Reading speed"],
+      difficultyCharacteristics: profile.prepDiff,
+      frequentlyTestedTopics: profile.prepTopics,
+      importantSubjects: profile.prepSubj,
+      commonMistakes: profile.prepMistakes,
+      recommendedSequence: profile.prepSeq,
+      pyqImportance: profile.prepPyq,
+      topicDependencies: profile.prepDeps,
+      highPriorityPrerequisites: profile.prepPrereq,
     },
-    sources: [
-      { type: "AI_ANALYSIS", label: "AI Analysis", detail: "Based on publicly known exam structure" },
-      { type: "OFFICIAL", label: "Official website", detail: "ssc.gov.in" },
-    ],
+    sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
     generatedAt: new Date().toISOString(),
-    caveats: ["Mock data — verify with latest official notification", "Specific dates vary by cycle"],
+    caveats: profile.caveats,
   };
 }
 
