@@ -4,68 +4,62 @@ import type { ExamComparisonReport } from "@/types";
 
 function isExamComparisonReport(v: unknown): v is ExamComparisonReport {
   const r = v as any;
-  return !!r && typeof r === "object" && (Array.isArray(r.examNames) || Array.isArray(r.comparison));
+  // RELAXED validation: only require examNames + comparison (the minimum for
+  // a useful comparison). Missing commonSyllabus/overlap/careerPathways will
+  // be filled with defaults in the normalization step. This prevents falling
+  // back to mock when the real AI response is slightly truncated.
+  return (
+    !!r &&
+    typeof r === "object" &&
+    Array.isArray(r.examNames) &&
+    Array.isArray(r.comparison) &&
+    r.comparison.length >= 2
+  );
 }
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SYSTEM = `You are ExamIntel's Exam Comparison Engine — an expert at side-by-side competitive-exam analysis.
+const SYSTEM = `You are ExamIntel's Exam Comparison Engine. Produce a STRICT JSON comparing 2-5 competitive exams.
 
-Your job: take 2-5 exam names provided by the user and produce a STRICT JSON object that matches the ExamComparisonReport schema exactly. Compare across these dimensions:
-- Eligibility (qualification, nationality, important conditions)
-- Qualification (minimum education)
-- Age limit (with relaxations if relevant)
-- Stages (tier structure)
-- Subjects (which sections/subjects each tests)
-- Syllabus (common + exam-specific topics)
-- Pattern (questions, marks, duration, sections)
-- Marking scheme (positive marks)
-- Negative marking (penalty per wrong answer)
-- Difficulty (relative)
-- Posts offered
-- Job roles
-- Salary / pay level
-- Preparation overlap (which topics are shared)
-- Career pathways (how each exam leads to a career)
-- Prerequisite differences (what disqualifies you from one but not another)
-- Additional preparation (topics you must add if preparing for all of them)
+CRITICAL: You have limited response time. Be CONCISE.
+- Each text field: 1 short sentence (max 15 words).
+- Each array: cap at 5 items.
+- No padding, no markdown, no commentary.
 
-Strict rules:
-1. Output ONLY valid JSON. No markdown, no commentary outside JSON.
-2. The "comparison" array must contain ExamComparisonRow objects, each with "attribute" (string) and "values" (string[]). The values array MUST be aligned with the input examNames order and have exactly the same length as examNames.
-3. Cover AT LEAST these attributes (use more if useful): Qualification, Age Limit, Nationality, Stages, Subjects, Total Questions, Max Marks, Duration, Negative Marking, Difficulty, Posts, Job Roles, Pay Level, Frequency.
-4. Distinguish OFFICIAL facts (verifiable from notification/website) from AI_ANALYSIS (your own reasoning). Tag each SourceRef with the right type.
-5. Do NOT invent numerical overlap percentages unless they are derivable from the syllabus structure you produce. Use qualitative categories ("Very High" | "High" | "Moderate" | "Limited") in overlapCategories instead.
-6. "commonTopics" must be topics genuinely shared by ALL listed exams. "examSpecific" must list topics unique to each exam (one entry per exam, even if empty array).
-7. "additionalPreparation" must list topics that a candidate preparing for ALL these exams would need to add beyond what is common — with a short reason each.
-8. "careerPathways" and "prerequisiteDifferences" are plain string bullet lists.
-9. "generatedAt" must be the current ISO timestamp.
-10. If an exam name is unclear, make your best guess (e.g. "SSC CGL" = "Staff Selection Commission - Combined Graduate Level") and proceed.
-11. Never fabricate official URLs. If you cannot verify an official website, omit it or mark source as AI_ANALYSIS.`;
+Output JSON field order (IMPORTANT — generate in this order):
+1. examNames — array of exam names
+2. comparison — array of {attribute, values[]} (max 10 rows)
+3. commonSyllabus — {commonTopics[], examSpecific[{exam, topics[]}]}
+4. overlap — {overlapCategories[], existingPreparation[], additionalPreparation[]}
+5. careerPathways — string[] (max 5)
+6. prerequisiteDifferences — string[] (max 4)
+7. sources — SourceRef[] (max 3)
+8. generatedAt — ISO timestamp
+
+Rules:
+- examNames order must match the user's input order.
+- comparison[].values length must === examNames length.
+- Cover at least: Qualification, Age Limit, Stages, Negative Marking, Difficulty, Frequency, Conducting Body.
+- Use qualitative overlap categories: "Very High" | "High" | "Moderate" | "Limited".
+- commonTopics = topics shared by ALL exams. examSpecific = topics unique to each exam.
+- Tag sources: OFFICIAL for verifiable facts, AI_ANALYSIS for your synthesis.
+
+Return ONLY the JSON object.`;
 
 const SCHEMA = `ExamComparisonReport = {
-  examNames: string[],                                  // same order as input
-  comparison: { attribute: string; values: string[] }[],// values length === examNames length
-  commonSyllabus: {
-    commonTopics: string[],
-    examSpecific: { exam: string; topics: string[] }[]
-  },
+  examNames: string[],
+  comparison: { attribute: string, values: string[] }[] (max 10, values length === examNames length),
+  commonSyllabus: { commonTopics: string[] (max 6), examSpecific: { exam: string, topics: string[] (max 4) }[] },
   overlap: {
-    overlapCategories: { category: "Very High" | "High" | "Moderate" | "Limited"; topic: string; reason: string }[],
-    existingPreparation: string[],
-    additionalPreparation: { topic: string; reason: string }[]
+    overlapCategories: { category: "Very High"|"High"|"Moderate"|"Limited", topic: string, reason: string (1 sentence) }[] (max 5),
+    existingPreparation: string[] (max 4),
+    additionalPreparation: { topic: string, reason: string }[] (max 3)
   },
-  careerPathways: string[],
-  prerequisiteDifferences: string[],
-  sources: SourceRef[],
-  generatedAt: string                                   // ISO timestamp
-}
-
-SourceRef = {
-  type: "OFFICIAL" | "UPLOADED_DOCUMENT" | "SEARCH_SOURCE" | "USER_INPUT" | "AI_ANALYSIS" | "AI_GENERATED",
-  label: string,
-  detail?: string
+  careerPathways: string[] (max 5),
+  prerequisiteDifferences: string[] (max 4),
+  sources: { type: "OFFICIAL"|"AI_ANALYSIS"|"SEARCH_SOURCE"|"USER_INPUT", label: string, detail?: string }[] (max 3),
+  generatedAt: string (ISO timestamp)
 }`;
 
 export async function POST(req: NextRequest) {
@@ -85,31 +79,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Compare at most 5 exams at a time." }, { status: 400 });
     }
 
-    const user = `Compare these ${exams.length} competitive exams side by side and return the full ExamComparisonReport JSON:
+    const user = `Compare these ${exams.length} competitive exams. Return ONLY the JSON.
+Exams (in order):
 ${exams.map((e, i) => `${i + 1}. ${e}`).join("\n")}
 
-Remember:
-- examNames array order must match the order above.
-- Each comparison.values array must align with examNames (one value per exam).
-- Tag sources: OFFICIAL for verifiable facts from notifications/websites, AI_ANALYSIS for your own synthesis.
-- Use qualitative overlap categories (Very High / High / Moderate / Limited) — do not invent numeric percentages.
-- BE COMPREHENSIVE AND DETAILED — populate every applicable field with complete, specific information so the aspirant can make an informed decision.`;
+Set generatedAt to "${new Date().toISOString()}".
+Be CONCISE — 1-sentence values, cap arrays. Generate fields in this exact order: examNames, comparison, commonSyllabus, overlap, careerPathways, prerequisiteDifferences, sources, generatedAt.`;
 
     const report = await directJson<ExamComparisonReport>(SYSTEM, user, SCHEMA, isExamComparisonReport);
 
-    // Defensive normalization: ensure examNames matches input order/length.
+    // Defensive normalization: fill in defaults for any missing fields so the
+    // UI always has a complete report to render, even if the AI response was
+    // truncated or missing some optional sections.
     try {
-      if (!Array.isArray(report?.examNames) || report.examNames.length !== exams.length) {
-        (report as ExamComparisonReport).examNames = exams;
+      const r = report as any;
+      // Ensure examNames matches input order/length
+      if (!Array.isArray(r?.examNames) || r.examNames.length !== exams.length) {
+        r.examNames = exams;
       }
-      if (Array.isArray(report?.comparison)) {
-        (report as ExamComparisonReport).comparison = report.comparison.map((row) => ({
+      // Ensure comparison rows have correct values length
+      if (Array.isArray(r?.comparison)) {
+        r.comparison = r.comparison.map((row: any) => ({
           attribute: String(row?.attribute ?? ""),
           values: Array.isArray(row?.values)
             ? exams.map((_, i) => String(row.values[i] ?? "—"))
             : exams.map(() => "—"),
         }));
       }
+      // Fill defaults for missing optional sections
+      if (!r?.commonSyllabus || typeof r.commonSyllabus !== "object") {
+        r.commonSyllabus = { commonTopics: [], examSpecific: exams.map((e: string) => ({ exam: e, topics: [] })) };
+      }
+      if (!r?.overlap || typeof r.overlap !== "object") {
+        r.overlap = { overlapCategories: [], existingPreparation: [], additionalPreparation: [] };
+      }
+      if (!Array.isArray(r?.careerPathways)) r.careerPathways = [];
+      if (!Array.isArray(r?.prerequisiteDifferences)) r.prerequisiteDifferences = [];
+      if (!Array.isArray(r?.sources) || r.sources.length === 0) {
+        r.sources = [{ type: "AI_ANALYSIS", label: "AI Exam Comparison Analysis" }];
+      }
+      if (!r?.generatedAt) r.generatedAt = new Date().toISOString();
     } catch (normErr) {
       console.error("[exam/compare] normalization error:", normErr);
     }

@@ -50,11 +50,26 @@ export async function POST(req: NextRequest) {
 
     const summary = await directChat(messages);
 
-    if (!summary || !summary.trim()) {
-      return NextResponse.json(
-        { error: "AI returned an empty summary. Please try again." },
-        { status: 502 }
-      );
+    // If the AI failed (Demo mode), generate a basic summary locally.
+    if (summary.startsWith("**Demo") || !summary.trim()) {
+      const sentences = content.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 10);
+      const basicSummary = sentences.slice(0, 3).map((s) => `- ${s.trim()}`).join("\n");
+      const stopWords = new Set(["the","and","for","with","that","this","from","have","were","they","will","about","which","their","would","there","could","other","than","then","them","these","those","being","been","should","might","must","shall","does","done","going","made","make","into","also","such","very","more","most","some","any","all","both","each","many","like","just","only","own","same","can","did","was","are","has","had","what","when","where","why","how","who","whom","not","nor","but","yet"]);
+      const words = content.split(/\s+/)
+        .map((w) => w.toLowerCase().replace(/[^a-z]/gi, ""))
+        .filter((w) => w.length > 4 && !stopWords.has(w));
+      const tags = Array.from(new Set(words)).slice(0, 6);
+      const fallback = `## Summary
+${basicSummary || "- (Note content too short to summarize automatically)"}
+
+## Key Terms
+${tags.length > 0 ? tags.map((t) => `- **${t}**`).join("\n") : "- (No key terms extracted)"}
+
+## Suggested Tags
+tags: ${tags.slice(0, 5).join(", ") || "study-note"}
+
+**Note** — The AI summary service is temporarily unavailable. This is a basic summary. Try again in a moment for the full AI-analyzed summary.`;
+      return NextResponse.json({ summary: fallback, provider: "fallback" });
     }
 
     return NextResponse.json({ summary, provider: "gemini-direct" });

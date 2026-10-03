@@ -4,98 +4,84 @@ import type { ExamResearchReport } from "@/types";
 
 function isExamReport(v: unknown): v is ExamResearchReport {
   const r = v as any;
-  return !!r && typeof r === "object" && !!r.basicInfo;
+  // Strict validation: require the critical sections to be populated.
+  // This prevents truncated AI responses (which only have basicInfo/stages)
+  // from being returned — instead the mock provider's exam-aware fallback
+  // kicks in, which always has complete pattern/preparation/sources.
+  return (
+    !!r &&
+    typeof r === "object" &&
+    !!r.basicInfo &&
+    !!r.pattern &&
+    !!r.preparation &&
+    Array.isArray(r.sources) &&
+    r.sources.length > 0
+  );
 }
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SYSTEM_PROMPT = `You are ExamIntel's Exam Intelligence Researcher — a meticulous analyst who produces structured intelligence reports on competitive exams.
+// ============================================================
+// Vercel Hobby plan has a 10-second function timeout.
+// The previous verbose prompt caused the Gemini API to be cut
+// off mid-JSON, losing the syllabus/pattern/preparation/sources
+// fields. This rewrite:
+//   1. Reorders the schema so CRITICAL fields come FIRST
+//      (basicInfo → pattern → preparation → sources → caveats)
+//      and the verbose syllabus goes LAST. If truncated, we
+//      still have the important sections.
+//   2. Caps array lengths (4 stages, 4 subjects with 3 topics,
+//      4 sources, etc.) so the AI finishes faster.
+//   3. Asks for 1-sentence descriptions, no padding.
+// ============================================================
 
-Your job: given an exam name (e.g. "SSC CGL", "GATE Mechanical Engineering", "RRB JE", "UPSC CSE", "CAT"), produce a STRICT JSON object matching the ExamResearchReport schema provided below. The report must help a serious aspirant understand the exam end-to-end before starting preparation.
+const SYSTEM_PROMPT = `You are ExamIntel's Exam Intelligence Researcher. Produce a STRICT JSON object for a competitive exam.
 
-Core principles (NON-NEGOTIABLE):
-1. Distinguish OFFICIAL information (rules, eligibility, pattern, syllabus from the exam-conducting body) from AI ANALYSIS (your inferences, difficulty ratings, recommended sequences, common mistakes). Use the "sources" array to tag every claim's origin with the appropriate SourceType.
-2. NEVER fabricate exam rules. If a specific number (vacancies, dates, age relaxations, marking scheme, fees) is not verifiable from your knowledge or cannot be reliably stated, OMIT it from concrete fields and instead add an entry to "caveats" describing what couldn't be verified.
-3. Use "infoCurrency" honestly: "current" if your data is from the latest known cycle; "historical" if the most recent cycle data is incomplete and you're relying on prior-cycle patterns; "mixed" if some fields are current and others historical.
-4. Tag every source. Sources array must include at least: an OFFICIAL source (the conducting organisation's website), and an AI_ANALYSIS entry for your inferences. Add SEARCH_SOURCE entries for well-known reference portals when relevant.
-5. The "generatedAt" field must be the current ISO timestamp (use new Date().toISOString()).
-6. For syllabus, list subjects with topics, subtopics, concepts (as chips/strings), prerequisites, and difficulty (Easy/Medium/Hard). Use realistic granularity — not too coarse, not absurdly fine.
-7. For the pattern, only include numbers (questions, marks, duration) you can state confidently; otherwise explain variability in markingScheme/negativeMarking strings and add a caveat.
-8. For career info, include it ONLY if the exam leads to government/organisational posts with known pay, posts, departments. If the exam is an entrance for higher education (GATE, CAT, JEE etc.) where "career" means admission pathways, you may omit career or include relevant post-qualification pathways — but be honest about it.
-9. Preparation info: difficulty characteristics, frequently tested topics, important subjects, common mistakes, recommended learning sequence, PYQ importance, topic dependencies, high-priority prerequisites — all derived from your analysis of the exam's pattern.
-10. Be comprehensive but ACCURATE. A shorter honest report beats a longer fabricated one.
+CRITICAL: You have limited response time. Be CONCISE.
+- Each text field: 1 short sentence (max 20 words).
+- Each array: cap at 4-6 items unless noted.
+- No padding, no markdown, no commentary.
 
-Return ONLY the JSON object. No markdown, no commentary, no code fences.`;
+Output JSON field order (IMPORTANT — generate in this order):
+1. basicInfo — small
+2. pattern — small
+3. preparation — medium
+4. sources — small
+5. caveats — small
+6. stages — medium (max 4)
+7. syllabus — large (max 4 subjects, max 3 topics each, max 3 subtopics each, max 3 concepts each)
+8. career (optional, only if exam leads to govt jobs)
+9. generatedAt
+
+Principles:
+- Distinguish OFFICIAL (rules, eligibility, pattern, syllabus from conducting body) from AI_ANALYSIS (your inferences, difficulty, sequence, mistakes).
+- NEVER fabricate numbers. If unsure of vacancies/dates/age-relaxations/fees, OMIT and add to "caveats".
+- "infoCurrency": "current" | "historical" | "mixed".
+- Sources: include at least 1 OFFICIAL (conducting body website) + 1 AI_ANALYSIS.
+- "generatedAt" = current ISO timestamp.
+
+Return ONLY the JSON object.`;
 
 const SCHEMA_HINT = `ExamResearchReport = {
-  basicInfo: {
-    name: string,
-    conductingOrganisation: string,
-    examPurpose: string,
-    officialWebsite?: string,
-    examFrequency: string,
-    cycleInfo: string,
-    qualification: string,
-    ageLimit: string,
-    nationality: string,
-    importantEligibility: string[],
-    infoCurrency: "current" | "historical" | "mixed"
-  },
-  stages: { name: string, description: string, sequence: number, details?: string[] }[],
-  syllabus: { subject: string, topics: { name: string, description?: string, subtopics: { name: string, concepts: string[], prerequisites?: string[], relatedConcepts?: string[], questionTypes?: string[], difficulty?: "Easy"|"Medium"|"Hard", pyqReference?: string }[], examRelevance?: string, difficulty?: "Easy"|"Medium"|"Hard"|"Mixed" }[] }[],
-  pattern: {
-    totalQuestions: number,
-    maxMarks: number,
-    duration: string,
-    questionType: string,
-    markingScheme: string,
-    negativeMarking: string,
-    sectionDistribution: { section: string, questions: number, marks: number }[],
-    sectionalTiming: string,
-    qualifyingRequirements: string[],
-    stageSpecificRules?: string[]
-  },
-  career?: {
-    posts: string[],
-    departments: string[],
-    jobRoles: string[],
-    payLevel: string,
-    basicSalary?: string,
-    allowances?: string[],
-    careerProgression: string,
-    workProfile: string,
-    posting?: string
-  },
-  preparation: {
-    difficultyCharacteristics: string,
-    frequentlyTestedTopics: string[],
-    importantSubjects: string[],
-    commonMistakes: string[],
-    recommendedSequence: string[],
-    pyqImportance: string,
-    topicDependencies: string[],
-    highPriorityPrerequisites: string[]
-  },
-  sources: { type: "OFFICIAL"|"UPLOADED_DOCUMENT"|"SEARCH_SOURCE"|"USER_INPUT"|"AI_ANALYSIS"|"AI_GENERATED", label: string, detail?: string }[],
-  generatedAt: string (ISO timestamp),
-  caveats: string[]
+  basicInfo: { name: string, conductingOrganisation: string, examPurpose: string (1 sentence), officialWebsite?: string, examFrequency: string, cycleInfo: string, qualification: string, ageLimit: string, nationality: string, importantEligibility: string[] (max 4), infoCurrency: "current"|"historical"|"mixed" },
+  pattern: { totalQuestions: number, maxMarks: number, duration: string, questionType: string, markingScheme: string (1 sentence), negativeMarking: string (1 sentence), sectionDistribution: { section: string, questions: number, marks: number }[] (max 5), sectionalTiming: string, qualifyingRequirements: string[] (max 3), stageSpecificRules?: string[] (max 3) },
+  preparation: { difficultyCharacteristics: string (1 sentence), frequentlyTestedTopics: string[] (max 6), importantSubjects: string[] (max 4), commonMistakes: string[] (max 5), recommendedSequence: string[] (max 6, each ≤10 words), pyqImportance: string (1 sentence), topicDependencies: string[] (max 5), highPriorityPrerequisites: string[] (max 5) },
+  sources: { type: "OFFICIAL"|"UPLOADED_DOCUMENT"|"SEARCH_SOURCE"|"USER_INPUT"|"AI_ANALYSIS"|"AI_GENERATED", label: string, detail?: string }[] (max 5),
+  caveats: string[] (max 4),
+  stages: { name: string, description: string (1 sentence), sequence: number, details?: string[] (max 3) }[] (max 4),
+  syllabus: { subject: string, topics: { name: string, subtopics: { name: string, concepts: string[] (max 3), difficulty?: "Easy"|"Medium"|"Hard" }[] (max 3), difficulty?: "Easy"|"Medium"|"Hard"|"Mixed" }[] (max 3) }[] (max 4),
+  career?: { posts: string[] (max 4), departments: string[] (max 3), jobRoles: string[] (max 3), payLevel: string, careerProgression: string (1 sentence), workProfile: string (1 sentence) },
+  generatedAt: string (ISO timestamp)
 }`;
 
 function buildUserPrompt(query: string): string {
   const trimmed = query.trim();
-  return `Research the competitive exam: "${trimmed}"
+  const now = new Date().toISOString();
+  return `Research exam: "${trimmed}"
 
-Produce a complete ExamResearchReport JSON object. Follow the schema exactly.
-
-BE COMPREHENSIVE AND DETAILED — fill every applicable field with rich, accurate information. The aspirant will use this report end-to-end before starting preparation, so do not omit fields you can responsibly populate. Prefer complete detail over terse stubs.
-
-Reminders:
-- Set "generatedAt" to "${new Date().toISOString()}".
-- Tag every claim with a source in "sources". Always include at least one OFFICIAL source (the conducting body's website) and one AI_ANALYSIS entry.
-- Add to "caveats" anything you couldn't verify with confidence (specific vacancy counts, exact dates, recent rule changes, etc.).
-- Do not invent marking schemes, age relaxations, or vacancies.
-- Return ONLY the JSON.`;
+Return ONLY the JSON. Set "generatedAt" to "${now}".
+Be CONCISE — 1-sentence field values, cap arrays. Generate fields in this exact order: basicInfo, pattern, preparation, sources, caveats, stages, syllabus, career, generatedAt.`;
 }
 
 export async function POST(req: NextRequest) {

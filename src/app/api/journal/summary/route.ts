@@ -75,11 +75,27 @@ export async function POST(req: NextRequest) {
 
     const summary = await directChat(messages);
 
-    if (!summary || !summary.trim()) {
-      return NextResponse.json(
-        { error: "AI returned an empty summary. Please try again." },
-        { status: 502 }
-      );
+    // If the AI failed (Demo mode), generate a basic summary locally so the
+    // user always gets useful output.
+    if (summary.startsWith("**Demo") || !summary.trim()) {
+      const totalMin = entries.reduce((s, e) => s + (Number(e.durationMinutes) || 0), 0);
+      const hours = Math.floor(totalMin / 60);
+      const mins = totalMin % 60;
+      const subjMap = new Map<string, number>();
+      entries.forEach((e) => {
+        const s = e.subject || "Unknown";
+        subjMap.set(s, (subjMap.get(s) || 0) + (Number(e.durationMinutes) || 0));
+      });
+      const subjects = Array.from(subjMap.entries()).map(([s, m]) => `- ${s}: ${m}m`);
+      const fallback = `## Weekly Summary
+
+**Total Study Time** — ${hours}h ${mins}m across ${entries.length} session(s)
+
+**Subjects Covered**
+${subjects.join("\n")}
+
+**Note** — The AI summary service is temporarily unavailable. This is a basic summary computed from your entries. Try again in a moment for the full AI-analyzed summary with mood trends and personalized recommendations.`;
+      return NextResponse.json({ summary: fallback, provider: "fallback" });
     }
 
     return NextResponse.json({ summary, provider: "gemini-direct" });

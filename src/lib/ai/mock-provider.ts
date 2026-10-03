@@ -279,31 +279,143 @@ function mockExamResearch(query: string): unknown {
 }
 
 function mockExamComparison(query: string): unknown {
-  // Extract exam names from the query. The route sends them as a JSON array.
-  let examNames: string[] = ["SSC CGL", "SSC CHSL", "RRB NTPC"];
-  const arrMatch = query.match(/\[([^\]]+)\]/);
-  if (arrMatch) {
-    try {
-      const parsed = JSON.parse("[" + arrMatch[1] + "]");
-      if (Array.isArray(parsed) && parsed.length >= 2) examNames = parsed.map(String);
-    } catch {}
+  // Extract exam names from the query. The route sends them as numbered list:
+  // "1. CAT\n2. GATE CS" or as a JSON array "[\"CAT\", \"GATE CS\"]"
+  let examNames: string[] = [];
+  // Try numbered list format: "1. CAT", "2. GATE CS", etc.
+  const numbered = query.match(/(?:^|\n)\s*\d+\.\s+([^\n]+)/g);
+  if (numbered && numbered.length >= 2) {
+    examNames = numbered
+      .map((line) => line.replace(/(?:^|\n)\s*\d+\.\s+/, "").trim().slice(0, 60))
+      .filter((n) => n.length > 0 && !/^(remember|compare|return|produce|tag|be|use|do|if|cover|distinguish|never|set|output|strict|source)/i.test(n));
   }
-  const q = query.toLowerCase();
-  const isGATE = examNames.some((e) => e.toLowerCase().includes("gate"));
-  const isSSC = examNames.some((e) => e.toLowerCase().includes("ssc") || e.toLowerCase().includes("cgl") || e.toLowerCase().includes("chsl"));
-  const isBanking = examNames.some((e) => e.toLowerCase().includes("bank") || e.toLowerCase().includes("ibps") || e.toLowerCase().includes("sbi") || e.toLowerCase().includes("po"));
+  // Try JSON array format: ["CAT", "GATE CS"]
+  if (examNames.length < 2) {
+    const arrMatch = query.match(/\[([^\]]+)\]/);
+    if (arrMatch) {
+      try {
+        const parsed = JSON.parse("[" + arrMatch[1] + "]");
+        if (Array.isArray(parsed) && parsed.length >= 2) examNames = parsed.map(String);
+      } catch {}
+    }
+  }
+  // Fallback: extract quoted strings
+  if (examNames.length < 2) {
+    const quoted = query.match(/"([^"]{2,50})"/g);
+    if (quoted && quoted.length >= 2) {
+      examNames = quoted.map((q) => q.replace(/"/g, "").trim()).slice(0, 5);
+    }
+  }
+  if (examNames.length < 2) examNames = ["SSC CGL", "SSC CHSL"];
 
-  if (isGATE) {
+  const q = (query + " " + examNames.join(" ")).toLowerCase();
+  const isAllGATE = examNames.every((e) => e.toLowerCase().includes("gate"));
+  const isAllUPSC = examNames.every((e) => e.toLowerCase().includes("upsc") || e.toLowerCase().includes("cse") || e.toLowerCase().includes("civil"));
+  const isAllSSC = examNames.every((e) => e.toLowerCase().includes("ssc") || e.toLowerCase().includes("cgl") || e.toLowerCase().includes("chsl"));
+  const isAllBanking = examNames.every((e) => e.toLowerCase().includes("bank") || e.toLowerCase().includes("ibps") || e.toLowerCase().includes("sbi") || e.toLowerCase().includes("po"));
+  const isMBAExam = (e: string) => e.toLowerCase().includes("cat") || e.toLowerCase().includes("xat") || e.toLowerCase().includes("snap") || e.toLowerCase().includes("cmat") || e.toLowerCase().includes("nmat") || e.toLowerCase().includes("mat");
+  const isAllMBA = examNames.every(isMBAExam);
+
+  // ---- CAT / MBA branch (only if ALL exams are MBA-type) ----
+  if (isAllMBA) {
     return {
       examNames,
       comparison: [
-        { attribute: "Qualification", values: examNames.map(() => "Bachelor's in Engineering/Technology") },
+        { attribute: "Conducting Body", values: examNames.map((e) => e.toLowerCase().includes("cat") ? "IIMs" : e.toLowerCase().includes("xat") ? "XLRI" : e.toLowerCase().includes("snap") ? "Symbiosis" : e.toLowerCase().includes("cmat") ? "NTA" : e.toLowerCase().includes("nmat") ? "GMAC" : "AIMA") },
+        { attribute: "Qualification", values: examNames.map(() => "Bachelor's degree with 50% (45% SC/ST/PwD)") },
+        { attribute: "Age Limit", values: examNames.map(() => "No upper age limit") },
+        { attribute: "Stages", values: examNames.map(() => "Written Test + GD/PI/WAT") },
+        { attribute: "Total Questions", values: examNames.map((e) => e.toLowerCase().includes("cat") ? "66" : e.toLowerCase().includes("xat") ? "100" : "Varies") },
+        { attribute: "Max Marks", values: examNames.map((e) => e.toLowerCase().includes("cat") ? "198" : "Varies") },
+        { attribute: "Duration", values: examNames.map((e) => e.toLowerCase().includes("cat") ? "120 min (2h)" : e.toLowerCase().includes("xat") ? "190 min" : "Varies") },
+        { attribute: "Negative Marking", values: examNames.map((e) => e.toLowerCase().includes("cat") ? "-1 (MCQ only)" : e.toLowerCase().includes("xat") ? "-0.25" : "Varies") },
+        { attribute: "Difficulty", values: examNames.map(() => "High (speed + accuracy + strategy)") },
+        { attribute: "Frequency", values: examNames.map(() => "Annual") },
+      ],
+      commonSyllabus: {
+        commonTopics: ["Verbal Ability & Reading Comprehension", "Quantitative Aptitude", "Data Interpretation", "Logical Reasoning", "General English"],
+        examSpecific: examNames.map((e) => ({
+          exam: e,
+          topics: e.toLowerCase().includes("cat") ? ["VARC (24Q)", "DILR (20Q)", "QA (22Q)", "Sectional timing 40min"]
+            : e.toLowerCase().includes("xat") ? ["Decision Making", "General Knowledge", "Essay Writing"]
+            : e.toLowerCase().includes("snap") ? ["General Awareness", "Analytical & Logical Reasoning"]
+            : e.toLowerCase().includes("cmat") ? ["General Awareness", "Innovation & Entrepreneurship"]
+            : e.toLowerCase().includes("nmat") ? ["Language Skills", "Logical Reasoning"]
+            : ["Exam-specific sections"],
+        })),
+      },
+      overlap: {
+        overlapCategories: [
+          { category: "Very High", topic: "Reading Comprehension", reason: "Common across all MBA exams — passages with inference, main idea, tone" },
+          { category: "Very High", topic: "Quantitative Aptitude", reason: "Arithmetic, Algebra, Geometry common to all MBA entrance tests" },
+          { category: "High", topic: "Data Interpretation", reason: "Tables, charts, caselets — common DI section" },
+          { category: "High", topic: "Logical Reasoning", reason: "Puzzles, seating arrangement, coding-decoding" },
+          { category: "Limited", topic: "General Awareness", reason: "Only XAT/SNAP/CMAT have GK section; CAT doesn't" },
+        ],
+        existingPreparation: ["Arithmetic", "Reading Comprehension", "Puzzles", "DI sets"],
+        additionalPreparation: [{ topic: "Decision Making", reason: "XAT-specific section — not in CAT/SNAP/CMAT" }],
+      },
+      careerPathways: examNames.map((e) => `${e} → MBA at top B-schools (IIMs/XLRI/Symbiosis/other)`),
+      prerequisiteDifferences: ["CAT has sectional timing (40min/section); others mostly don't", "XAT has Decision Making + Essay; CAT doesn't", "SNAP/CMAT have GK; CAT doesn't"],
+      sources: [{ type: "AI_ANALYSIS", label: "AI Exam Comparison Analysis" }],
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  // ---- UPSC / Civil Services branch (only if ALL exams are UPSC-type) ----
+  if (isAllUPSC) {
+    return {
+      examNames,
+      comparison: [
+        { attribute: "Conducting Body", values: examNames.map(() => "Union Public Service Commission (UPSC)") },
+        { attribute: "Qualification", values: examNames.map(() => "Bachelor's degree from recognized university") },
+        { attribute: "Age Limit", values: examNames.map(() => "21-32 years (relaxation for reserved categories)") },
+        { attribute: "Stages", values: examNames.map(() => "Prelims + Mains + Interview") },
+        { attribute: "Attempts", values: examNames.map(() => "6 (General), 9 (OBC), unlimited (SC/ST)") },
+        { attribute: "Negative Marking", values: examNames.map(() => "Yes (-1/3 per wrong answer in Prelims)") },
+        { attribute: "Difficulty", values: examNames.map(() => "Very High (vast syllabus + competition)") },
+        { attribute: "Frequency", values: examNames.map(() => "Annual") },
+      ],
+      commonSyllabus: {
+        commonTopics: ["Indian Polity & Governance", "Indian History (Ancient/Medieval/Modern)", "Indian & World Geography", "Indian Economy", "Environment & Ecology", "Current Affairs", "General Science"],
+        examSpecific: examNames.map((e) => ({
+          exam: e,
+          topics: e.toLowerCase().includes("forest") ? ["Forestry optional", "Conservation biology"]
+            : e.toLowerCase().includes("engineering") || e.toLowerCase().includes("ies") ? ["Engineering discipline papers"]
+            : e.toLowerCase().includes("cse") || e.toLowerCase().includes("civil") ? ["Optional Subject Paper", "Essay Paper", "Ethics (GS-IV)", "Language papers"]
+            : ["Exam-specific papers"],
+        })),
+      },
+      overlap: {
+        overlapCategories: [
+          { category: "Very High", topic: "General Studies", reason: "GS Prelims + Mains common across all UPSC exams" },
+          { category: "Very High", topic: "Current Affairs", reason: "Last 12 months current affairs tested in all UPSC exams" },
+          { category: "High", topic: "Indian Polity", reason: "Laxmikanth is standard reference for all UPSC exams" },
+          { category: "High", topic: "Modern History", reason: "Spectrum + NCERT common foundation" },
+        ],
+        existingPreparation: ["Polity", "Modern History", "Geography", "Economy basics"],
+        additionalPreparation: [{ topic: "Optional Subject", reason: "CSE Mains requires optional — other UPSC exams may not" }],
+      },
+      careerPathways: examNames.map((e) => `${e} → IAS/IPS/IFS/IRS (Group A & B services)`),
+      prerequisiteDifferences: ["CSE requires optional subject in Mains; other UPSC exams may not", "Age limit varies slightly per exam", "Number of attempts varies"],
+      sources: [{ type: "AI_ANALYSIS", label: "AI Exam Comparison Analysis" }],
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  // ---- GATE branch (only if ALL exams are GATE-type) ----
+  if (isAllGATE) {
+    return {
+      examNames,
+      comparison: [
+        { attribute: "Conducting Body", values: examNames.map(() => "IISc + IITs (rotational)") },
+        { attribute: "Qualification", values: examNames.map(() => "Bachelor's in Engineering/Technology (or Master's in Science)") },
         { attribute: "Age Limit", values: examNames.map(() => "No upper limit") },
         { attribute: "Stages", values: examNames.map(() => "Single CBT") },
         { attribute: "Questions", values: examNames.map(() => "65") },
         { attribute: "Max Marks", values: examNames.map(() => "100") },
         { attribute: "Duration", values: examNames.map(() => "180 min (3h)") },
-        { attribute: "Negative Marking", values: examNames.map(() => "1/3 for 1-mark, 2/3 for 2-mark") },
+        { attribute: "Negative Marking", values: examNames.map(() => "1/3 for 1-mark MCQ, 2/3 for 2-mark MCQ; no negative for NAT") },
         { attribute: "Difficulty", values: examNames.map(() => "High (technical + aptitude)") },
       ],
       commonSyllabus: {
@@ -337,7 +449,8 @@ function mockExamComparison(query: string): unknown {
     };
   }
 
-  if (isBanking || (!isSSC && examNames.some((e) => e.toLowerCase().includes("banking")))) {
+  // ---- Banking branch (only if ALL exams are banking-type) ----
+  if (isAllBanking) {
     return {
       examNames,
       comparison: [
@@ -372,51 +485,122 @@ function mockExamComparison(query: string): unknown {
     };
   }
 
-  // Default: SSC family comparison
+  // ---- SSC/Railway branch (only if ALL exams are SSC/Railway-type) ----
+  if (isAllSSC || examNames.every((e) => e.toLowerCase().includes("rrb") || e.toLowerCase().includes("ntpc"))) {
+    return {
+      examNames,
+      comparison: [
+        { attribute: "Qualification", values: examNames.map((e) => e.includes("CGL") ? "Graduation" : "12th Pass") },
+        { attribute: "Age Limit", values: examNames.map((e) => e.includes("NTPC") ? "18-36" : e.includes("CGL") ? "18-32" : "18-27") },
+        { attribute: "Stages", values: examNames.map((e) => e.includes("NTPC") ? "CBT 1, 2, Typing" : "Tier 1, 2, DV") },
+        { attribute: "Questions (Tier 1)", values: examNames.map(() => "100") },
+        { attribute: "Max Marks", values: examNames.map(() => "200") },
+        { attribute: "Negative Marking", values: examNames.map((e) => e.includes("NTPC") ? "0.25" : "0.5") },
+        { attribute: "Difficulty", values: examNames.map((e) => e.includes("CGL") ? "Moderate-High" : "Moderate") },
+      ],
+      commonSyllabus: {
+        commonTopics: ["Quantitative Aptitude", "General Intelligence & Reasoning", "English Language", "General Awareness"],
+        examSpecific: examNames.map((e) => ({
+          exam: e,
+          topics: e.includes("CGL") ? ["Statistics (JSO)", "Finance & Economics (AAO)", "Advanced Maths"]
+            : e.includes("CHSL") ? ["Typing Test (10 min)"]
+            : e.includes("NTPC") ? ["Railway Awareness", "Typing (Junior Clerk)"]
+            : ["Exam-specific topics"],
+        })),
+      },
+      overlap: {
+        overlapCategories: [
+          { category: "Very High", topic: "Quantitative Aptitude (Arithmetic)", reason: "Same core topics: Percentage, Ratio, Profit-Loss, Time-Speed-Distance" },
+          { category: "High", topic: "Reasoning", reason: "Similar pattern — series, coding, puzzles. CGL slightly harder." },
+          { category: "Moderate", topic: "General Awareness", reason: "Current affairs overlap; CGL needs deeper static GK, NTPC needs railway awareness" },
+          { category: "Moderate", topic: "English", reason: "Common grammar + vocab; NTPC has lighter English section" },
+        ],
+        existingPreparation: ["Percentage", "Ratio & Proportion", "Series", "Reading Comprehension"],
+        additionalPreparation: examNames.flatMap((e) =>
+          e.includes("CGL") ? [{ topic: "Statistics + Advanced Maths", reason: "CGL Tier 2 includes these — CHSL/NTPC don't" }]
+          : e.includes("CHSL") ? [{ topic: "Typing Test", reason: "CHSL requires typing skill — CGL doesn't" }]
+          : e.includes("NTPC") ? [{ topic: "Railway Awareness + Typing", reason: "NTPC-specific GK + typing test" }]
+          : []
+        ),
+      },
+      careerPathways: examNames.map((e) =>
+        e.includes("CGL") ? "CGL → Inspector/Assistant (Group B/C gazetted)"
+        : e.includes("CHSL") ? "CHSL → Lower Division Clerk / Data Entry Operator"
+        : e.includes("NTPC") ? "NTPC → Railway Clerk / Typist / Station Master"
+        : "Government service"
+      ),
+      prerequisiteDifferences: ["CGL requires graduation; CHSL and NTPC accept 12th pass", "NTPC has lower negative marking (0.25 vs 0.5)", "CHSL + NTPC require typing; CGL doesn't"],
+      sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  // ---- Generic fallback: generate per-exam comparison data based on each
+  // exam's type. This handles mixed comparisons like CAT vs GATE, UPSC vs SSC,
+  // etc. — each exam gets its own correct conducting body, qualification, etc.
+  // This prevents the mock from returning wrong data (e.g. "GATE conducted by AIMA").
+  const examProfile = (exam: string) => {
+    const e = exam.toLowerCase();
+    if (e.includes("cat") || e.includes("xat") || e.includes("snap") || e.includes("cmat") || e.includes("nmat") || e.includes("mat"))
+      return { body: "IIMs/XLRI/etc.", qual: "Bachelor's 50%", age: "No limit", stages: "Written + GD/PI", type: "MBA" };
+    if (e.includes("gate"))
+      return { body: "IISc + IITs", qual: "B.E./B.Tech or M.Sc", age: "No limit", stages: "Single CBT", type: "Engineering PG" };
+    if (e.includes("upsc") || e.includes("cse") || e.includes("civil services"))
+      return { body: "UPSC", qual: "Bachelor's degree", age: "21-32 years", stages: "Prelims + Mains + Interview", type: "Civil Services" };
+    if (e.includes("ssc") || e.includes("cgl"))
+      return { body: "Staff Selection Commission", qual: "Graduation", age: "18-32 years", stages: "Tier 1, 2, DV", type: "Govt Recruitment" };
+    if (e.includes("chsl"))
+      return { body: "Staff Selection Commission", qual: "12th Pass", age: "18-27 years", stages: "Tier 1, 2, Typing", type: "Govt Recruitment" };
+    if (e.includes("rrb") || e.includes("ntpc"))
+      return { body: "Railway Recruitment Board", qual: "10th/12th/Graduation", age: "18-36 years", stages: "CBT 1, 2, Typing", type: "Railway" };
+    if (e.includes("bank") || e.includes("ibps") || e.includes("sbi") || e.includes("po"))
+      return { body: "IBPS/SBI", qual: "Graduation", age: "20-30 years", stages: "Prelims + Mains + Interview", type: "Banking" };
+    if (e.includes("jee"))
+      return { body: "NTA", qual: "12th Pass (PCM)", age: "No limit (attempts: 2)", stages: "Main + Advanced", type: "Engineering UG" };
+    if (e.includes("neet"))
+      return { body: "NTA", qual: "12th Pass (PCB)", age: "No limit", stages: "Single exam", type: "Medical UG" };
+    if (e.includes("clat"))
+      return { body: "Consortium of NLUs", qual: "12th Pass (UG) / Graduation (PG)", age: "No limit", stages: "Single CBT", type: "Law" };
+    return { body: "Check official notification", qual: "Check official notification", age: "Varies", stages: "Varies", type: "Other" };
+  };
+
+  const profiles = examNames.map(examProfile);
   return {
     examNames,
     comparison: [
-      { attribute: "Qualification", values: examNames.map((e) => e.includes("CGL") ? "Graduation" : "12th Pass") },
-      { attribute: "Age Limit", values: examNames.map((e) => e.includes("NTPC") ? "18-36" : e.includes("CGL") ? "18-32" : "18-27") },
-      { attribute: "Stages", values: examNames.map((e) => e.includes("NTPC") ? "CBT 1, 2, Typing" : "Tier 1, 2, DV") },
-      { attribute: "Questions (Tier 1)", values: examNames.map(() => "100") },
-      { attribute: "Max Marks", values: examNames.map(() => "200") },
-      { attribute: "Negative Marking", values: examNames.map((e) => e.includes("NTPC") ? "0.25" : "0.5") },
-      { attribute: "Difficulty", values: examNames.map((e) => e.includes("CGL") ? "Moderate-High" : "Moderate") },
+      { attribute: "Conducting Body", values: profiles.map((p) => p.body) },
+      { attribute: "Qualification", values: profiles.map((p) => p.qual) },
+      { attribute: "Age Limit", values: profiles.map((p) => p.age) },
+      { attribute: "Stages", values: profiles.map((p) => p.stages) },
+      { attribute: "Exam Type", values: profiles.map((p) => p.type) },
+      { attribute: "Negative Marking", values: examNames.map(() => "Varies — check notification") },
+      { attribute: "Difficulty", values: examNames.map(() => "Moderate to High") },
+      { attribute: "Frequency", values: examNames.map(() => "Annual") },
     ],
     commonSyllabus: {
-      commonTopics: ["Quantitative Aptitude", "General Intelligence & Reasoning", "English Language", "General Awareness"],
-      examSpecific: examNames.map((e) => ({
+      commonTopics: ["General Aptitude", "English Language", "Reasoning", "Current Affairs"],
+      examSpecific: examNames.map((e, i) => ({
         exam: e,
-        topics: e.includes("CGL") ? ["Statistics (JSO)", "Finance & Economics (AAO)", "Advanced Maths"]
-          : e.includes("CHSL") ? ["Typing Test (10 min)"]
-          : e.includes("NTPC") ? ["Railway Awareness", "Typing (Junior Clerk)"]
-          : ["Exam-specific topics"],
+        topics: profiles[i].type === "MBA" ? ["VARC", "DILR", "QA"]
+          : profiles[i].type === "Engineering PG" ? ["Engineering Math", "Technical subjects", "General Aptitude"]
+          : profiles[i].type === "Civil Services" ? ["GS (Polity, History, Geography, Economy)", "Optional Subject", "Essay", "Ethics"]
+          : profiles[i].type === "Govt Recruitment" ? ["Quantitative Aptitude", "Reasoning", "English", "General Awareness"]
+          : profiles[i].type === "Banking" ? ["Quantitative Aptitude", "Reasoning", "English", "Banking Awareness"]
+          : profiles[i].type === "Railway" ? ["Maths", "Reasoning", "General Science", "Railway Awareness"]
+          : ["Subject-specific syllabus — check notification"],
       })),
     },
     overlap: {
       overlapCategories: [
-        { category: "Very High", topic: "Quantitative Aptitude (Arithmetic)", reason: "Same core topics: Percentage, Ratio, Profit-Loss, Time-Speed-Distance" },
-        { category: "High", topic: "Reasoning", reason: "Similar pattern — series, coding, puzzles. CGL slightly harder." },
-        { category: "Moderate", topic: "General Awareness", reason: "Current affairs overlap; CGL needs deeper static GK, NTPC needs railway awareness" },
-        { category: "Moderate", topic: "English", reason: "Common grammar + vocab; NTPC has lighter English section" },
+        { category: "Moderate", topic: "General Aptitude", reason: "Basic aptitude common across most competitive exams" },
+        { category: "Moderate", topic: "English Language", reason: "Basic English comprehension tested in most exams" },
       ],
-      existingPreparation: ["Percentage", "Ratio & Proportion", "Series", "Reading Comprehension"],
-      additionalPreparation: examNames.flatMap((e) =>
-        e.includes("CGL") ? [{ topic: "Statistics + Advanced Maths", reason: "CGL Tier 2 includes these — CHSL/NTPC don't" }]
-        : e.includes("CHSL") ? [{ topic: "Typing Test", reason: "CHSL requires typing skill — CGL doesn't" }]
-        : e.includes("NTPC") ? [{ topic: "Railway Awareness + Typing", reason: "NTPC-specific GK + typing test" }]
-        : []
-      ),
+      existingPreparation: ["Aptitude basics", "English comprehension"],
+      additionalPreparation: [{ topic: "Subject-specific syllabus", reason: "Each exam has unique subject requirements" }],
     },
-    careerPathways: examNames.map((e) =>
-      e.includes("CGL") ? "CGL → Inspector/Assistant (Group B/C gazetted)"
-      : e.includes("CHSL") ? "CHSL → Lower Division Clerk / Data Entry Operator"
-      : e.includes("NTPC") ? "NTPC → Railway Clerk / Typist / Station Master"
-      : "Government service"
-    ),
-    prerequisiteDifferences: ["CGL requires graduation; CHSL and NTPC accept 12th pass", "NTPC has lower negative marking (0.25 vs 0.5)", "CHSL + NTPC require typing; CGL doesn't"],
-    sources: [{ type: "AI_ANALYSIS", label: "AI Analysis" }],
+    careerPathways: examNames.map((e, i) => `${e} → ${profiles[i].type === "MBA" ? "MBA at B-schools" : profiles[i].type === "Engineering PG" ? "M.Tech at IITs/NITs or PSU jobs" : profiles[i].type === "Civil Services" ? "IAS/IPS/IFS/IRS" : profiles[i].type === "Govt Recruitment" ? "Government service (Inspector/Assistant)" : profiles[i].type === "Banking" ? "Banking officer career" : profiles[i].type === "Railway" ? "Railway service" : "Various opportunities"}`),
+    prerequisiteDifferences: profiles.map((p, i) => `${examNames[i]}: ${p.qual}`),
+    sources: [{ type: "AI_ANALYSIS", label: "AI Analysis (mock fallback — real AI unavailable)" }],
     generatedAt: new Date().toISOString(),
   };
 }
