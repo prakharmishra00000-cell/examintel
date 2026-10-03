@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { MCQSet, GeneratedMCQ, SourceRef, SourceType } from "@/types";
 
 function isMCQSet(v: unknown): v is MCQSet {
@@ -267,9 +267,10 @@ REMEMBER:
 - Set validationStatus = "needs-review" for any MCQ where you are uncertain about correctness, option consistency, or grounding — do not bluff.
 - Explanations must be concise and student-facing. No chain-of-thought.
 - generatedAt must be the current ISO timestamp.
-- Output ONLY the JSON object matching the MCQSet shape.`;
+- Output ONLY the JSON object matching the MCQSet shape.
+- BE COMPREHENSIVE AND DETAILED — every MCQ must be a complete, well-posed, exam-grade item with a clear stem, plausible distractors, and an explanation that genuinely justifies the correct answer.`;
 
-    const raw = await jsonWithFallback<MCQSet>(SYSTEM, userPrompt, SCHEMA, isMCQSet);
+    const raw = await directJson<MCQSet>(SYSTEM, userPrompt, SCHEMA, isMCQSet);
     let set: MCQSet;
     try {
       set = sanitizeMCQSet(raw, {

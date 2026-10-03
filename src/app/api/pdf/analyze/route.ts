@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { PdfAnalysisReport, SourceRef } from "@/types";
 
 export const runtime = "nodejs";
@@ -104,7 +104,8 @@ Reminders:
 - Include only categories you actually found in the text.
 - Do NOT invent page numbers — use them only if the text shows page markers.
 - Set numberOfPages to a real number only if page markers are present; otherwise 0 and add a caveat.
-- Return ONLY the JSON.`;
+- Return ONLY the JSON.
+- BE COMPREHENSIVE AND DETAILED — surface every category actually present in the document and a complete, faithful set of extracted facts.`;
   }
 
   return `No document text was supplied. Produce a SAMPLE PdfAnalysisReport based on the filename/topic hint below. Tag every source as AI_ANALYSIS. Add a caveat: "No document text was provided — this is a sample analysis."
@@ -118,7 +119,8 @@ Reminders:
 - Produce realistic-looking sample entries that match what such a document typically contains.
 - Include the mandatory caveat "No document text was provided — this is a sample analysis." plus any other relevant caveats.
 - wordCount = 0, ocrUsed = false.
-- Return ONLY the JSON.`;
+- Return ONLY the JSON.
+- BE COMPREHENSIVE AND DETAILED — produce a complete, realistic sample analysis that mirrors what a real document of this kind would contain.`;
 }
 
 // ---- defensive normalization ----
@@ -270,7 +272,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userPrompt = buildUserPrompt(content, filename, topic);
-    const raw = await jsonWithFallback<PdfAnalysisReportWithCaveats>(
+    const raw = await directJson<PdfAnalysisReportWithCaveats>(
       SYSTEM_PROMPT,
       userPrompt,
       SCHEMA_HINT,

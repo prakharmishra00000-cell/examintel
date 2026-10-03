@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { ExamStrategy } from "@/types";
 
 // ============================================================
@@ -95,6 +95,8 @@ function buildUserPrompt(input: ExamStrategyInput): string {
   lines.push(``);
   lines.push(`Set "generatedAt" to "${new Date().toISOString()}".`);
   lines.push(`Return ONLY the JSON.`);
+  lines.push(``);
+  lines.push(`BE COMPREHENSIVE AND DETAILED — populate every section of the ExamStrategy with concrete, actionable, exam-calibrated content. A real candidate will read this the night before their exam; do not produce generic or sparse advice.`);
   return lines.join("\n");
 }
 
@@ -134,7 +136,7 @@ export async function POST(req: NextRequest) {
     };
 
     const userPrompt = buildUserPrompt(input);
-    const strategy = await jsonWithFallback<ExamStrategy>(
+    const strategy = await directJson<ExamStrategy>(
       SYSTEM_PROMPT,
       userPrompt,
       SCHEMA_HINT,

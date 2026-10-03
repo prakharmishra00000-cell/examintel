@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLLM } from "@/lib/ai/provider";
-import type { ChatCompletionMessage } from "@/lib/ai/provider";
+import { directChat } from "@/lib/ai/direct-call";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
     const question = questionRaw.trim();
 
-    // normalize history into ChatCompletionMessage[]
+    // normalize history into a simple message list
     const history: QAHistoryItem[] = Array.isArray(historyRaw)
       ? historyRaw
           .filter(
@@ -95,9 +94,7 @@ export async function POST(req: NextRequest) {
           .slice(-6) // keep last 6 turns max to stay within context limits
       : [];
 
-    const llm = await getLLM();
-
-    const messages: ChatCompletionMessage[] = [
+    const messages: { role: string; content: string }[] = [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: buildFirstUserMessage(content, filename, question) },
       ...history.map((h) => ({
@@ -106,7 +103,7 @@ export async function POST(req: NextRequest) {
       })),
     ];
 
-    const answer = await llm.chat(messages);
+    const answer = await directChat(messages);
     if (!answer || !answer.trim()) {
       return NextResponse.json(
         { error: "AI returned an empty answer." },

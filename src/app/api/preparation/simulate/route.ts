@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { PreparationPlan } from "@/types";
 
 function isPreparationPlan(v: unknown): v is PreparationPlan {
@@ -113,6 +113,8 @@ function buildUserPrompt(input: PreparationInput): string {
   lines.push(``);
   lines.push(`Set "generatedAt" to "${new Date().toISOString()}".`);
   lines.push(`Return ONLY the JSON.`);
+  lines.push(``);
+  lines.push(`BE COMPREHENSIVE AND DETAILED — populate every phase, every daily plan, every adaptive note with complete and specific content. The aspirant will follow this plan day-by-day, so do not produce sparse or placeholder content.`);
   return lines.join("\n");
 }
 
@@ -187,7 +189,7 @@ export async function POST(req: NextRequest) {
     };
 
     const userPrompt = buildUserPrompt(input);
-    const plan = await jsonWithFallback<PreparationPlan>(
+    const plan = await directJson<PreparationPlan>(
       SYSTEM_PROMPT,
       userPrompt,
       SCHEMA_HINT,

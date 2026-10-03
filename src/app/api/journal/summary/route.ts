@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLLM } from "@/lib/ai/provider";
-import type { ChatCompletionMessage } from "@/lib/ai/provider";
+import { directChat } from "@/lib/ai/direct-call";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,13 +68,12 @@ export async function POST(req: NextRequest) {
 
     const userPrompt = `Here are ${entries.length} study journal entries from the past week. Produce the weekly summary per the system instructions.\n\n${compact.join("\n\n")}`;
 
-    const messages: ChatCompletionMessage[] = [
+    const messages: { role: string; content: string }[] = [
       { role: "system", content: SYSTEM },
       { role: "user", content: userPrompt },
     ];
 
-    const llm = await getLLM();
-    const summary = await llm.chat(messages);
+    const summary = await directChat(messages);
 
     if (!summary || !summary.trim()) {
       return NextResponse.json(
@@ -84,7 +82,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ summary, provider: llm.name });
+    return NextResponse.json({ summary, provider: "gemini-direct" });
   } catch (e: any) {
     console.error("[/api/journal/summary] error:", e);
     return NextResponse.json(

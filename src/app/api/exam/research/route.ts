@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { ExamResearchReport } from "@/types";
 
 function isExamReport(v: unknown): v is ExamResearchReport {
@@ -88,6 +88,8 @@ function buildUserPrompt(query: string): string {
 
 Produce a complete ExamResearchReport JSON object. Follow the schema exactly.
 
+BE COMPREHENSIVE AND DETAILED — fill every applicable field with rich, accurate information. The aspirant will use this report end-to-end before starting preparation, so do not omit fields you can responsibly populate. Prefer complete detail over terse stubs.
+
 Reminders:
 - Set "generatedAt" to "${new Date().toISOString()}".
 - Tag every claim with a source in "sources". Always include at least one OFFICIAL source (the conducting body's website) and one AI_ANALYSIS entry.
@@ -108,7 +110,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userPrompt = buildUserPrompt(query);
-    const report = await jsonWithFallback<ExamResearchReport>(SYSTEM_PROMPT, userPrompt, SCHEMA_HINT, isExamReport);
+    const report = await directJson<ExamResearchReport>(SYSTEM_PROMPT, userPrompt, SCHEMA_HINT, isExamReport);
 
     return NextResponse.json({ report });
   } catch (e: unknown) {

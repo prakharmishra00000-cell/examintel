@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { PYQ } from "@/types/pyq";
 
 export const runtime = "nodejs";
@@ -139,9 +139,10 @@ REQUIREMENTS:
 - sourceType MUST be "SEARCH_SOURCE".
 - Vary difficulty across the results.
 - Do NOT just rephrase the source — produce realistic PYQs from Indian competitive exams.
-- Output ONLY the JSON object matching the { "pyqs": PYQ[] } shape.`;
+- Output ONLY the JSON object matching the { "pyqs": PYQ[] } shape.
+- BE COMPREHENSIVE AND DETAILED — every similar PYQ must be a complete, exam-grade item with a clear stem, plausible distractors, a substantive explanation, and a similarityReason that concretely explains the connection.`;
 
-    const raw = await jsonWithFallback<{ pyqs: PYQ[] }>(SYSTEM, userPrompt, SCHEMA, isPYQList);
+    const raw = await directJson<{ pyqs: PYQ[] }>(SYSTEM, userPrompt, SCHEMA, isPYQList);
     const pyqs = sanitizePYQs(raw?.pyqs ?? []);
 
     return NextResponse.json({ pyqs });

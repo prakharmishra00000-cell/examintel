@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type {
   MultiExamPlan,
   MultiExamMap,
@@ -175,9 +175,11 @@ Requirements:
 - Tag sources AI_ANALYSIS for your synthesis; include a USER_INPUT source reflecting the exam list / constraints.
 - generatedAt = current ISO timestamp.
 
-Return ONLY the JSON object matching the MultiExamPlan schema.`;
+Return ONLY the JSON object matching the MultiExamPlan schema.
 
-    const plan = await jsonWithFallback<MultiExamPlan>(SYSTEM, user, SCHEMA, isMultiExamPlan);
+BE COMPREHENSIVE AND DETAILED — populate the full knowledge map, combined strategy, conflicts, and weekly schedule with complete and specific content. The aspirant will execute this combined strategy across all listed exams, so do not produce sparse or placeholder content.`;
+
+    const plan = await directJson<MultiExamPlan>(SYSTEM, user, SCHEMA, isMultiExamPlan);
 
     // ---------- Defensive normalisation ----------
     let norm: MultiExamPlan;

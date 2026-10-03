@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { PYQ } from "@/types/pyq";
 
 export const runtime = "nodejs";
@@ -136,9 +136,10 @@ REQUIREMENTS:
 - Distribute difficulty across Easy/Medium/Hard.
 - Spread years across 2020–2024 when no specific year is given.
 - Explanations must be concise and student-facing. No chain-of-thought.
-- Output ONLY the JSON object matching the { "pyqs": PYQ[] } shape.`;
+- Output ONLY the JSON object matching the { "pyqs": PYQ[] } shape.
+- BE COMPREHENSIVE AND DETAILED — every PYQ must be a complete, exam-grade item with a clear stem, plausible distractors, and a concise but substantive explanation.`;
 
-    const raw = await jsonWithFallback<{ pyqs: PYQ[] }>(SYSTEM, userPrompt, SCHEMA, isPYQList);
+    const raw = await directJson<{ pyqs: PYQ[] }>(SYSTEM, userPrompt, SCHEMA, isPYQList);
     const pyqs = sanitizePYQs(raw?.pyqs ?? [], exam, year || "2024");
 
     return NextResponse.json({ pyqs });

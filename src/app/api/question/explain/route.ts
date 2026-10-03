@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { QuestionExplanation } from "@/types";
 
 function isQuestionExplanation(v: unknown): v is QuestionExplanation {
@@ -128,9 +128,10 @@ Remember:
 - Level 1 (Quick Hint) must NOT reveal the answer or the full method.
 - Level 4 (Exam Shortcut) is optional — omit the field if no genuine shortcut applies.
 - Every source must be tagged type "AI_ANALYSIS".
-- Set generatedAt to the current ISO timestamp.`;
+- Set generatedAt to the current ISO timestamp.
+- BE COMPREHENSIVE AND DETAILED — each level should carry complete, useful information. A real student will use all 5 levels to truly master the question.`;
 
-    const explanation = await jsonWithFallback<QuestionExplanation>(SYSTEM, userPrompt, SCHEMA, isQuestionExplanation);
+    const explanation = await directJson<QuestionExplanation>(SYSTEM, userPrompt, SCHEMA, isQuestionExplanation);
 
     // Ensure timestamp + originalQuestion are sane even if AI forgot them.
     try {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLLM } from "@/lib/ai/provider";
-import type { ChatCompletionMessage } from "@/lib/ai/provider";
+import { directChat } from "@/lib/ai/direct-call";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,17 +19,16 @@ Rules:
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const messages: ChatCompletionMessage[] = body.messages ?? [];
+    const messages: { role: string; content: string }[] = body.messages ?? [];
     const context = body.context as string | undefined;
 
-    const full: ChatCompletionMessage[] = [
+    const full: { role: string; content: string }[] = [
       { role: "system", content: SYSTEM + (context ? `\n\nCurrent user context: ${context}` : "") },
       ...messages.map((m: any) => ({ role: m.role as "user" | "assistant", content: String(m.content) })),
     ];
 
-    const llm = await getLLM();
-    const reply = await llm.chat(full);
-    return NextResponse.json({ reply, provider: llm.name });
+    const reply = await directChat(full);
+    return NextResponse.json({ reply, provider: "gemini-direct" });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Chat failed" }, { status: 500 });
   }

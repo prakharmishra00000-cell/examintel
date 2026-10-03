@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type {
   QuestionEvolutionReport,
   EvolvedQuestion,
@@ -314,9 +314,10 @@ Hard rules:
 - Every variant is AI-GENERATED. NEVER present a variant as an original PYQ.
 - sources[] MUST include at least one AI_GENERATED entry with detail "Variants derived from source question".
 - sourceQuestion must echo the user's question verbatim.
-- generatedAt = current ISO timestamp.`;
+- generatedAt = current ISO timestamp.
+- BE COMPREHENSIVE AND DETAILED — each variant should be a complete, well-posed, exam-grade question with thoughtful distractors and a real, verifiable correct answer. Do not produce thin or placeholder variants.`;
 
-    const raw = await jsonWithFallback<QuestionEvolutionReport>(SYSTEM, userPrompt, SCHEMA, isQuestionEvolutionReport);
+    const raw = await directJson<QuestionEvolutionReport>(SYSTEM, userPrompt, SCHEMA, isQuestionEvolutionReport);
     let report: QuestionEvolutionReport;
     try {
       report = normalizeReport(raw, question);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { GeneratedPaper, GeneratedQuestion, SourceRef } from "@/types";
 
 function isGeneratedPaper(v: unknown): v is GeneratedPaper {
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 // AI Personalized Question Paper Generator
 // ============================================================
 // Receives a full configuration object from the client and
-// returns a strict GeneratedPaper via getLLM().json<T>().
+// returns a strict GeneratedPaper via directJson<T>().
 // The system prompt enforces: honest AI-generated provenance,
 // no claim of being an official paper or prediction, schema
 // compliance, and source tagging (every source tagged
@@ -162,7 +162,8 @@ Constraints (NON-NEGOTIABLE):
 - "disclaimer" must clearly state this is an AI-generated practice paper, NOT an official paper or prediction.
 - "generatedAt": "${new Date().toISOString()}".
 - Tag every source as type "AI_GENERATED".
-- Return ONLY the JSON object.`;
+- Return ONLY the JSON object.
+- BE COMPREHENSIVE AND DETAILED — each question must be a complete, attemptable, exam-grade item with a clear stem, plausible distractors, and an explanation that genuinely justifies the correct answer.`;
 }
 
 function modeGuidance(mode: string): string {
@@ -315,7 +316,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userPrompt = buildUserPrompt(cfg);
-    const raw = await jsonWithFallback<GeneratedPaper>(SYSTEM_PROMPT, userPrompt, SCHEMA_HINT, isGeneratedPaper);
+    const raw = await directJson<GeneratedPaper>(SYSTEM_PROMPT, userPrompt, SCHEMA_HINT, isGeneratedPaper);
 
     let paper: GeneratedPaper;
     try {

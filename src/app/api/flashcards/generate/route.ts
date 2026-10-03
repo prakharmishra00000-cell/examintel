@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { Flashcard, FlashcardSet } from "@/types/flashcard";
 
 export const runtime = "nodejs";
@@ -198,9 +198,10 @@ REMEMBER:
 - Each card MUST include SM-2 fields with defaults: easeFactor = 2.5, interval = 1, repetitions = 0, nextReview = today's ISO date, mastery = "New".
 - Fronts must be distinct and self-contained. Backs must directly answer the fronts.
 - generatedAt must be the current ISO timestamp.
-- Output ONLY the JSON object matching the FlashcardSet shape.`;
+- Output ONLY the JSON object matching the FlashcardSet shape.
+- BE COMPREHENSIVE AND DETAILED — every flashcard must be a complete, useful, exam-grade item with a self-contained front and a back that genuinely answers it.`;
 
-    const raw = await jsonWithFallback<FlashcardSet>(SYSTEM, userPrompt, SCHEMA, isFlashcardSet);
+    const raw = await directJson<FlashcardSet>(SYSTEM, userPrompt, SCHEMA, isFlashcardSet);
     let set: FlashcardSet;
     try {
       set = sanitizeFlashcardSet(raw, { source, topic, count });

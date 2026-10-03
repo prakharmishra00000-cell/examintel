@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { ExamComparisonReport } from "@/types";
 
 function isExamComparisonReport(v: unknown): v is ExamComparisonReport {
@@ -92,9 +92,10 @@ Remember:
 - examNames array order must match the order above.
 - Each comparison.values array must align with examNames (one value per exam).
 - Tag sources: OFFICIAL for verifiable facts from notifications/websites, AI_ANALYSIS for your own synthesis.
-- Use qualitative overlap categories (Very High / High / Moderate / Limited) — do not invent numeric percentages.`;
+- Use qualitative overlap categories (Very High / High / Moderate / Limited) — do not invent numeric percentages.
+- BE COMPREHENSIVE AND DETAILED — populate every applicable field with complete, specific information so the aspirant can make an informed decision.`;
 
-    const report = await jsonWithFallback<ExamComparisonReport>(SYSTEM, user, SCHEMA, isExamComparisonReport);
+    const report = await directJson<ExamComparisonReport>(SYSTEM, user, SCHEMA, isExamComparisonReport);
 
     // Defensive normalization: ensure examNames matches input order/length.
     try {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type {
   DependencyMapReport,
   DependencyNode,
@@ -88,9 +88,11 @@ export async function POST(req: NextRequest) {
 Input: """${input}"""
 Input type: ${inputType}
 
-Return STRICT JSON matching the DependencyMapReport schema. Use stable ids n1, n2, ... in topological order. Every node mastery = "Not Started". All sources tagged AI_ANALYSIS. generatedAt = ISO timestamp.`;
+Return STRICT JSON matching the DependencyMapReport schema. Use stable ids n1, n2, ... in topological order. Every node mastery = "Not Started". All sources tagged AI_ANALYSIS. generatedAt = ISO timestamp.
 
-    const report = await jsonWithFallback<DependencyMapReport>(SYSTEM, user, SCHEMA, isDependencyMapReport);
+BE COMPREHENSIVE AND DETAILED — produce a complete, useful dependency graph with all nodes, gaps, and the recommended learning sequence populated. Do not omit fields or leave structures sparse; the learner will navigate this graph end-to-end.`;
+
+    const report = await directJson<DependencyMapReport>(SYSTEM, user, SCHEMA, isDependencyMapReport);
 
     // Defensive clean-up: normalize fields the AI might have gotten wrong.
     let cleaned: DependencyMapReport;

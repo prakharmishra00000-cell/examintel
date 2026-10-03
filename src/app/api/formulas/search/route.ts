@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonWithFallback } from "@/lib/ai/json-with-fallback";
+import { directJson } from "@/lib/ai/direct-call";
 import type { Formula } from "@/store/formula-seed";
 
 export const runtime = "nodejs";
@@ -109,9 +109,11 @@ export async function POST(req: NextRequest) {
 ${query}
 """
 
-Return a strict JSON object matching the FormulaSheet schema. Include only formulas whose subject / topic / name matches the query. If nothing matches, return { "formulas": [] }.`;
+Return a strict JSON object matching the FormulaSheet schema. Include only formulas whose subject / topic / name matches the query. If nothing matches, return { "formulas": [] }.
 
-    const raw = await jsonWithFallback<FormulaList>(SYSTEM, userPrompt, SCHEMA, isFormulaList);
+BE COMPREHENSIVE AND DETAILED — for every included formula, provide a complete description and a real worked example so the aspirant can apply it immediately.`;
+
+    const raw = await directJson<FormulaList>(SYSTEM, userPrompt, SCHEMA, isFormulaList);
     let result: FormulaList;
     try {
       result = sanitizeFormulaList(raw);
