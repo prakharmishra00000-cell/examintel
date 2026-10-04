@@ -31,7 +31,7 @@ export async function GET() {
         body: JSON.stringify({
           model,
           messages: [{ role: "user", content: "Say OK" }],
-          max_tokens: 10,
+          max_tokens: 2000,
         }),
         signal: controller.signal,
       });
