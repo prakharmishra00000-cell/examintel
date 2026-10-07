@@ -14,7 +14,7 @@ export async function GET() {
       !!process.env.OPENAI_API_KEY;
 
     const reply = await directChat([{ role: "user", content: "ping" }]);
-    const available = !!reply && !reply.startsWith("**Demo");
+    const available = !!reply && !reply.startsWith("**Demo") && !reply.startsWith("**Mock");
 
     return NextResponse.json({
       provider: "gemini-direct",

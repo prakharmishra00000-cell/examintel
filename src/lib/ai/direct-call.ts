@@ -150,15 +150,27 @@ async function fetchOpenAICompatible(
   }
 }
 
+// Set of keys that permanently failed with 401/403 so we don't retry them
+const permanentlyDeadKeys = new Set<string>();
+
 // Try multiple Gemini keys in PARALLEL — first one to succeed wins.
 // This is much faster than sequential retries (3 keys × 25s = 75s → 25s).
 async function geminiParallelChat(
   messages: { role: string; content: string }[],
   format: ResponseFormat
 ): Promise<string | null> {
-  const geminiKeys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_3, process.env.GEMINI_API_KEY_2, process.env.GEMINI_API_KEY_4]
-    .filter((k): k is string => !!k && k.length > 5);
+  const allKeys = [
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4,
+  ].filter((k): k is string => !!k && k.length > 5);
 
+  const geminiKeys = allKeys.filter((k) => !permanentlyDeadKeys.has(k));
+  if (geminiKeys.length === 0 && allKeys.length > 0) {
+    permanentlyDeadKeys.clear();
+    geminiKeys.push(...allKeys);
+  }
   if (geminiKeys.length === 0) return null;
 
   const baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
@@ -166,7 +178,11 @@ async function geminiParallelChat(
 
   // Launch all key attempts in parallel
   const attempts = geminiKeys.map(async (key) => {
-    const r = await fetchOpenAICompatible(baseUrl, key, model, messages, format, 25000);
+    const r = await fetchOpenAICompatible(baseUrl, key, model, messages, format, 20000);
+    if (r.status === 401 || r.status === 403) {
+      permanentlyDeadKeys.add(key);
+      return null;
+    }
     if (r.ok) {
       try {
         const data = JSON.parse(r.body);
@@ -207,22 +223,17 @@ export async function directChat(
   messages: { role: string; content: string }[],
   format: ResponseFormat = "text"
 ): Promise<string> {
-  // ----- 1) ZAI Direct API call — PRIMARY provider on ALL environments -----
-  // The ZAI API (glm-4-plus model) works WITHOUT any API key and has NO rate
-  // limits. We call it directly via fetch (bypassing the SDK's file-based config)
-  // so it works on both sandbox and Vercel production.
-  try {
-    const content = await zaiDirectChat(messages, format);
-    if (content && content.trim()) return content;
-  } catch (e) {
-    console.error("[AI] ZAI direct failed:", (e as Error)?.message?.slice(0, 150));
-  }
-
-  // ----- 1b) ZAI SDK fallback (sandbox only — reads from /etc/.z-ai-config) -----
-  // If the direct call fails (e.g. internal-api.z.ai not reachable), try the SDK
-  // which might use a different code path. Only works in sandbox.
   const isVercel = !!process.env.VERCEL || !!process.env.VERCEL_ENV;
+
+  // ----- 1) On Sandbox only: try ZAI (bypassed on Vercel to prevent 50s timeout) -----
   if (!isVercel) {
+    try {
+      const content = await zaiDirectChat(messages, format);
+      if (content && content.trim()) return content;
+    } catch (e) {
+      console.error("[AI] ZAI direct failed:", (e as Error)?.message?.slice(0, 150));
+    }
+
     try {
       const content = await zaiChat(messages, format);
       if (content && content.trim()) return content;
@@ -231,14 +242,11 @@ export async function directChat(
     }
   }
 
-  // ----- 2) Gemini API keys (fallback if ZAI fails) — PARALLEL attempts -----
-  // Try all 3 keys at once; first one to respond wins. 25s timeout per attempt.
-  // This is much faster than sequential retries (was 3 keys × 4 models × 3 retries
-  // × 9s = 324s → Vercel timeout). Now: 25s max for all keys in parallel.
+  // ----- 2) Gemini API keys — PARALLEL attempts with working keys prioritized -----
   const geminiResult = await geminiParallelChat(messages, format);
   if (geminiResult) return geminiResult;
 
-  // ----- 3) OpenAI / OpenRouter -----
+  // ----- 3) OpenAI / OpenRouter fallback -----
   if (process.env.OPENAI_API_KEY) {
     const baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";

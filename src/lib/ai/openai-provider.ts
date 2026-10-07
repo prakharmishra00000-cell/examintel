@@ -23,8 +23,8 @@ export class OpenAIProvider implements LLMProvider {
   // Collect all available keys (key rotation pool)
   private get keys(): string[] {
     const ks: string[] = [];
-    if (process.env.GEMINI_API_KEY) ks.push(process.env.GEMINI_API_KEY);
     if (process.env.GEMINI_API_KEY_2) ks.push(process.env.GEMINI_API_KEY_2);
+    if (process.env.GEMINI_API_KEY) ks.push(process.env.GEMINI_API_KEY);
     if (process.env.GEMINI_API_KEY_3) ks.push(process.env.GEMINI_API_KEY_3);
     if (process.env.OPENAI_API_KEY) ks.push(process.env.OPENAI_API_KEY);
     return ks.filter(Boolean);
@@ -43,7 +43,9 @@ export class OpenAIProvider implements LLMProvider {
 
   private get model(): string {
     if (this.isGemini) {
-      return process.env.OPENAI_MODEL ?? "gemini-3.8-flash";
+      const m = process.env.OPENAI_MODEL;
+      if (m && !m.includes("/") && m.startsWith("gemini")) return m;
+      return "gemini-2.5-flash";
     }
     return process.env.OPENAI_MODEL ?? "gpt-4o-mini";
   }
